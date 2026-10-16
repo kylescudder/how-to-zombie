@@ -119,9 +119,9 @@ func _solo() -> void:
 	p._pitch = 0.2
 	p._equip(p.items.find("rod"))
 	await wait(0.3)
-	press("primary", true)
+	press("secondary", true)
 	await wait(0.8)
-	press("primary", false)
+	press("secondary", false)
 	check(await wait_for(func(): return p.rod_state == Player.Rod.WAITING, 5.0), "cast landed in deep water (bobber %s)" % p.bobber)
 	p._bite_t = 0.0
 	check(await wait_for(func(): return p.rod_state == Player.Rod.BITE, 2.0), "got a bite: %s" % p.hooked)
@@ -130,16 +130,24 @@ func _solo() -> void:
 	await get_tree().process_frame
 	check(p.rod_state == Player.Rod.REELING, "hooked and reeling")
 	var zc := lvl.get_zombies().size()
-	# Pulse the reel so the line doesn't snap.
+	press("primary", false)
+	# Mash the reel while the tension is low, and rest when it gets high so the line doesn't snap.
 	var t := 0.0
+	var resting := false
+	var frame := 0
+	var max_boost := 0.0
 	while p.rod_state == Player.Rod.REELING and t < 40.0:
-		if p.tension > 0.6:
-			press("primary", false)
+		if p.tension > 0.5:
+			resting = true
 		elif p.tension < 0.2:
-			press("primary", true)
+			resting = false
+		frame += 1
+		press("primary", not resting and frame % 6 < 3)
+		max_boost = maxf(max_boost, p.reel_boost)
 		await get_tree().process_frame
 		t += get_process_delta_time()
 	press("primary", false)
+	check(max_boost > 0.5, "mashing boosted the reel (x%.1f)" % (1.0 + max_boost))
 	await wait(0.2)
 	check(lvl.get_zombies().size() > zc, "reeled a zombie out of the sea in %.1fs" % t)
 

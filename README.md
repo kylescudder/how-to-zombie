@@ -13,7 +13,7 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 
 ## The loop
 
-1. **Fish.** Hold click to charge a cast and let go to throw. When the bobber dips, click to hook. Hold to reel and let go when it thrashes. If the tension bar fills, the line snaps.
+1. **Fish.** Hold right-click to charge a cast and let go to throw. When the bobber dips, left-click to hook. Hold left-click to reel, or mash it to reel in much faster at the cost of more line tension. Let go when it thrashes. If the tension bar fills, the line snaps.
 2. **Yank.** Once the zombie is tired, right-click to launch it out of the sea in a high arc. That's your trick-shot setup.
 3. **Kill with style.** Bonuses stack into a multiplier on the corpse's value: `HEADSHOT`, `AIR MAIL` (mid-air), `SLAPPED TO DEATH`, `KABOOM`, `HOME RUN`, `MULTI-KILL`, `OVERKILL`, `LONG SHOT`, `CHAIN REACTION` (bloater explosions), `DROWNED TWICE`, `SKEWERED`.
 4. **Sell.** Carry (E) or throw (click) corpses into the **Brain Bank**. Or gamble one at the **Lucky Brain** slot machine for hats or a 3x jackpot. Rare Golden Boys always win.
@@ -29,8 +29,9 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 |---|---|---|
 | Move / look | WASD / mouse | sticks |
 | Sprint, jump | Shift, Space | L3, A |
-| Use item (cast, reel, swing, shoot, throw corpse) | Left click | RT |
-| Yank the catch | Right click | LT |
+| Cast the rod (hold to charge) | Right click | LT |
+| Reel (hold, or mash for speed), hook, swing, shoot, throw corpse | Left click | RT |
+| Yank the tired catch | Right click | LT |
 | Interact (shop, grab, slap, sell, boat) | E | X |
 | Drop corpse, reload | Q, R | B, Y |
 | Switch item | 1–0 / wheel | LB / RB |

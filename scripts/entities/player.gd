@@ -74,6 +74,10 @@ var reel_dist := 0.0
 var thrashing := false
 var _thrash_t := 2.0
 var _reel_click := 0.0
+# Rises with each reel click and decays, so mashing reels faster than holding.
+var _reel_heat := 0.0
+var reel_boost := 0.0
+var _since_click := 1.0
 var _splash_t := 0.0
 
 
@@ -391,13 +395,13 @@ func _rod_process(delta: float) -> void:
 	var lvl := _level()
 	match rod_state:
 		Rod.IDLE:
-			if Input.is_action_just_pressed("primary"):
+			if Input.is_action_just_pressed("secondary"):
 				rod_state = Rod.CHARGING
 				cast_power = 0.0
 		Rod.CHARGING:
 			cast_power = min(cast_power + delta * 0.9, 1.0)
 			_swing = cast_power * 0.5
-			if not Input.is_action_pressed("primary"):
+			if not Input.is_action_pressed("secondary"):
 				var fwd := -camera.global_transform.basis.z
 				bobber = _rod_tip()
 				_bobber_vel = fwd * (5.0 + 13.0 * cast_power) * float(rod.cast) + Vector3.UP * 4.0
@@ -430,9 +434,18 @@ func _rod_process(delta: float) -> void:
 		Rod.WAITING:
 			_bite_t -= delta
 			bobber.y = DB.WATER_LEVEL + sin(Time.get_ticks_msec() * 0.004) * 0.04
-			if Input.is_action_just_pressed("primary"):
+			if Input.is_action_just_pressed("secondary"):
 				rod_state = Rod.RETURNING
-			elif _bite_t <= 0.0:
+			elif Input.is_action_pressed("primary"):
+				# Reeling with nothing on the line drags the bobber in.
+				var to_me := _rod_tip() - bobber
+				to_me.y = 0
+				bobber += to_me.normalized() * minf(4.0 * delta, to_me.length())
+				var flat := bobber - global_position
+				flat.y = 0
+				if flat.length() < 3.0 or (lvl and lvl.floor_height(bobber.x, bobber.z) > -1.6):
+					rod_state = Rod.RETURNING
+			if rod_state == Rod.WAITING and _bite_t <= 0.0:
 				rod_state = Rod.BITE
 				_bite_window = 1.1
 				hooked = DB.roll_zombie(Game.island, Game.best_rod(), _rng)
@@ -449,11 +462,13 @@ func _rod_process(delta: float) -> void:
 				flat.y = 0
 				reel_dist = flat.length()
 				_thrash_t = 1.0
+				_reel_heat = 0.0
+				_since_click = 1.0
 				Sfx.play("splash", bobber)
 			elif _bite_window <= 0.0:
 				rod_state = Rod.WAITING
 				_bite_t = _rng.randf_range(1.5, 4.0) * float(rod.lure)
-				_toast_local("Missed it! Click when the bobber dips.")
+				_toast_local("Missed it! Left-click when the bobber dips.")
 		Rod.REELING:
 			_reel(delta, rod, lvl)
 		Rod.RETURNING:
@@ -472,13 +487,24 @@ func _reel(delta: float, rod: Dictionary, lvl: Level) -> void:
 		_thrash_t = _rng.randf_range(0.5, 1.1) if thrashing else _rng.randf_range(1.3, 3.2)
 	var tired := stamina < 0.3
 	var pull := fight * (2.2 if thrashing else 1.0) * (0.4 if tired else 1.0)
-	if Input.is_action_pressed("primary"):
-		tension += (0.22 + pull * 0.85) * delta / float(rod.line)
-		reel_dist -= 3.2 * float(rod.reel) * delta * (1.0 - 0.25 * pull)
-		stamina -= delta * 0.085 * (1.0 + tension)
+	# Hold to reel steadily; mash to reel up to ~3.5x faster, at the cost of more line tension.
+	if Input.is_action_just_pressed("primary"):
+		_reel_heat = minf(_reel_heat + 1.0, 5.0)
+		_since_click = 0.0
+		Sfx.play("reel", global_position, -6.0, 1.0 + _reel_heat * 0.08)
+	_since_click += delta
+	# Gaps between mashed clicks still count as reeling, but letting go properly stops at once.
+	var mashing := _since_click < 0.15
+	_reel_heat = maxf(_reel_heat - (2.5 if mashing else 8.0) * delta, 0.0)
+	reel_boost = _reel_heat * 0.55
+	if Input.is_action_pressed("primary") or mashing:
+		var speed := 1.0 + reel_boost
+		tension += (0.22 + pull * 0.85) * (1.0 + 0.4 * reel_boost) * delta / float(rod.line)
+		reel_dist -= 3.2 * float(rod.reel) * speed * delta * (1.0 - 0.25 * pull)
+		stamina -= delta * 0.085 * (1.0 + tension) * (1.0 + 0.5 * reel_boost)
 		_reel_click -= delta
 		if _reel_click <= 0.0:
-			_reel_click = 0.07
+			_reel_click = 0.07 / speed
 			Sfx.play("reel", global_position, -8.0)
 	else:
 		tension -= 0.9 * delta
@@ -527,6 +553,8 @@ func _reset_rod() -> void:
 	rod_state = Rod.RETURNING if rod_state in [Rod.FLYING, Rod.WAITING, Rod.BITE, Rod.REELING] else Rod.IDLE
 	thrashing = false
 	tension = 0.0
+	_reel_heat = 0.0
+	reel_boost = 0.0
 	hooked = ""
 	net_bobber_state = rod_state
 
@@ -688,6 +716,12 @@ func _update_prompt() -> void:
 		_look_target = col
 		return
 	if col == null:
+		if current_item() == "rod":
+			match rod_state:
+				Rod.IDLE:
+					prompt = "[Right-click] Hold to cast, release to throw"
+				Rod.WAITING:
+					prompt = "Waiting for a bite...   [Left-click] Reel in   [Right-click] Cancel"
 		return
 	_look_target = col
 	if col is Area3D and col.has_meta("interact"):

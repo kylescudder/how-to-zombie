@@ -90,7 +90,7 @@ func _ready() -> void:
 	prompt_label.custom_minimum_size = Vector2(800, 0)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt_label)
-	bite_label = UIKit.label("!!! CLICK !!!", 64, UIKit.GOLD)
+	bite_label = UIKit.label("!!! LEFT-CLICK !!!", 64, UIKit.GOLD)
 	bite_label.set_anchors_preset(Control.PRESET_CENTER)
 	bite_label.position = Vector2(-300, -140)
 	bite_label.custom_minimum_size = Vector2(600, 0)
@@ -228,8 +228,11 @@ func _update_fishing(p: Player) -> void:
 		elif p.thrashing:
 			fish_hint.text = "It's THRASHING! Ease off..."
 			fish_hint.add_theme_color_override("font_color", UIKit.WARN)
+		elif p.reel_boost > 0.5:
+			fish_hint.text = "FAST REEL x%.1f  (watch the tension!)" % (1.0 + p.reel_boost)
+			fish_hint.add_theme_color_override("font_color", UIKit.ACCENT)
 		else:
-			fish_hint.text = "Hold [Click] to reel, release to rest"
+			fish_hint.text = "Hold [Left-click] to reel, mash it to go faster"
 			fish_hint.add_theme_color_override("font_color", Color.WHITE)
 
 
@@ -457,7 +460,7 @@ func open_pause() -> void:
 		var vp_cam := get_viewport().get_camera_3d()
 		if vp_cam:
 			vp_cam.fov = x))
-	v.add_child(UIKit.label("Controls: WASD move, Shift sprint, Space jump, Click use, Right-click yank, E interact,\nQ drop, R reload, 1-0 / wheel switch, Tab scores", 15, Color(0.75, 0.78, 0.8)))
+	v.add_child(UIKit.label("Controls: WASD move, Shift sprint, Space jump, Left-click use / reel (mash to reel faster), Right-click cast rod / yank, E interact,\nQ drop, R reload, 1-0 / wheel switch, Tab scores", 15, Color(0.75, 0.78, 0.8)))
 	v.add_child(UIKit.button("Leave to menu", func():
 		Settings.save_settings()
 		if Net.is_host():
