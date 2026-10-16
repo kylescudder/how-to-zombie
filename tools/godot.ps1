@@ -14,6 +14,21 @@ if (-not $godot) {
 if (-not (Test-Path (Join-Path $HtzRoot 'addons/godotsteam/godotsteam.gdextension'))) {
 	Write-Warning "GodotSteam isn't installed, so Steam features are off. Run tools\setup.cmd to add it."
 }
+# Scripts refer to each other by class_name, which only resolves once Godot has scanned the
+# project. Import on a fresh clone, or when scripts changed since the last scan (e.g. git pull).
+$cache = Join-Path $HtzRoot '.godot/global_script_class_cache.cfg'
+$stale = -not (Test-Path $cache)
+if (-not $stale) {
+	$since = (Get-Item $cache).LastWriteTime
+	$stale = [bool](Get-ChildItem -Path (Join-Path $HtzRoot 'scripts'), (Join-Path $HtzRoot 'tests') -Filter '*.gd' -Recurse |
+		Where-Object { $_.LastWriteTime -gt $since } | Select-Object -First 1)
+}
+if ($stale) {
+	Write-Host 'Importing project...'
+	& $godot.Console --headless --path $HtzRoot --import *> $null
+	if (Test-Path $cache) { (Get-Item $cache).LastWriteTime = Get-Date }
+}
+
 # PowerShell drops a bare `--` from $args, but Godot needs it to separate game arguments
 # (`-- --solo`). When started by godot.cmd, take the untouched arguments from the process instead.
 $passArgs = $args

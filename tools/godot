@@ -17,12 +17,23 @@ if [ ! -f "$HTZ_ROOT/addons/godotsteam/godotsteam.gdextension" ]; then
 	echo "note: GodotSteam isn't installed, so Steam features are off. Run tools/setup.sh to add it." >&2
 fi
 
+RUN=("${GODOT_CMD[@]}")
 # NixOS: the prebuilt Steam libraries expect a normal Linux filesystem, so run inside steam-run.
 if is_nixos && [ -z "${HTZ_NO_STEAM_RUN:-}" ] && [ -z "${HTZ_IN_STEAM_RUN:-}" ]; then
 	if command -v steam-run >/dev/null 2>&1; then
 		export HTZ_IN_STEAM_RUN=1
-		exec steam-run "${GODOT_CMD[@]}" --path "$HTZ_ROOT" "$@"
+		RUN=(steam-run "${GODOT_CMD[@]}")
+	else
+		echo "note: steam-run not found; Steam may fail to load. Use 'nix develop' or enable programs.steam." >&2
 	fi
-	echo "note: steam-run not found; Steam may fail to load. Use 'nix develop' or enable programs.steam." >&2
 fi
-exec "${GODOT_CMD[@]}" --path "$HTZ_ROOT" "$@"
+
+# Scripts refer to each other by class_name, which only resolves once Godot has scanned the
+# project. Import on a fresh clone, or when scripts changed since the last scan (e.g. git pull).
+CACHE="$HTZ_ROOT/.godot/global_script_class_cache.cfg"
+if [ ! -f "$CACHE" ] || [ -n "$(find "$HTZ_ROOT/scripts" "$HTZ_ROOT/tests" -name '*.gd' -newer "$CACHE" 2>/dev/null | head -n1)" ]; then
+	echo "Importing project..." >&2
+	"${RUN[@]}" --headless --path "$HTZ_ROOT" --import >/dev/null 2>&1 || echo "warning: import failed" >&2
+	touch "$CACHE" 2>/dev/null || true
+fi
+exec "${RUN[@]}" --path "$HTZ_ROOT" "$@"
