@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Runs the project with the Godot that tools/setup.sh found (or any Godot >= 4.7 on PATH).
+#   tools/godot                    play
+#   tools/godot -e                 open the editor
+#   tools/godot -- --solo          launch straight into a mode (see README)
+#   tools/godot --headless -- ...  anything else is passed through to Godot
+# Override the binary with GODOT=/path/to/godot.
+set -euo pipefail
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
+if ! find_godot; then
+	echo "No Godot $GODOT_MIN+ found. Run tools/setup.sh first (or set GODOT=/path/to/godot)." >&2
+	exit 1
+fi
+if [ ! -f "$HTZ_ROOT/addons/godotsteam/godotsteam.gdextension" ]; then
+	echo "note: GodotSteam isn't installed, so Steam features are off. Run tools/setup.sh to add it." >&2
+fi
+
+# NixOS: the prebuilt Steam libraries expect a normal Linux filesystem, so run inside steam-run.
+if is_nixos && [ -z "${HTZ_NO_STEAM_RUN:-}" ] && [ -z "${HTZ_IN_STEAM_RUN:-}" ]; then
+	if command -v steam-run >/dev/null 2>&1; then
+		export HTZ_IN_STEAM_RUN=1
+		exec steam-run "${GODOT_CMD[@]}" --path "$HTZ_ROOT" "$@"
+	fi
+	echo "note: steam-run not found; Steam may fail to load. Use 'nix develop' or enable programs.steam." >&2
+fi
+exec "${GODOT_CMD[@]}" --path "$HTZ_ROOT" "$@"

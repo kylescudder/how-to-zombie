@@ -9,3 +9,9 @@ addons/godotsteam/
 
 .DS_Store
 screenshots/
+
+# Godot binaries downloaded or linked by tools/setup.sh
+.tools/
+# direnv / nix
+.direnv/
+result

@@ -38,19 +38,36 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 
 ## Running it
 
+One setup script gets Godot 4.7+ (using a package manager you already have), downloads the GodotSteam plugin (~120 MB, gitignored) and imports the project. After that, `tools/godot` runs the game with the right Godot.
+
+| Platform | Setup | Play |
+|---|---|---|
+| macOS, Linux, WSL | `tools/setup.sh` | `tools/godot` |
+| Windows | `tools\setup.cmd` | `tools\godot.cmd` |
+| Nix / NixOS | `nix develop`, then `tools/setup.sh` | `tools/godot`, or just `nix run` |
+
+If Godot 4.7+ is already installed (on `PATH`, in `/Applications`, as a Flatpak, or pointed to by `GODOT=/path/to/godot`), setup uses it. Otherwise it picks the first option that fits your system and checks the version it gets:
+
+- **Nix** (any OS with Nix): builds the Godot pinned in `flake.nix`, linked at `.tools/godot-nix`. Nothing is added to your profile.
+- **macOS:** Homebrew (`brew install --cask godot`), otherwise the official download.
+- **Arch, Manjaro, EndeavourOS:** `pacman`. **Fedora, Nobara:** `dnf`. **openSUSE:** `zypper`. **Void:** `xbps`.
+- **Debian, Ubuntu, Mint, Pop!_OS, SteamOS and any other glibc distro:** the official Godot build, checksum-verified and put in `.tools/`. No root needed. (apt only ships old Godot, and SteamOS has a read-only root.)
+- **Alpine and other musl distros:** Flatpak (`org.godotengine.Godot`).
+- **Windows:** winget, then Scoop, then Chocolatey, then the official download.
+
+You can choose explicitly, e.g. `tools/setup.sh --manager download` or `tools\setup.cmd -Manager scoop`. Use `--help` to see every option. Setup asks before running a package manager that needs `sudo`; pass `--yes` (`-Yes` on Windows) to skip the question.
+
+**NixOS:** enable Steam with `programs.steam.enable = true;`. On x86_64, `tools/godot` runs the game inside `steam-run` so the prebuilt Steamworks libraries find a normal Linux filesystem. The dev shell provides `steam-run`; set `HTZ_NO_STEAM_RUN=1` to turn that off. If you use direnv, `.envrc` loads the dev shell automatically.
+
+`tools/godot` passes its arguments to Godot. `tools/godot -e` opens the editor. To launch straight into a mode, put the flags after `--`:
+
 ```bash
-brew install --cask godot          # Godot 4.7+
-./tools/install_godotsteam.sh      # fetches the GodotSteam GDExtension (~120 MB, gitignored)
-godot project.godot                # open in the editor, then press F5
+tools/godot -- --solo            # solo (add --new to ignore the save)
+tools/godot -- --host            # LAN host on port 24680
+tools/godot -- --join=192.168.1.20
 ```
 
-You can launch directly into a mode (put the flags after `--`):
-
-```bash
-godot -- --solo            # solo (add --new to ignore the save)
-godot -- --host            # LAN host on port 24680
-godot -- --join=192.168.1.20
-```
+Versions are pinned in `tools/versions.env` (Godot and GodotSteam) and `flake.nix`/`flake.lock` (Nix).
 
 ## Playing with friends on Steam
 
@@ -82,6 +99,8 @@ scripts/
   world/      level (rules, spawning, FX), islands (layouts), build (primitive helpers), water shader
   ui/         hud (+ shop/travel/pause), main_menu, ui_kit
 tests/autotest.gd   scripted end-to-end tests
+tools/              setup.sh / setup.ps1 (get Godot + GodotSteam), godot / godot.cmd (run the project)
+flake.nix           Nix dev shell, `nix run`, pinned Godot
 ```
 
 There are no imported art or audio assets. Everything is built from primitives, and the sound effects are synthesised at startup, so any of it can be swapped for real assets later.
@@ -89,8 +108,8 @@ There are no imported art or audio assets. Everything is built from primitives, 
 ## Tests
 
 ```bash
-godot --headless -- --solo --new --test=solo            # whole game loop: catch, kill, sell, shop, fishing, downed, boss, travel
-godot --headless -- --host --new --test=net_host &
-godot --headless -- --join=127.0.0.1 --test=net_client  # two-process multiplayer check
-godot -- --solo --new --test=screens                    # renders screenshots/ (needs a window)
+tools/godot --headless -- --solo --new --test=solo            # whole game loop: catch, kill, sell, shop, fishing, downed, boss, travel
+tools/godot --headless -- --host --new --test=net_host &
+tools/godot --headless -- --join=127.0.0.1 --test=net_client  # two-process multiplayer check
+tools/godot -- --solo --new --test=screens                    # renders screenshots/ (needs a window)
 ```
