@@ -1,0 +1,11 @@
+# Godot
+.godot/
+*.import
+export/
+export_presets.cfg.bak
+
+# GodotSteam binaries are ~120MB; fetch them with tools/install_godotsteam.sh
+addons/godotsteam/
+
+.DS_Store
+screenshots/
