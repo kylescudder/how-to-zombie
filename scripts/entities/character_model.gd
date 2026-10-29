@@ -30,6 +30,13 @@ func setup_survivor(i: int) -> void:
 	_survivor_details(i, s)
 
 
+## A story NPC: survivor proportions and face with their own colours.
+func setup_npc(skin: Color, shirt: Color, pants: Color, hair: String, hair_color: Color) -> void:
+	_body(skin, shirt, pants, Vector3(0.62, 0.7, 0.38), 1.0, 1.0)
+	_face_survivor()
+	_survivor_hair(hair, hair_color)
+
+
 func setup_infected(type: String, seed_v: int) -> void:
 	kind = type
 	var rng := RandomNumberGenerator.new()

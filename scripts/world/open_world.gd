@@ -1,13 +1,15 @@
 class_name OpenWorld
 extends RefCounted
-## One deterministic 2.2 km archipelago. Flat combat terrain, curved beaches and local POIs.
-const EXTENT := 1100.0
+## One deterministic 3 km archipelago. Flat combat terrain, curved beaches and local POIs.
+## Barea City (index 0) is the big starting island with its own story; see BareaCity.
+const EXTENT := 1500.0
+const GRID := 750  # 4 m cells
 const ISLANDS := [
-	{"name": "Haven Harbour", "center": Vector2(-350,-250), "radius": Vector2(270,235), "color": Color(0.39,0.56,0.34), "kind": "town"},
-	{"name": "Rustwater Works", "center": Vector2(380,-300), "radius": Vector2(250,220), "color": Color(0.46,0.49,0.32), "kind": "industry"},
-	{"name": "Pinefall Reserve", "center": Vector2(-420,420), "radius": Vector2(240,250), "color": Color(0.26,0.46,0.32), "kind": "forest"},
-	{"name": "Sunfield County", "center": Vector2(360,420), "radius": Vector2(285,245), "color": Color(0.58,0.62,0.33), "kind": "farm"},
-	{"name": "Last Light", "center": Vector2(0,-800), "radius": Vector2(150,125), "color": Color(0.41,0.52,0.42), "kind": "lighthouse"},
+	{"name": "Barea City", "center": Vector2(-650,-150), "radius": Vector2(560,480), "color": Color(0.42,0.44,0.42), "kind": "city"},
+	{"name": "Rustwater Works", "center": Vector2(440,-560), "radius": Vector2(250,220), "color": Color(0.46,0.49,0.32), "kind": "industry"},
+	{"name": "Pinefall Reserve", "center": Vector2(-500,760), "radius": Vector2(240,250), "color": Color(0.26,0.46,0.32), "kind": "forest"},
+	{"name": "Sunfield County", "center": Vector2(520,520), "radius": Vector2(285,245), "color": Color(0.58,0.62,0.33), "kind": "farm"},
+	{"name": "Last Light", "center": Vector2(150,-1180), "radius": Vector2(150,125), "color": Color(0.41,0.52,0.42), "kind": "lighthouse"},
 ]
 var grid: NavGrid
 var markers: Dictionary
@@ -40,12 +42,17 @@ static func build(parent: Node3D) -> OpenWorld:
 	return world
 
 func _generate() -> void:
-	grid = NavGrid.new(550,550,Vector2(-EXTENT,-EXTENT),4.0)
-	for z in grid.h:
-		for x in grid.w:
-			var cell := Vector2i(x,z)
-			var index := land_index(grid.center(cell), 5)
-			if index >= 0: grid.set_cell(cell,NavGrid.Cell.WALK,index+1)
+	grid = NavGrid.new(GRID,GRID,Vector2(-EXTENT,-EXTENT),4.0)
+	# Only scan each island's bounding box; most of the map is sea.
+	for index in ISLANDS.size():
+		var island: Dictionary = ISLANDS[index]
+		var r: Vector2 = island.radius * 1.12
+		var a := grid.cell_of(Vector3(island.center.x - r.x, 0, island.center.y - r.y))
+		var b := grid.cell_of(Vector3(island.center.x + r.x, 0, island.center.y + r.y))
+		for z in range(maxi(a.y, 0), mini(b.y + 1, grid.h)):
+			for x in range(maxi(a.x, 0), mini(b.x + 1, grid.w)):
+				var cell := Vector2i(x,z)
+				if land_index(grid.center(cell), 5) == index: grid.set_cell(cell,NavGrid.Cell.WALK,index+1)
 	var water := PlaneMesh.new()
 	water.size = Vector2(EXTENT*2.2,EXTENT*2.2)
 	var sea := Build.mesh(root,water,Color(0.12,0.49,0.59),Vector3(0,-0.8,0))
@@ -59,8 +66,11 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 	sea.material_override = material
 	for index in ISLANDS.size():
 		_terrain(index)
-		_roads(index)
-		_settlement(index)
+		if ISLANDS[index].kind == "city":
+			BareaCity.build(self, index)
+		else:
+			_roads(index)
+			_settlement(index)
 		_harbour(index)
 		var base := camp(index)
 		var bench := MapGen.new()
@@ -134,12 +144,13 @@ func _roads(index: int) -> void:
 	# Dock approach follows a broad, clear east/west road.
 	Build.box(root,Vector3(island.radius.x,0.04,13),color,center+Vector3(island.radius.x*0.5,0,0))
 
-func _solid(size: Vector3, color: Color, pos: Vector3) -> void:
-	Build.solid_box(root,size,color,pos)
+func _solid(size: Vector3, color: Color, pos: Vector3) -> StaticBody3D:
+	var body := Build.solid_box(root,size,color,pos)
 	var a := grid.cell_of(pos-size*0.5-Vector3(2,0,2))
 	var b := grid.cell_of(pos+size*0.5+Vector3(2,0,2))
 	for z in range(a.y,b.y+1):
 		for x in range(a.x,b.x+1): grid.set_cell(Vector2i(x,z),NavGrid.Cell.PROP)
+	return body
 
 func _settlement(index: int) -> void:
 	var island: Dictionary = ISLANDS[index]

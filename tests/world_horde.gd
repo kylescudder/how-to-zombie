@@ -9,9 +9,9 @@ func run(owner: Node) -> void:
 	if level == null: return
 	var me := level.local_survivor()
 	var spots := []
-	for index in [0, 2]:
-		# Well inland on two different islands, far from the safe camps.
-		spots.append(OpenWorld.camp(index) + Vector3(-110, 0.3, 30))
+	# Downtown Barea on the main avenue, then well inland on Pinefall.
+	spots.append(OpenWorld.camp(0) + Vector3(-200, 0.3, 0))
+	spots.append(OpenWorld.camp(2) + Vector3(-110, 0.3, 30))
 	for spot: Vector3 in spots:
 		for s: Survivor in level.get_survivors():
 			s.global_position = spot + Vector3(s.slot * 1.5, 0, 0)

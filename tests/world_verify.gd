@@ -12,7 +12,7 @@ func run(owner: Node) -> void:
 	for infected in level.all_infected(): infected.queue_free()
 	await test.wait(0.1)
 	test.check(level.vehicles().size()==10,"five cars and five boats spawned in shared world")
-	test.check(level.nav.w==550 and is_equal_approx(level.nav.cell_size,4),"2.2 km navigation uses bounded 4 m grid")
+	test.check(level.nav.w==OpenWorld.GRID and is_equal_approx(level.nav.cell_size,4),"3 km navigation uses bounded 4 m grid")
 	for index in 5:
 		var base := OpenWorld.camp(index)
 		test.check(OpenWorld.land_index(base)==index and level.nav.walkable_at(base),"region %d has reachable camp" % index)
@@ -60,12 +60,11 @@ func run(owner: Node) -> void:
 	# Real continuous physics journey around Rustwater's south coast to its east dock.
 	boat._send_t=1000
 	var finish: Vector3 = OpenWorld.dock(1)+Vector3(31,-0.45,10)
-	for point in [Vector3(20,-0.45,40),Vector3(720,-0.45,40),Vector3(720,-0.45,-270),finish]:
+	for point in [Vector3(-40,-0.45,-100),Vector3(790,-0.45,-100),Vector3(790,-0.45,-540),finish]:
 		await drive_to(boat,me.slot,point)
 	boat.drive(me.slot,0,0,true)
 	await test.wait(2)
 	test.check(boat.global_position.distance_to(finish)<16,"boat travelled between islands without loading a new level")
-	print("[WORLD] dock approach position=",boat.global_position," target=",finish," yaw=",boat.rotation.y," speed=",boat._speed," exit=",boat.exit_point(me.slot))
 	boat.request_exit(me.slot)
 	await test.wait(0.15)
 	test.check(level.vehicle_for_slot(me.slot)==null,"squad disembarks at destination harbour")

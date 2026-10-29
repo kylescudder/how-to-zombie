@@ -176,6 +176,11 @@ func _physics_process(delta: float) -> void:
 		velocity=desired
 		if kind=="car": velocity.y=-5
 		move_and_slide()
+		# Ramming an alarmed car sets it off, just like shooting it.
+		for k in get_slide_collision_count():
+			var hit := get_slide_collision(k).get_collider()
+			if hit is Node and (hit as Node).has_meta("alarm") and absf(_speed) > 3.0:
+				level().request_alarm(int((hit as Node).get_meta("alarm")))
 		if kind=="boat": global_position.y=-0.45
 		if get_slide_collision_count()>0 and Vector2(velocity.x,velocity.z).length()<absf(_speed)*0.4: _speed*=0.6
 		net_pos=global_position

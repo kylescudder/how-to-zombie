@@ -64,6 +64,8 @@ func _ready() -> void:
 		_build_gate()
 	if markers.button != Vector3.INF:
 		Build.interact_zone(self, "button", Vector3(1.0, 1.4, 1.0), markers.button, "Open the gate (starts a horde!)")
+	if open_world:
+		_build_story()
 	if markers.radio != Vector3.INF:
 		Build.interact_zone(self, "radio", Vector3(1.4, 1.0, 1.0), markers.radio, "Use the radio (call for rescue)")
 		_build_sea()
@@ -406,6 +408,8 @@ func _place_items() -> void:
 # --- Host rules -------------------------------------------------------------------------------
 
 func _host_tick(delta: float) -> void:
+	if open_world and Game.phase == "playing":
+		_story_tick(delta)
 	if Game.phase != "playing":
 		_end_t -= delta
 		if _end_t <= 0.0:
@@ -463,6 +467,9 @@ func _finish_phase() -> void:
 			else:
 				Game.goto_chapter(chapter)
 		"failed":
+			# Wiped during Barea's escape: try the escape again from the hunt.
+			if Game.story.get("barea", "") == "alert":
+				Game.story.barea = "hunt"
 			Game.goto_chapter(chapter)
 		"victory":
 			Game.reset(0)
@@ -521,7 +528,7 @@ func _world_state() -> Dictionary:
 	var ds := []
 	for d in doors:
 		ds.append(d.open)
-	return {"doors": ds, "gate": gate_open, "gate_opening": gate_opening, "rescue": rescue_ready, "radio": radio_used}
+	return {"doors": ds, "gate": gate_open, "gate_opening": gate_opening, "rescue": rescue_ready, "radio": radio_used, "story": Game.story}
 
 
 @rpc("authority", "call_local", "reliable")
@@ -535,6 +542,9 @@ func _push_world(st: Dictionary) -> void:
 		if _gate:
 			_gate.position.y = markers.gate.pos.y + 6.6
 	rescue_ready = st.rescue
+	if st.has("story"):
+		Game.story = st.story
+		_apply_story()
 	radio_used = st.radio
 	if _boat and rescue_ready:
 		_boat.visible = true
@@ -885,3 +895,118 @@ func vehicle_for_slot(slot: int) -> TeamVehicle:
 
 func vehicles() -> Array:
 	return entities.get_children().filter(func(n): return n is TeamVehicle)
+
+
+# --- Island stories (open world) ---------------------------------------------------------
+
+var _idol: Node3D
+var _siren_t := 0.0
+var npcs: Array[StoryNPC] = []
+
+
+func _build_story() -> void:
+	for n: Dictionary in markers.get("npcs", []):
+		var npc := StoryNPC.new()
+		npc.setup(n.id, n.pos, n.yaw)
+		add_child(npc)
+		npcs.append(npc)
+	if markers.get("idol", Vector3.INF) != Vector3.INF:
+		_idol = Node3D.new()
+		_idol.name = "Idol"
+		_idol.position = markers.idol
+		add_child(_idol)
+		var art := YellowSticker.make(1.4)
+		art.name = "Art"
+		_idol.add_child(art)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.85, 0.3)
+		glow.light_energy = 3.0
+		glow.omni_range = 9.0
+		_idol.add_child(glow)
+		Build.interact_zone(_idol, "idol", Vector3(2.2, 2.2, 2.2), Vector3.ZERO, "Take the Yellow Sticker idol")
+	_apply_story()
+
+
+func barea_stage() -> String:
+	return String(Game.story.get("barea", "arrive"))
+
+
+## Shows or hides story props to match Game.story (all peers).
+func _apply_story() -> void:
+	if _idol:
+		_idol.visible = barea_stage() in ["arrive", "hunt"]
+		for c in _idol.get_children():
+			if c is Area3D:
+				(c as Area3D).collision_layer = 8 if _idol.visible else 0
+
+
+func _story_tick(delta: float) -> void:
+	if _idol and _idol.visible:
+		_idol.get_node("Art").rotation.y += delta * 0.8
+	if barea_stage() != "alert":
+		return
+	# High alert: sirens, nonstop hordes, until everyone alive is on a boat out at sea.
+	_siren_t -= delta
+	if _siren_t <= 0.0:
+		_siren_t = 5.5
+		fx_sound.rpc("siren", Vector3.INF)
+	var humans := get_survivors().filter(func(s): return not s.bot and not s.dead)
+	if humans.is_empty():
+		return
+	var boat: TeamVehicle = null
+	for s: Survivor in humans:
+		var v := vehicle_for_slot(s.slot)
+		if v == null or v.kind != "boat" or (boat != null and v != boat):
+			return
+		boat = v
+	if OpenWorld.land_index(boat.global_position, -70.0) == 0:
+		return  # still too close to Barea's shore
+	Game.story.barea = "escaped"
+	Game.mark_dirty()
+	director.city_alert = false
+	Game.show_banner.rpc("ESCAPED BAREA CITY", "The Yellow Sticker idol is yours. Next stop: the other islands.")
+	fx_sound.rpc("rescue_horn", Vector3.INF)
+	_story_changed.rpc(Game.story)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_story_talk(npc_id: String) -> void:
+	if not _sender_ok():
+		return
+	if barea_stage() == "arrive":
+		Game.story.barea = "hunt"
+		Game.mark_dirty()
+		Game.toast.rpc("New lead: the Yellow Sticker idol is at the Price Slasher Megamart, west Barea.", Color(1.0, 0.85, 0.2))
+		_story_changed.rpc(Game.story)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_idol(slot: int) -> void:
+	if not _sender_ok() or not barea_stage() in ["arrive", "hunt"] or _idol == null:
+		return
+	var s := get_survivor_by_slot(slot)
+	if s == null or not s.able() or s.global_position.distance_to(_idol.global_position) > 4.5:
+		return
+	Game.story.barea = "alert"
+	Game.mark_dirty()
+	director.city_alert = true
+	director.relax_t = 0.0
+	Game.show_banner.rpc("BAREA CITY IS ON HIGH ALERT", "%s took the Yellow Sticker idol. Get to a boat!" % s.short_name())
+	Game.toast.rpc("Every infected in the city knows. RUN for the harbour!", Color(1.0, 0.35, 0.25))
+	fx_sound.rpc("siren", Vector3.INF)
+	fx_sound.rpc("horde_music", Vector3.INF)
+	_story_changed.rpc(Game.story)
+
+
+@rpc("authority", "call_local", "reliable")
+func _story_changed(st: Dictionary) -> void:
+	Game.story = st
+	_apply_story()
+	Game.state_changed.emit()
+
+
+func npc(id: String) -> StoryNPC:
+	for n in npcs:
+		if n.id == id:
+			return n
+	return null

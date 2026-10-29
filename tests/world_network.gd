@@ -50,3 +50,30 @@ func run(test: Node, host: bool) -> void:
 		await test.wait(0.1)
 		test.check(me.collision_layer==2,"client restores on-foot collision after exit")
 		await test.wait(1)
+	await _story(test, level, host)
+
+
+## Barea's story over the network: the client talks and takes the idol; everyone sees it.
+func _story(test: Node, level: Level, host: bool) -> void:
+	var me := level.local_survivor()
+	if host:
+		test.check(await test.wait_for(func(): return level.barea_stage() == "hunt", 20), "host sees the client's conversation reveal the idol")
+		test.check(await test.wait_for(func(): return level.barea_stage() == "alert" and level.director.city_alert, 20), "client taking the idol puts the host's city on alert")
+		await test.wait(3)
+	else:
+		test.check(await test.wait_for(func(): return level.npcs.size() == Story.NPCS.size(), 10), "client builds the story NPCs")
+		var hud := test.get_tree().get_first_node_in_group("hud") as HUD
+		var marla := level.npc("marla")
+		me.global_position = marla.global_position + marla.global_transform.basis.z * 1.8 + Vector3.UP * 0.3
+		await test.wait(0.5)
+		hud.talk(level, "marla")
+		test.check(await test.wait_for(func(): return level.barea_stage() == "hunt", 5), "client's story stage synced after talking")
+		level.request_idol.rpc_id(1, me.slot)
+		await test.wait(0.5)
+		test.check(level.barea_stage() == "hunt", "host refuses the idol from across the city")
+		me.global_position = level.markers.idol + Vector3(2.5, -2.3, 0)
+		await test.wait(0.8)
+		level.request_idol.rpc_id(1, me.slot)
+		test.check(await test.wait_for(func(): return level.barea_stage() == "alert", 5), "client takes the idol; city on alert everywhere")
+		test.check(not level._idol.visible, "the idol vanishes for the client too")
+		await test.wait(1)

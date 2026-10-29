@@ -13,6 +13,9 @@ var flow: NavGrid.Flow
 var lure_flow: NavGrid.Flow
 var lure_pos := Vector3.INF
 var active := false   # starts once someone leaves the start safe room
+var city_alert := false  # Barea City high alert: nonstop hordes until the team escapes
+var _alert_mob := 0.0
+var _alert_special := 0.0
 var relax_t := 0.0
 var mob_t := 0.0
 var special_t := 0.0
@@ -73,6 +76,8 @@ func _process(delta: float) -> void:
 			return
 	relax_t = maxf(relax_t - delta, 0.0)
 	_wanderers(delta)
+	if city_alert:
+		_alert(delta)
 	if crescendo_t > 0.0:
 		_crescendo(delta)
 	elif finale_stage >= 0:
@@ -142,6 +147,21 @@ func _pacing(delta: float) -> void:
 			spawn_special()
 
 
+## High alert: the whole city converges on whoever's still on Barea, wave after wave.
+func _alert(delta: float) -> void:
+	var on_island := level.get_survivors().any(func(s): return not s.dead and OpenWorld.land_index(s.global_position) == 0)
+	if not on_island:
+		return
+	_alert_mob -= delta
+	if _alert_mob <= 0.0:
+		_alert_mob = _rng.randf_range(4.0, 6.0)
+		spawn_mob(int(_rng.randi_range(12, 18) * Game.diff().horde), false)
+	_alert_special -= delta
+	if _alert_special <= 0.0:
+		_alert_special = _rng.randf_range(12.0, 18.0)
+		spawn_special()
+
+
 func _wanderers(delta: float) -> void:
 	wander_t -= delta
 	if wander_t > 0.0:
@@ -186,7 +206,9 @@ func find_spawn(lo: float, hi: float, ahead_z := -1.0) -> Vector3:
 			var center: Vector3 = survivors[_rng.randi()%survivors.size()].global_position
 			var angle := _rng.randf()*TAU
 			var distance := _rng.randf_range(lo,hi)
-			c = nav.cell_of(center+Vector3(cos(angle),0,sin(angle))*distance)
+			# Snap to the nearest street/open ground: in Barea most random points land in a building.
+			c = nav.nearest_walkable(center+Vector3(cos(angle),0,sin(angle))*distance, 4)
+			if c.x < 0: continue
 		if not nav.walkable(c):
 			continue
 		var d := flow.dist[nav.idx(c)] * nav.cell_size
@@ -218,7 +240,7 @@ func _seen(p: Vector3) -> bool:
 func _spawn_pending() -> void:
 	for i in mini(pending.size(), 3):
 		var e: Dictionary = pending.pop_front()
-		if e.type == "common" and level.count_commons() >= DB.MAX_COMMONS:
+		if e.type == "common" and level.count_commons() >= DB.MAX_COMMONS + (14 if city_alert else 0):
 			continue
 		level.spawn_infected(e.type, e.pos, e.horde)
 
@@ -265,6 +287,17 @@ func spawn_tank() -> void:
 	var p := find_spawn(30.0, 55.0)
 	if p == Vector3.INF:
 		p = find_spawn(15.0, 80.0)
+	if p == Vector3.INF:
+		# Nowhere hidden: bring it in anyway, as far from the team as the map allows nearby.
+		var alive := level.get_survivors().filter(func(s): return not s.dead)
+		if alive.is_empty():
+			return
+		var base: Vector3 = alive[0].global_position
+		for k in 16:
+			var c := level.nav.nearest_walkable(base + Vector3(cos(k * 0.4), 0, sin(k * 0.4)) * (40.0 - k * 2.0), 6)
+			if c.x >= 0:
+				p = level.nav.center(c)
+				break
 	if p == Vector3.INF:
 		return
 	tank_alive = true

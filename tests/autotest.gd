@@ -17,6 +17,10 @@ func _ready() -> void:
 			await preload("res://tests/world_network.gd").new().run(self,test_name=="world_net_host")
 		"world":
 			await preload("res://tests/world_verify.gd").new().run(self)
+		"barea_shots":
+			await preload("res://tests/barea_verify.gd").new().shots(self)
+		"barea":
+			await preload("res://tests/barea_verify.gd").new().run(self)
 		"world_horde":
 			await preload("res://tests/world_horde.gd").new().run(self)
 		"settings":
@@ -201,15 +205,21 @@ func _solo() -> void:
 	check(killed, "shot a common dead")
 	check(total_kills() > kills, "kill counted")
 
-	# Shove
+	# Shove (bots parked out of the way so they don't shoot it first)
+	for b: Survivor in lvl.get_survivors().filter(func(s): return s.bot):
+		b.set_physics_process(false)
+		b.global_position = p.global_position + Vector3(0, 0.2, 12)
 	await wait(0.3)
-	var z2 := lvl.spawn_infected("common", p.global_position - p.global_transform.basis.z * 1.4, true)
+	var z2 := lvl.spawn_infected("common", p.global_position - p.global_transform.basis.z * 1.4, false)
 	await wait(0.15)
 	press("secondary", true)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	press("secondary", false)
 	check(await wait_for(func(): return is_instance_valid(z2) and z2.net_anim == Infected.A.STAGGER, 1.0), "shove staggers a common")
+	for b: Survivor in lvl.get_survivors().filter(func(s): return s.bot):
+		b.set_physics_process(true)
+		b.global_position = p.global_position + Vector3(1.5, 0.2, 1.5)
 	await wait(1.5)
 	clear_infected()
 

@@ -66,6 +66,8 @@ func _ready() -> void:
 	_streams["tank_music"] = _make(3.0, func(t, _i): return (_square(t * 41.2) * 0.5 + _saw(t * 82.4) * 0.3) * 0.25 * (0.6 + 0.4 * float(fmod(t, 0.5) < 0.25)) * min((3.0 - t) * 2.0, 1.0))
 	_streams["saferoom_music"] = _make(3.0, func(t, _i): return (sin(TAU * 261.6 * t) + sin(TAU * 329.6 * t) * 0.7 + sin(TAU * 392.0 * t) * 0.6) * 0.12 * sin(PI * t / 3.0))
 	_streams["rescue_horn"] = _make(2.0, func(t, _i): return (_saw(t * 110.0) + _saw(t * 138.6) * 0.8) * 0.3 * min(t * 6.0, 1.0) * min((2.0 - t) * 4.0, 1.0))
+	# Air-raid style city siren: slow rising and falling wail.
+	_streams["siren"] = _make(5.0, func(t, _i): return (sin(TAU * (380.0 + 240.0 * sin(t * 1.25)) * t) * 0.5 + _saw(t * (380.0 + 240.0 * sin(t * 1.25))) * 0.15) * min(t * 2.0, 1.0) * min((5.0 - t) * 2.0, 1.0) * 0.5)
 	_streams["radio"] = _make(1.2, func(t, _i): return (_noise() * 0.3 + _square(t * 440.0) * 0.1 * float(fmod(t, 0.3) < 0.15)) * sin(PI * t / 1.2))
 
 

@@ -1000,6 +1000,12 @@ func _interact() -> void:
 			level().request_button.rpc_id(1)
 		"radio":
 			level().request_radio.rpc_id(1)
+		"npc":
+			var hud := get_tree().get_first_node_in_group("hud") as HUD
+			if hud:
+				hud.talk(level(), String(t.get_meta("npc")))
+		"idol":
+			level().request_idol.rpc_id(1, slot)
 
 
 func _refill_ammo() -> void:

@@ -15,12 +15,25 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 
 | | |
 |---|---|
-| ![Haven Harbour](docs/07_open_world.jpg) | ![Driving with the squad](docs/08_driving.jpg) |
+| ![Barea City skyline](docs/barea_01_skyline.jpg) | ![Roadblock](docs/barea_04_roadblock.jpg) |
+| ![The Yellow Sticker idol](docs/barea_06_idol.jpg) | ![Talking to Dev](docs/barea_07_npc.jpg) |
 
-One 2.2 km map with five islands: **Haven Harbour** (town), **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland. Rustwater is Tank country.
+One 3 km map with five islands: **Barea City**, **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland.
+
+### Barea City: the Yellow Sticker idol
+
+You land in Barea City, a metropolis about 900 × 770 m: skyscrapers downtown, mid-rise blocks and alleys, petrol stations, Barea Mart convenience stores, a police station, Fire Station 7, a plaza and the **Price Slasher Megamart**.
+
+- **Roadblocks.** The army closed most streets. Every roadblock leaves a gap you can squeeze through on foot, but no car fits, so you can't drive across town. The streets become corridors and hordes funnel through the same gaps you do.
+- **Car alarms.** Cars with a blinking red light are alarmed. Shoot one or drive into one and a horde comes running.
+- **Survivors.** Five people are holed up around town: Captain Marla at the harbour, Dev at a petrol station, Sgt. Okafor at the police station, Bex at the fire station, and Old Reg in the plaza. Walk up and press **E** to talk; each tells you part of the story. Talking to any of them puts the idol on your map.
+- **The idol.** The Yellow Sticker idol (a reduced label: *was £1.40p, NOW £0.27p*) sits on a shrine of shopping trolleys in the Megamart car park, under a giant billboard of itself. Press **E** to take it.
+- **High alert.** The moment it moves, sirens start and the whole city comes for you: hordes every few seconds and specials on top, nonstop, until everyone still alive is on a boat out at sea. Then you've escaped Barea City.
+
+### Getting around
 
 - **Vehicles.** Five cars and five boats, shared by the team. Press **E** next to one to board (the first in drives; up to four aboard, nearby bots climb in too). **WASD** drive, **Space** brake, **E** to get out once stopped. Cars stay on land; boats carry the squad between island piers.
-- **World map** (**M**): islands, camps, vehicles and teammates. Click to set a personal waypoint.
+- **World map** (**M**): islands, Barea's city blocks, camps, vehicles, teammates, survivors to talk to (**!**) and the idol once you know where it is. Click to set a personal waypoint.
 
 To play the original chapter-based campaign instead, launch with `--linear` (see below).
 
@@ -167,6 +180,8 @@ There are no imported art or audio assets. Models combine authored cross-section
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
+tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: roadblocks, alarms, NPCs, idol, high alert, escape
+tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
 tools/godot --headless -- --solo --test=guns       # shop interaction, wallet, upgrades, actual damage, ADS, reload, carryover
 tools/godot -- --solo --test=gun_screens            # detailed gun and gunsmith screenshots in screenshots/guns/
 tools/godot --headless -- --solo --linear --test=solo       # every mechanic: guns, shove, incap + bot revive, medkit, specials, throwables, Tank, Witch, wipe
@@ -177,7 +192,7 @@ tools/godot --headless -- --test=settings          # settings screen and saved p
 # Two-process multiplayer. Run these in real time: --fixed-fps lets the host's waits
 # finish before the client has even started.
 tools/godot --headless -- --host --test=world_net_host &
-tools/godot --headless -- --join=127.0.0.1 --test=world_net_client                  # shared vehicles over LAN
+tools/godot --headless -- --join=127.0.0.1 --test=world_net_client                  # shared vehicles and Barea story over LAN
 tools/godot --headless -- --host --linear --test=net_host &
 tools/godot --headless -- --join=127.0.0.1 --linear --test=net_client               # campaign replication
 ```

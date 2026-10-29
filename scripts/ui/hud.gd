@@ -263,6 +263,7 @@ func _process(delta: float) -> void:
 	_update_weapons(me)
 	_update_action(lvl, me)
 	_update_objective(lvl)
+	_update_talk(lvl, me)
 	_update_tank(lvl)
 	prompt_label.text = me.prompt if modal == null and not me.dead else ""
 	crosshair.set_meta("spread", me.spread)
@@ -436,7 +437,7 @@ func _update_objective(lvl: Level) -> void:
 		var index := OpenWorld.land_index(me.global_position)
 		var region: String = OpenWorld.ISLANDS[index].name if index>=0 else "Open Sea"
 		var vehicle := lvl.vehicle_for_slot(me.slot)
-		objective.text = "DEAD LOW TIDE • %s\n[M] World map • Explore, resupply and survive" % region
+		objective.text = "DEAD LOW TIDE • %s\n%s\n[M] World map" % [region, Story.objective(lvl.barea_stage())]
 		if vehicle: objective.text += "\n%s • %d km/h • %d/4 aboard" % [vehicle.kind.capitalize(),roundi(absf(vehicle.net_speed)*3.6),4-Array(vehicle.seats).count(-1)]
 		if lvl.local_waypoint!=Vector3.INF: objective.text += "\nWaypoint: %d m" % roundi(me.global_position.distance_to(lvl.local_waypoint))
 		return
@@ -525,6 +526,70 @@ func _on_banner(title: String, sub: String) -> void:
 
 
 # --- Modals ---------------------------------------------------------------------------
+
+# --- Story dialogue ---------------------------------------------------------------------
+
+var _talk_panel: PanelContainer
+var _talk_name: Label
+var _talk_text: Label
+var _talk_id := ""
+var _talk_lines: Array = []
+var _talk_i := 0
+
+
+## Called when the local player presses E on an NPC: starts or advances the conversation.
+func talk(lvl: Level, id: String) -> void:
+	var npc := lvl.npc(id)
+	if npc == null:
+		return
+	if _talk_id == id and _talk_panel and _talk_panel.visible:
+		_talk_i += 1
+		if _talk_i >= _talk_lines.size():
+			_end_talk()
+			return
+	else:
+		_talk_id = id
+		_talk_lines = npc.lines(lvl.barea_stage())
+		_talk_i = 0
+		npc.mark_talked()
+		lvl.request_story_talk.rpc_id(1, id)
+	_show_talk(npc.data.name, _talk_lines[_talk_i], _talk_i == _talk_lines.size() - 1)
+
+
+func _show_talk(who: String, line: String, last: bool) -> void:
+	if _talk_panel == null:
+		_talk_panel = PanelContainer.new()
+		_talk_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_talk_panel.position = Vector2(-420, -300)
+		_talk_panel.custom_minimum_size = Vector2(840, 0)
+		_talk_panel.add_theme_stylebox_override("panel", UIKit.box(Color(0.06, 0.06, 0.07, 0.92), 12, 3, Color(1.0, 0.85, 0.2)))
+		root.add_child(_talk_panel)
+		var v := VBoxContainer.new()
+		_talk_panel.add_child(v)
+		_talk_name = UIKit.label("", 22, Color(1.0, 0.85, 0.2))
+		v.add_child(_talk_name)
+		_talk_text = UIKit.label("", 21)
+		_talk_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_talk_text.custom_minimum_size = Vector2(800, 0)
+		v.add_child(_talk_text)
+	_talk_panel.visible = true
+	_talk_name.text = who
+	_talk_text.text = "\"%s\"\n[E] %s" % [line, "Done" if last else "Continue"]
+
+
+func _end_talk() -> void:
+	_talk_id = ""
+	if _talk_panel:
+		_talk_panel.visible = false
+
+
+func _update_talk(lvl: Level, me: Survivor) -> void:
+	if _talk_id == "" or lvl == null or me == null:
+		return
+	var npc := lvl.npc(_talk_id)
+	if npc == null or npc.global_position.distance_to(me.global_position) > 6.0 or me.dead:
+		_end_talk()
+
 
 func close_modal() -> void:
 	if modal:

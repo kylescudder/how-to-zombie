@@ -20,6 +20,8 @@ var carry: Array = [{}, {}, {}, {}]
 var stats: Array = []
 var arsenal: Array = []  # Host-owned credits and gun-specific upgrades, per survivor slot.
 var finale_stage := -1  # -1 = not started
+## Island stories (see Story). Barea City: arrive -> hunt -> alert -> escaped.
+var story := {"barea": "arrive"}
 
 var _dirty := false
 
@@ -44,6 +46,7 @@ func reset(start_chapter := 0) -> void:
 	phase = "playing"
 	finale_stage = -1
 	carry = [{}, {}, {}, {}]
+	story = {"barea": "arrive"}
 	arsenal = []
 	for i in 4:
 		arsenal.append({"credits": 500, "guns": {}})
@@ -86,7 +89,7 @@ func save_progress() -> void:
 # --- Sync ----------------------------------------------------------------------
 
 func to_dict() -> Dictionary:
-	return {"open_world": open_world, "chapter": chapter, "difficulty": difficulty, "phase": phase, "stats": stats, "finale_stage": finale_stage, "arsenal": arsenal}
+	return {"open_world": open_world, "chapter": chapter, "difficulty": difficulty, "phase": phase, "stats": stats, "finale_stage": finale_stage, "arsenal": arsenal, "story": story}
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -98,6 +101,7 @@ func _sync(d: Dictionary) -> void:
 	stats = d.stats
 	arsenal = d.get("arsenal", arsenal)
 	finale_stage = d.finale_stage
+	story = d.get("story", story)
 	state_changed.emit()
 
 
