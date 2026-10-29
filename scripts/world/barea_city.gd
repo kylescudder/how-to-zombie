@@ -41,11 +41,15 @@ func _generate() -> void:
 	ow.markers["city_blocks"] = []
 	ow.markers["roadblocks"] = []
 	var dock := OpenWorld.dock(index)
-	for j in range(-10, 10):
-		for i in range(-11, 10):
+	_terminal = ferry_terminal(index)
+	ow.markers["ferry_terminal"] = _terminal
+	var span_i := int(OpenWorld.ISLANDS[index].radius.x / PITCH) + 2
+	var span_j := int(OpenWorld.ISLANDS[index].radius.y / PITCH) + 2
+	for j in range(-span_j, span_j):
+		for i in range(-span_i, span_i):
 			var b := Vector2i(i, j)
 			var c := block_center(b)
-			if c.x > dock.x - 120.0:
+			if c.x > dock.x - 120.0 or c.distance_to(_terminal) < 130.0:
 				continue
 			var ok := true
 			for corner: Vector3 in [Vector3(-34, 0, -34), Vector3(34, 0, -34), Vector3(-34, 0, 34), Vector3(34, 0, 34)]:
@@ -53,10 +57,7 @@ func _generate() -> void:
 					ok = false
 			if ok:
 				blocks[b] = "building"
-	var sum := Vector3.ZERO
-	for b: Vector2i in blocks:
-		sum += block_center(b)
-	_downtown = sum / maxf(blocks.size(), 1) + Vector3(40, 0, 0)
+	_downtown = center + Vector3(60, 0, 0)
 	_assign_landmarks()
 	_ground()
 	for b: Vector2i in blocks:
@@ -68,10 +69,12 @@ func _generate() -> void:
 			"fire": _fire(b)
 			"plaza": _plaza(b)
 			"megamart": _megamart(b)
+			"substation": _substation(b)
 			_: _buildings(b)
 	_street_life()
 	_roadblocks()
 	_harbour_front()
+	_ferry_front()
 	_flush()
 
 
@@ -93,21 +96,24 @@ func _nearest_free(target: Vector3) -> Vector2i:
 
 
 func _assign_landmarks() -> void:
+	# Each act of Barea's story lives in its own district, a long way from the last.
 	var dock := OpenWorld.dock(index)
-	var west := INF
-	for b: Vector2i in blocks:
-		west = minf(west, block_center(b).x)
 	var picks := [
-		["petrol", dock + Vector3(-170, 0, 70)],
-		["petrol", Vector3(west + 120, 0, center.z + 200)],
-		["police", dock + Vector3(-330, 0, -190)],
-		["fire", dock + Vector3(-340, 0, 200)],
+		["police", center + Vector3(420, 0, -500)],     # Act 2: north-east
+		["substation", center + Vector3(-450, 0, -560)],  # Act 3: north-west industrial
+		["megamart", center + Vector3(-120, 0, 520)],   # Act 4: south
+		["fire", center + Vector3(520, 0, 380)],
 		["plaza", _downtown + Vector3(-60, 0, 110)],
-		["megamart", Vector3(west + 40, 0, center.z - 40)],
+		["petrol", dock + Vector3(-180, 0, 70)],
+		["petrol", center + Vector3(-620, 0, 120)],
+		["petrol", center + Vector3(150, 0, -680)],
+		["petrol", center + Vector3(300, 0, 640)],
 		["store", dock + Vector3(-200, 0, -90)],
-		["store", _downtown + Vector3(150, 0, -220)],
-		["store", Vector3(west + 150, 0, center.z - 230)],
-		["store", _downtown + Vector3(-180, 0, 250)],
+		["store", _downtown + Vector3(220, 0, -260)],
+		["store", center + Vector3(-560, 0, -200)],
+		["store", center + Vector3(-300, 0, 300)],
+		["store", center + Vector3(500, 0, -150)],
+		["store", center + Vector3(-760, 0, 380)],
 	]
 	for p: Array in picks:
 		var b := _nearest_free(p[1])
@@ -146,7 +152,7 @@ var _quad := QuadMesh.new()
 
 
 func _tile(key: String, color: Color, pos: Vector3, size: Vector3, yaw := 0.0, emission := 0.0) -> void:
-	_add(key, _unit_box, color, Transform3D(Basis(Vector3.UP, yaw).scaled(size), pos), emission)
+	_add(key, _unit_box, color, Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(size), pos), emission)
 
 
 # --- Ground ----------------------------------------------------------------------------
@@ -198,9 +204,10 @@ func _buildings(b: Vector2i) -> void:
 
 
 func _skyscraper(c: Vector3, h: float) -> void:
-	var col: Color = FACADES[rng.randi() % FACADES.size()]
+	var ci := rng.randi() % FACADES.size()
+	var col: Color = FACADES[ci]
 	var base := LOT - 2.0
-	ow._solid(Vector3(base, h, base), col, c + Vector3.UP * h * 0.5)
+	_mass(ci, Vector3(base, h, base), c + Vector3.UP * h * 0.5, true)
 	_windows(c, Vector3(base, h, base), 4.0, 4.0, 4.0, true)
 	var top := c + Vector3.UP * h
 	# Setback tiers and a crown
@@ -208,31 +215,35 @@ func _skyscraper(c: Vector3, h: float) -> void:
 	for t in rng.randi_range(1, 2):
 		tier *= rng.randf_range(0.6, 0.78)
 		var th := rng.randf_range(8.0, 22.0)
-		Build.box(root, Vector3(tier, th, tier), col.lightened(0.08 * (t + 1)), top + Vector3.UP * th * 0.5)
+		_mass(ci, Vector3(tier, th, tier), top + Vector3.UP * th * 0.5, false)
 		_windows(top, Vector3(tier, th, tier), 4.0, 4.0, 0.0, true)
 		top += Vector3.UP * th
-	Build.box(root, Vector3(tier + 1.0, 1.2, tier + 1.0), col.darkened(0.25), top + Vector3.UP * 0.6)
+	_tile("crown", col.darkened(0.25), top + Vector3.UP * 0.6, Vector3(tier + 1.0, 1.2, tier + 1.0))
 	if rng.randf() < 0.6:
-		Build.cyl(root, 0.25, 0.4, 14.0, Color(0.75, 0.75, 0.78), top + Vector3.UP * 7.0)
-		Build.sphere(root, 0.5, Color(1.0, 0.2, 0.15), top + Vector3.UP * 14.2).material_override = Build.mat(Color(1.0, 0.2, 0.15), 0.4, 3.0)
-	# Lobby: a dark glass band at street level with a canopy
-	Build.box(root, Vector3(base + 0.2, 4.5, base + 0.2), Color(0.15, 0.2, 0.26), c + Vector3.UP * 2.25)
+		_tile("antenna", Color(0.75, 0.75, 0.78), top + Vector3.UP * 7.0, Vector3(0.5, 14.0, 0.5))
+		_tile("beacon", Color(1.0, 0.2, 0.15), top + Vector3.UP * 14.3, Vector3(0.9, 0.9, 0.9), 0.0, 3.0)
+	# Lobby: a dark glass band at street level
+	_tile("lobby", Color(0.15, 0.2, 0.26), c + Vector3.UP * 2.25, Vector3(base + 0.2, 4.5, base + 0.2))
 
 
 func _midrise(c: Vector3, size: Vector3, h: float) -> void:
-	var col: Color = FACADES[rng.randi() % FACADES.size()]
-	ow._solid(Vector3(size.x, h, size.z), col, c + Vector3.UP * h * 0.5)
+	var ci := rng.randi() % FACADES.size()
+	if _district(c) == "industrial":
+		ci = [3, 6, 2][rng.randi() % 3]
+		h = minf(h, 14.0)
+	_mass(ci, Vector3(size.x, h, size.z), c + Vector3.UP * h * 0.5, true)
 	_windows(c, Vector3(size.x, h, size.z), 5.0, 3.6, 4.5, false)
-	Build.box(root, Vector3(size.x + 0.8, 0.8, size.z + 0.8), col.darkened(0.3), c + Vector3.UP * (h + 0.4))
+	_tile("parapet", Color(0.4, 0.38, 0.36), c + Vector3.UP * (h + 0.4), Vector3(size.x + 0.8, 0.8, size.z + 0.8))
 	# Rooftop clutter
 	for k in rng.randi_range(1, 3):
-		Build.box(root, Vector3(2.5, 1.6, 2.0), Color(0.6, 0.62, 0.64), c + Vector3(rng.randf_range(-size.x, size.x) * 0.3, h + 0.8, rng.randf_range(-size.z, size.z) * 0.3))
+		_tile("roofbox", Color(0.6, 0.62, 0.64), c + Vector3(rng.randf_range(-size.x, size.x) * 0.3, h + 0.8, rng.randf_range(-size.z, size.z) * 0.3), Vector3(2.5, 1.6, 2.0))
 	if rng.randf() < 0.3:
 		var wt := c + Vector3(size.x * 0.2, h, -size.z * 0.2)
-		Build.cyl(root, 2.0, 2.0, 3.5, Color(0.55, 0.4, 0.28), wt + Vector3.UP * 4.5, Vector3.ZERO, 12)
-		Build.cyl(root, 0.0, 2.3, 1.5, Color(0.45, 0.32, 0.22), wt + Vector3.UP * 7.0, Vector3.ZERO, 12)
+		_tile("watertank", Color(0.55, 0.4, 0.28), wt + Vector3.UP * 4.5, Vector3(3.6, 3.5, 3.6))
 		for leg: Vector3 in [Vector3(1.4, 0, 1.4), Vector3(-1.4, 0, 1.4), Vector3(1.4, 0, -1.4), Vector3(-1.4, 0, -1.4)]:
-			Build.box(root, Vector3(0.2, 2.8, 0.2), Color(0.3, 0.3, 0.3), wt + leg + Vector3.UP * 1.4)
+			_tile("tankleg", Color(0.3, 0.3, 0.3), wt + leg + Vector3.UP * 1.4, Vector3(0.2, 2.8, 0.2))
+	if _district(c) == "industrial":
+		return  # warehouses: no shopfronts
 	# Shopfront with awning and sign on one street-facing side
 	var face: Vector3 = [Vector3(0, 0, 1), Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(-1, 0, 0)][rng.randi() % 4]
 	var half := (size.z if face.z != 0 else size.x) * 0.5
@@ -246,6 +257,7 @@ func _midrise(c: Vector3, size: Vector3, h: float) -> void:
 	sign.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	sign.rotation.y = yaw
 	sign.outline_size = 24
+	sign.visibility_range_end = 160.0
 
 
 ## Windows on all four faces of a box, batched into one draw per window colour.
@@ -261,7 +273,7 @@ func _windows(c: Vector3, size: Vector3, spacing: float, floor_h: float, start: 
 			for k in n:
 				var off := -width * 0.5 + (k + 0.5) * width / n
 				var p := c + f * (half + 0.06) + along * off + Vector3.UP * y
-				var basis := Basis(Vector3.UP, atan2(f.x, f.z)).scaled(Vector3(spacing * (0.75 if tower else 0.5), floor_h * 0.6, 1))
+				var basis := Basis(Vector3.UP, atan2(f.x, f.z)) * Basis.from_scale(Vector3(spacing * (0.75 if tower else 0.5), floor_h * 0.6, 1))
 				var key := "win_lit" if rng.randf() < lit_chance else ("win_tower" if tower else "win")
 				var col := Color(1.0, 0.9, 0.6) if key == "win_lit" else (Color(0.42, 0.62, 0.72) if tower else Color(0.24, 0.32, 0.4))
 				_add(key, _quad, col, Transform3D(basis, p), 1.2 if key == "win_lit" else 0.0)
@@ -346,6 +358,7 @@ func _police(b: Vector2i) -> void:
 	for z: float in [-17.0, 15.0]:
 		_parked(c + Vector3(16, 0, z), 0.0, false, true)
 	_npc("okafor", hq + Vector3(15.0, 0.0, 2.0), PI * 0.5)
+	_lockup(hq)
 	var mg := MapGen.new()
 	mg.root = root
 	mg.markers = ow.markers
@@ -423,6 +436,23 @@ func _megamart(b: Vector2i) -> void:
 		_wall(Vector3(t, h, side), col, c + Vector3(hw, h * 0.5, z))
 		_tile("shopglass", Color(0.25, 0.45, 0.55), c + Vector3(hw + 0.32, 2.2, z), Vector3(0.1, 3.6, side - 2.0))
 	Build.box(root, Vector3(t + 0.2, h - 3.6, door), col, c + Vector3(hw, 3.6 + (h - 3.6) * 0.5, 0))
+	# Roller shutter over the doors: down until the grid's back on.
+	var shutter := StaticBody3D.new()
+	shutter.name = "MegamartShutter"
+	shutter.position = c + Vector3(hw + 0.5, 1.8, 0)
+	shutter.collision_layer = 1
+	root.add_child(shutter)
+	var scs := CollisionShape3D.new()
+	var sbs := BoxShape3D.new()
+	sbs.size = Vector3(0.3, 3.6, door)
+	scs.shape = sbs
+	shutter.add_child(scs)
+	Build.box(shutter, Vector3(0.3, 3.6, door), Color(0.6, 0.62, 0.64))
+	for k in 9:
+		Build.box(shutter, Vector3(0.34, 0.06, door), Color(0.45, 0.47, 0.5), Vector3(0, -1.6 + k * 0.4, 0))
+	Build.label(shutter, "CLOSED - NO POWER", Vector3(0.25, 0.3, 0), 90, Color(0.85, 0.12, 0.1)).billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	shutter.get_child(shutter.get_child_count() - 1).rotation.y = PI * 0.5
+	ow.markers["shutter"] = {"node": shutter, "rect": _door_cells(shutter.position, Vector3(3.0, 3.6, door))}
 	# Roof, with a red trim band and the sign over the doors.
 	Build.solid_box(root, Vector3(w + 1.0, 0.6, w + 1.0), Color(0.55, 0.52, 0.48), c + Vector3(0, h + 0.3, 0))
 	for sgn: float in [-1.0, 1.0]:
@@ -543,6 +573,7 @@ func _parked(p: Vector3, yaw: float, alarm: bool, police := false) -> void:
 	cs.position.y = 0.75
 	body.add_child(cs)
 	StreetArt.car(body, Color(0.95, 0.95, 0.97) if police else CAR_COLORS[rng.randi() % CAR_COLORS.size()])
+	_fade(body, 260.0)
 	if police:
 		Build.box(body, Vector3(2.05, 0.35, 1.6), Color(0.1, 0.15, 0.4), Vector3(0, 0.95, 0))
 		Build.box(body, Vector3(0.5, 0.15, 0.3), Color(1.0, 0.15, 0.1), Vector3(-0.3, 1.82, 0.1), Vector3.ZERO, 3.0)
@@ -640,9 +671,9 @@ func _barrier(p: Vector3, axis: Vector3, len: float) -> void:
 	cs.shape = bs
 	cs.position.y = 0.575
 	body.add_child(cs)
-	Build.box(body, Vector3(0.7, 0.45, len - 0.05), Color(0.78, 0.77, 0.74), Vector3(0, 0.225, 0))
-	Build.box(body, Vector3(0.36, 0.7, len - 0.05), Color(0.8, 0.79, 0.76), Vector3(0, 0.8, 0))
-	Build.box(body, Vector3(0.38, 0.14, len * 0.5), Color(0.95, 0.75, 0.1), Vector3(0, 0.95, 0))
+	_tile("jersey_base", Color(0.78, 0.77, 0.74), p + Vector3(0, 0.225, 0), Vector3(0.7, 0.45, len - 0.05), yaw)
+	_tile("jersey_top", Color(0.8, 0.79, 0.76), p + Vector3(0, 0.8, 0), Vector3(0.36, 0.7, len - 0.05), yaw)
+	_tile("jersey_stripe", Color(0.95, 0.75, 0.1), p + Vector3(0, 0.95, 0), Vector3(0.38, 0.14, len * 0.5), yaw)
 
 
 func _wreck(p: Vector3, axis: Vector3) -> void:
@@ -652,6 +683,7 @@ func _wreck(p: Vector3, axis: Vector3) -> void:
 	t.rotation.z = rng.randf_range(-0.15, 0.15)
 	root.add_child(t)
 	StreetArt.car(t, Color(0.35, 0.3, 0.28))
+	_fade(t, 260.0)
 
 
 ## The harbour front: Captain Marla waits by the boats.
@@ -659,3 +691,148 @@ func _harbour_front() -> void:
 	var dock := OpenWorld.dock(index)
 	_npc("marla", dock + Vector3(-6.0, 0.0, 6.5), -PI * 0.5)
 	_sign("BAREA CITY", OpenWorld.camp(index) + Vector3(-16, 9.0, -14), PI * 0.5, 400, Color(1.0, 0.85, 0.2))
+
+
+# --- Scale helpers ---------------------------------------------------------------------------
+
+var _terminal := Vector3.ZERO
+
+
+## The old ferry terminal on the far (west) shore, where Marla waits once the city's on alert.
+static func ferry_terminal(island_index: int) -> Vector3:
+	var island: Dictionary = OpenWorld.ISLANDS[island_index]
+	var p := Vector3(island.center.x, 0, island.center.y + 260.0)
+	while OpenWorld.land_index(p, 6.0) == island_index:
+		p.x -= 4.0
+	return p + Vector3(36.0, 0, 0)
+
+
+func _district(c: Vector3) -> String:
+	var l := c - center
+	if l.x < -150.0 and l.z < -250.0:
+		return "industrial"
+	if Vector2(c.x - _downtown.x, c.z - _downtown.z).length() < 340.0:
+		return "downtown"
+	return "residential"
+
+
+## A building volume: drawn in one batched mesh per facade colour, with a collision-only body
+## (and a nav block) when it touches the street. Keeps a city this size cheap to draw.
+func _mass(ci: int, size: Vector3, pos: Vector3, collide: bool) -> void:
+	_tile("bld%d" % ci, FACADES[ci], pos, size)
+	if not collide:
+		return
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.collision_layer = 1
+	root.add_child(body)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	body.add_child(cs)
+	_block_nav(pos, size, 2.0)
+
+
+## Small props pop out with distance so hundreds of parked cars don't cost a frame.
+func _fade(node: Node, dist: float) -> void:
+	for g in node.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).visibility_range_end = dist
+		(g as GeometryInstance3D).visibility_range_end_margin = 15.0
+		(g as GeometryInstance3D).visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
+## Cells a lockable gate/shutter covers: blocked for pathing until the story opens it.
+func _door_cells(pos: Vector3, size: Vector3) -> Rect2i:
+	var a := ow.grid.cell_of(pos - size * 0.5)
+	var b := ow.grid.cell_of(pos + size * 0.5)
+	var r := Rect2i(a, b - a + Vector2i.ONE)
+	for z in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
+			ow.grid.set_cell(Vector2i(x, z), NavGrid.Cell.DOOR)
+	return r
+
+
+# --- Act 2: the police evidence lockup ------------------------------------------------------
+
+func _lockup(hq: Vector3) -> void:
+	var booth := hq + Vector3(17.0, 0, -14.0)
+	Build.solid_box(root, Vector3(4.0, 3.2, 4.0), Color(0.3, 0.32, 0.38), booth + Vector3.UP * 1.6)
+	Build.box(root, Vector3(4.2, 0.3, 4.2), Color(0.15, 0.3, 0.65), booth + Vector3.UP * 3.3)
+	_sign("EVIDENCE LOCKUP", booth + Vector3(2.15, 2.6, 0), PI * 0.5, 70, Color(1, 1, 1))
+	Build.box(root, Vector3(0.1, 1.0, 1.4), Color(0.2, 0.15, 0.1), booth + Vector3(2.06, 1.3, 0))
+	for k in 5:
+		Build.box(root, Vector3(0.08, 0.2, 0.1), Color(0.95, 0.8, 0.3), booth + Vector3(2.12, 1.2 + (k % 2) * 0.2, -0.5 + k * 0.25), Vector3.ZERO, 1.5)
+	ow.markers["keys"] = booth + Vector3(2.6, 1.2, 0)
+
+
+# --- Act 3: the substation -------------------------------------------------------------------
+
+func _substation(b: Vector2i) -> void:
+	var c := block_center(b)
+	_tile("gravel", Color(0.5, 0.48, 0.44), c + Vector3(0, 0.07, 0), Vector3(LOT, 0.02, LOT))
+	var hw := LOT * 0.5 - 1.0
+	var fence := Color(0.55, 0.58, 0.6)
+	var gate_w := 7.0
+	# Chain-link fence (solid for collision) with a locked gate on the east side.
+	for seg: Array in [[Vector3(0, 0, -hw), Vector3(LOT - 2.0, 3.0, 0.2)], [Vector3(0, 0, hw), Vector3(LOT - 2.0, 3.0, 0.2)], [Vector3(-hw, 0, 0), Vector3(0.2, 3.0, LOT - 2.0)]]:
+		var p: Vector3 = c + seg[0] + Vector3.UP * 1.5
+		Build.solid_box(root, seg[1], fence, p)
+		_block_nav(p, seg[1], 0.5)
+	var side := (LOT - 2.0 - gate_w) * 0.5
+	for sgn: float in [-1.0, 1.0]:
+		var p := c + Vector3(hw, 1.5, sgn * (gate_w * 0.5 + side * 0.5))
+		Build.solid_box(root, Vector3(0.2, 3.0, side), fence, p)
+		_block_nav(p, Vector3(0.2, 3.0, side), 0.5)
+	var gate := StaticBody3D.new()
+	gate.name = "SubstationGate"
+	gate.position = c + Vector3(hw, 1.5, 0)
+	gate.collision_layer = 1
+	root.add_child(gate)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(0.3, 3.0, gate_w)
+	cs.shape = bs
+	gate.add_child(cs)
+	Build.box(gate, Vector3(0.3, 3.0, gate_w), Color(0.85, 0.7, 0.15))
+	Build.label(gate, "DANGER  HIGH VOLTAGE", Vector3(0.3, 0.6, 0), 60, Color(0.1, 0.1, 0.1)).billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	ow.markers["sub_gate"] = {"node": gate, "rect": _door_cells(gate.position, Vector3(4.0, 3.0, gate_w))}
+	_sign("BAREA GRID - SUBSTATION 4", c + Vector3(hw + 0.4, 4.6, 0), PI * 0.5, 160, Color(1, 0.85, 0.2))
+	# Transformers, pylons and the breaker panel.
+	for k in 4:
+		var t := c + Vector3(-12.0 + (k % 2) * 12.0, 0, -10.0 + (k / 2) * 18.0)
+		Build.solid_box(root, Vector3(5.0, 4.0, 3.5), Color(0.45, 0.5, 0.45), t + Vector3.UP * 2.0)
+		for f in 6:
+			Build.box(root, Vector3(0.12, 3.6, 3.7), Color(0.35, 0.4, 0.35), t + Vector3(-2.2 + f * 0.9, 2.0, 0))
+		Build.cyl(root, 0.25, 0.3, 1.6, Color(0.6, 0.35, 0.25), t + Vector3(0, 4.8, 0))
+		_block_nav(t, Vector3(5.0, 4.0, 3.5), 0.5)
+	for z: float in [-18.0, 18.0]:
+		var py := c + Vector3(-16, 0, z)
+		Build.solid_box(root, Vector3(0.6, 16.0, 0.6), Color(0.4, 0.4, 0.42), py + Vector3.UP * 8.0)
+		Build.box(root, Vector3(6.0, 0.4, 0.4), Color(0.4, 0.4, 0.42), py + Vector3.UP * 15.0)
+	var panel := c + Vector3(6.0, 0, 4.0)
+	Build.solid_box(root, Vector3(1.0, 2.2, 2.4), Color(0.3, 0.32, 0.3), panel + Vector3.UP * 1.1)
+	Build.box(root, Vector3(0.1, 0.5, 0.5), Color(0.9, 0.15, 0.1), panel + Vector3(0.55, 1.5, 0.5), Vector3.ZERO, 2.0)
+	_sign("MAIN BREAKER", panel + Vector3(0.6, 2.5, 0), PI * 0.5, 70, Color(1, 1, 1))
+	ow.markers["breaker"] = panel + Vector3(1.0, 1.2, 0)
+
+
+# --- Act 5: the old ferry terminal --------------------------------------------------------------
+
+func _ferry_front() -> void:
+	var t := _terminal
+	# Tarmac apron, a tired terminal shed and a long pier out to Marla's boat.
+	_tile("apron", Color(0.38, 0.38, 0.4), t + Vector3(10, 0.05, 0), Vector3(90, 0.04, 70))
+	Build.solid_box(root, Vector3(18, 7, 26), Color(0.62, 0.7, 0.72), t + Vector3(30, 3.5, -26))
+	Build.box(root, Vector3(19, 1.0, 27), Color(0.25, 0.4, 0.5), t + Vector3(30, 7.5, -26))
+	_sign("OLD FERRY TERMINAL", t + Vector3(20.8, 6.0, -26), -PI * 0.5, 220, Color(1, 0.95, 0.85))
+	# Long enough to reach past the big island's shallow beach shelf into deep water.
+	var pier_len := 90.0
+	Build.solid_box(root, Vector3(pier_len, 0.4, 9.0), Color(0.5, 0.38, 0.26), t + Vector3(-pier_len * 0.5 + 6.0, -0.2, 0))
+	for k in range(0, int(pier_len), 6):
+		for z: float in [-4.2, 4.2]:
+			Build.cyl(root, 0.25, 0.28, 3.0, Color(0.35, 0.28, 0.21), t + Vector3(6.0 - k, -1.2, z))
+	_sign("FERRY  →", t + Vector3(0, 3.5, 4.8), PI, 120, Color(1, 0.85, 0.2))
+	# Appended after the standard vehicles (see OpenWorld) so existing vehicle indices stay put.
+	ow.markers["ferry_boat"] = {"type": "boat", "pos": t + Vector3(-pier_len + 2.0, -0.45, 9.0), "yaw": PI * 0.5, "ferry": true}
+	_npc("marla_ferry", t + Vector3(-pier_len + 9.0, 0.0, 2.5), PI * 0.5)

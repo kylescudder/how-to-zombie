@@ -1,78 +1,84 @@
 class_name Story
-## Island stories. Barea City: find the Yellow Sticker idol, then escape the city on high alert.
+## Island stories. Barea City is a five-act run of roughly 45-50 minutes:
 ##
-## Barea's stages (Game.story.barea):
-##   "arrive"  - just landed; talk to survivors to learn where the idol is
-##   "hunt"    - someone told you about the Price Slasher Megamart
-##   "alert"   - the idol is taken; the whole city hunts you until you sail away
-##   "escaped" - you made it off the island
+##   Act 1  "arrive"   Land at the harbour, talk to Captain Marla.
+##   Act 2  "keys"     The Megamart's shutters are down; the substation that powers them is
+##                     locked. Fight north-east to Barea Police HQ for the master keys. Taking
+##                     them sets off the holding-cell alarm (a hold-out).
+##   Act 3  "power"    Across to the north-west industrial district. Unlock Substation 4 and
+##                     throw the main breaker, then hold out while the grid spins up.
+##   Act 4  "megamart" South to the Price Slasher Megamart, now open. Fight through the aisles,
+##                     buy the Reduced Rifle, take the Yellow Sticker idol.
+##   Act 5  "alert"    The whole city hunts you. The harbour's overrun, so Marla moves to the
+##                     old ferry terminal on the far (west) shore. Get everyone, and the idol,
+##                     onto her boat and out to sea.
+##          "escaped"  Done.
 
-const BAREA_STAGES := ["arrive", "hunt", "alert", "escaped"]
+const BAREA_STAGES := ["arrive", "keys", "power", "megamart", "alert", "escaped"]
 
-## Survivors you can talk to. `spot` names a place BareaCity puts them; lines change once the
-## idol is taken. Talking to any of them (before the alert) reveals the Megamart.
+## Hold-out lengths (seconds) for the two crescendo events.
+const LOCKDOWN_TIME := 60.0
+const POWER_TIME := 90.0
+
+## Survivors you can talk to. `alert` lines replace `lines` once the idol is taken. Marla's
+## ferry-terminal self only appears during the escape.
 const NPCS := [
 	{
-		"id": "marla", "name": "Captain Marla", "spot": "dock", "look": [Color(0.86, 0.68, 0.52), Color(0.2, 0.3, 0.55), Color(0.18, 0.18, 0.22)],
+		"id": "marla", "name": "Captain Marla", "look": [Color(0.86, 0.68, 0.52), Color(0.2, 0.3, 0.55), Color(0.18, 0.18, 0.22)],
 		"lines": [
 			"You made it. Welcome to Barea City... what's left of it.",
 			"Three nights ago the whole place went mad. Sirens, screaming, then the shamblers.",
-			"Folk say it started at the Price Slasher Megamart, out west. Something they called the Yellow Sticker idol.",
-			"Was a pound forty. Marked down to twenty-seven pence. People queued round the block for it. Then they started biting.",
-			"Bring me that idol and I'll get you off this rock. I'll keep the boat warm.",
+			"It started at the Price Slasher Megamart, down south. Something they called the Yellow Sticker idol. Was a pound forty, marked down to twenty-seven pence.",
+			"Problem is, the Megamart's shuttered. No power since Substation 4 tripped, up in the north-west industrial estate.",
+			"And the substation's padlocked. Sergeant Okafor at Police HQ, north-east, has the master keys. Start there.",
+			"Bring me that idol and I'll get you off this rock.",
 		],
-		"alert": [
-			"You've GOT it?! Then why are you talking to me? Every dead thing in Barea is coming!",
-			"Get on a boat and get us out of here!",
-		],
+		"alert": ["What are you doing here?! Get to the ferry terminal!"],
 	},
 	{
-		"id": "dev", "name": "Dev (night shift)", "spot": "petrol", "look": [Color(0.55, 0.4, 0.3), Color(0.85, 0.45, 0.15), Color(0.2, 0.22, 0.3)],
+		"id": "dev", "name": "Dev (night shift)", "look": [Color(0.55, 0.4, 0.3), Color(0.85, 0.45, 0.15), Color(0.2, 0.22, 0.3)],
 		"lines": [
 			"Whoa, whoa, don't shoot! I just work here. Well. Worked.",
-			"Word of advice: don't shoot the cars. The alarms bring every one of them for a mile.",
-			"Don't drive into 'em either. Learned that one the hard way.",
+			"Word of advice: don't shoot the cars. The alarms bring every one of them for a mile. Don't drive into them either.",
 			"The army threw up roadblocks everywhere. You'll never drive across town. Squeeze through the gaps on foot.",
-			"The idol? Megamart, west side. Big yellow sign. Can't miss it. Wish I could.",
+			"Police HQ's north-east, the substation's way out north-west, and the Megamart's down south. It's a long walk. Pace yourselves.",
 		],
-		"alert": [
-			"The sirens! You took it, didn't you? Run east! RUN!",
-		],
+		"alert": ["The sirens! You took it, didn't you? Get to the west shore, RUN!"],
 	},
 	{
-		"id": "okafor", "name": "Sgt. Okafor", "spot": "police", "look": [Color(0.42, 0.3, 0.22), Color(0.15, 0.2, 0.42), Color(0.12, 0.14, 0.22)],
+		"id": "okafor", "name": "Sgt. Okafor", "look": [Color(0.42, 0.3, 0.22), Color(0.15, 0.2, 0.42), Color(0.12, 0.14, 0.22)],
 		"lines": [
 			"Barea PD. Or what's left of it. Three of us held this station. I'm the three.",
-			"We sealed the city with roadblocks to slow them down. Didn't slow them down.",
-			"There's a reason we never touched the idol. The night someone did, the whole city went on alert at once.",
-			"Every infected in Barea will know the moment it moves. If you take it, don't stop. Don't look back. Get to the water.",
+			"Master keys for the substation? Evidence lockup, by the car park. Help yourself.",
+			"Fair warning: the lockup's wired to the holding-cell alarm. The second those keys move, every infected in the district comes knocking. Dig in.",
+			"And if you ever touch that idol, don't stop. Don't look back. Get to the water.",
 		],
-		"alert": [
-			"That's the alarm. They're all coming. I'll hold them as long as I can. GO!",
-		],
+		"alert": ["That's the city siren. They're all coming. I'll hold them as long as I can. GO!"],
 	},
 	{
-		"id": "bex", "name": "Bex (Fire Station 7)", "spot": "fire", "look": [Color(0.95, 0.78, 0.62), Color(0.75, 0.15, 0.1), Color(0.2, 0.18, 0.15)],
+		"id": "bex", "name": "Bex (Fire Station 7)", "look": [Color(0.95, 0.78, 0.62), Color(0.75, 0.15, 0.1), Color(0.2, 0.18, 0.15)],
 		"lines": [
 			"Fire Station 7. Our trucks can't get past the roadblocks either, if that makes you feel better.",
-			"We've stashed supplies all over town. Check the shops and petrol stations.",
-			"If the city goes on alert, the sirens won't stop until you're off the island. Keep moving and you'll live.",
+			"Restarting Substation 4? The breaker takes a minute and a half to spin up the grid, and it screams the whole time. You'll have company.",
+			"We've stashed supplies at the shops and petrol stations. Grab what you can between fights.",
 		],
-		"alert": [
-			"Hear that? That's for you. Stay on the main road east and don't get boxed in!",
-		],
+		"alert": ["Hear that? That's for you. West to the ferry terminal, and don't get boxed in!"],
 	},
 	{
-		"id": "reg", "name": "Old Reg", "spot": "plaza", "look": [Color(0.9, 0.75, 0.65), Color(0.5, 0.45, 0.35), Color(0.3, 0.28, 0.25)],
+		"id": "reg", "name": "Old Reg", "look": [Color(0.9, 0.75, 0.65), Color(0.5, 0.45, 0.35), Color(0.3, 0.28, 0.25)],
 		"lines": [
 			"Sixty years I've shopped in this city. Never seen a markdown like it.",
 			"A pound forty, down to twenty-seven pence. That's not a bargain, son. That's a prophecy.",
-			"They built a little shrine to it in the Megamart car park. Trolleys all round it like standing stones.",
-			"Whoever holds the Yellow Sticker holds the city's attention. All of it. Every last rotten eye.",
+			"They built a shrine to it at the back of the Megamart. Trolleys all round it like standing stones.",
+			"There's a gun on the reduced stand too. Cheap as chips and twice as nasty. Won't last, mind. Nothing reduced ever does.",
 		],
-		"alert": [
-			"Hah! You did it! Now RUN, before they mark YOU down!",
-		],
+		"alert": ["Hah! You did it! Now RUN, before they mark YOU down!"],
+	},
+	{
+		"id": "marla_ferry", "name": "Captain Marla", "look": [Color(0.86, 0.68, 0.52), Color(0.2, 0.3, 0.55), Color(0.18, 0.18, 0.22)],
+		"lines": ["Get aboard! Everyone, and that idol!"],
+		"alert": ["Get aboard! Everyone, and that idol! I'm not waiting for the whole city!"],
+		"only_alert": true,
 	},
 ]
 
@@ -84,14 +90,23 @@ static func npc(id: String) -> Dictionary:
 	return {}
 
 
+## True once `stage` has been reached (or passed).
+static func reached(current: String, stage: String) -> bool:
+	return BAREA_STAGES.find(current) >= BAREA_STAGES.find(stage)
+
+
 static func objective(stage: String) -> String:
 	match stage:
 		"arrive":
-			return "Barea City: talk to survivors and find the Yellow Sticker idol."
-		"hunt":
-			return "Find the Yellow Sticker idol at the Price Slasher Megamart (west Barea)."
+			return "Act 1: Talk to Captain Marla at the harbour."
+		"keys":
+			return "Act 2: Get the substation keys from the evidence lockup at Barea Police HQ (north-east)."
+		"power":
+			return "Act 3: Unlock Substation 4 (north-west industrial estate) and throw the main breaker."
+		"megamart":
+			return "Act 4: The Megamart is open (south). Take the Yellow Sticker idol."
 		"alert":
-			return "HIGH ALERT! Get back to a boat and escape Barea City!"
+			return "Act 5: HIGH ALERT! Get to Marla's boat at the old ferry terminal (west shore)."
 		"escaped":
 			return "You escaped Barea City. Sail on to the next island."
 	return ""

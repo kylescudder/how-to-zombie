@@ -471,7 +471,8 @@ func _finish_phase() -> void:
 		"failed":
 			# Wiped during Barea's escape: try the escape again from the hunt.
 			if Game.story.get("barea", "") == "alert":
-				Game.story.barea = "hunt"
+				Game.story.barea = "megamart"
+				Game.story.event = ""
 				Game.story.idol_carrier = -1
 				Game.story.idol_drop = Vector3.INF
 			Game.goto_chapter(chapter)
@@ -515,6 +516,9 @@ func explode(p: Vector3, radius: float, dmg: float, attacker: int) -> void:
 
 
 func crescendo_done() -> void:
+	if open_world:
+		_event_done()
+		return
 	gate_open = true
 	nav.set_open(markers.gate.rect, true)
 	_set_gate.rpc(true, true)
@@ -936,6 +940,10 @@ func _build_story() -> void:
 		glow.omni_range = 9.0
 		_idol.add_child(glow)
 		Build.interact_zone(_idol, "idol", Vector3(2.2, 2.6, 2.2), Vector3.ZERO, "Take the Yellow Sticker idol (one of you has to carry it)")
+	if markers.get("keys", Vector3.INF) != Vector3.INF:
+		_keys_zone = Build.interact_zone(self, "keys", Vector3(1.6, 1.6, 2.0), markers.keys, "Take the substation master keys (sets off the alarm!)")
+	if markers.get("breaker", Vector3.INF) != Vector3.INF:
+		_breaker_zone = Build.interact_zone(self, "breaker", Vector3(1.6, 2.0, 2.6), markers.breaker, "Throw the main breaker (90 s to power up - hold out!)")
 	_apply_story()
 
 
@@ -949,12 +957,102 @@ func _apply_story() -> void:
 		# On its shrine before the alert; on the ground wherever its carrier went down during it.
 		var drop: Vector3 = Game.story.get("idol_drop", Vector3.INF)
 		var dropped := barea_stage() == "alert" and int(Game.story.get("idol_carrier", -1)) < 0 and drop != Vector3.INF
-		_idol.visible = barea_stage() in ["arrive", "hunt"] or dropped
+		_idol.visible = barea_stage() in ["arrive", "keys", "power", "megamart"] or dropped
 		_idol.global_position = (drop + Vector3.UP * 1.0) if dropped else markers.idol
 		_idol.scale = Vector3.ONE * (0.6 if dropped else 1.0)
 		for c in _idol.get_children():
 			if c is Area3D:
 				(c as Area3D).collision_layer = 8 if _idol.visible else 0
+	var stage := barea_stage()
+	if _keys_zone:
+		_keys_zone.collision_layer = 8 if stage == "keys" else 0
+	if _breaker_zone:
+		_breaker_zone.collision_layer = 8 if stage == "power" and not _event_running() else 0
+	# Locks the story opens: the substation gate (with the keys), the Megamart shutters (with power).
+	_set_lock(markers.get("sub_gate", {}), Story.reached(stage, "power"))
+	_set_lock(markers.get("shutter", {}), Story.reached(stage, "megamart"))
+	for n in npcs:
+		var only_alert: bool = n.data.get("only_alert", false)
+		n.visible = not only_alert or stage in ["alert", "escaped"]
+		for c in n.find_children("*", "Area3D", true, false):
+			(c as Area3D).collision_layer = 8 if n.visible else 0
+
+
+func _set_lock(lock: Dictionary, open: bool) -> void:
+	if lock.is_empty() or not is_instance_valid(lock.node):
+		return
+	var node: Node3D = lock.node
+	nav.set_open(lock.rect, open)
+	if open and not node.get_meta("opened", false):
+		node.set_meta("opened", true)
+		Sfx.play("gate", node.global_position, 4.0)
+		var tw := create_tween()
+		tw.tween_property(node, "position:y", node.position.y + 8.0, 3.0)
+		for c in node.find_children("*", "CollisionShape3D", true, false):
+			(c as CollisionShape3D).set_deferred("disabled", true)
+
+
+func _event_running() -> bool:
+	return String(Game.story.get("event", "")) != ""
+
+
+## Seconds left on the current hold-out (any peer; the host stamps the end time).
+func event_left() -> float:
+	if not _event_running():
+		return 0.0
+	return maxf(float(Game.story.get("event_until", 0.0)) - Time.get_unix_time_from_system(), 0.0)
+
+
+func _start_event(name: String, duration: float) -> void:
+	Game.story.event = name
+	Game.story.event_until = Time.get_unix_time_from_system() + duration
+	Game.mark_dirty()
+	director.start_crescendo(duration)
+	_story_changed.rpc(Game.story)
+
+
+## The director's crescendo ended: what that unlocks depends on which act we're in.
+func _event_done() -> void:
+	var ev := String(Game.story.get("event", ""))
+	Game.story.event = ""
+	match ev:
+		"lockdown":
+			Game.toast.rpc("The alarm's quiet. Head for Substation 4, north-west.", Color(0.6, 1.0, 0.5))
+		"power":
+			Game.story.barea = "megamart"
+			Game.show_banner.rpc("THE GRID IS BACK", "The Megamart's shutters are rolling up. Head south.")
+			fx_sound.rpc("rescue_horn", Vector3.INF)
+	Game.mark_dirty()
+	_story_changed.rpc(Game.story)
+
+
+var _keys_zone: Area3D
+var _breaker_zone: Area3D
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_keys(slot: int) -> void:
+	if not _sender_ok() or barea_stage() != "keys":
+		return
+	var s := get_survivor_by_slot(slot)
+	if s == null or not s.able() or s.global_position.distance_to(markers.keys) > 4.0:
+		return
+	Game.story.barea = "power"
+	Game.show_banner.rpc("HOLDING-CELL ALARM", "%s took the keys. Hold out!" % s.short_name())
+	fx_sound.rpc("alarm", markers.keys)
+	_start_event("lockdown", Story.LOCKDOWN_TIME)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_breaker(slot: int) -> void:
+	if not _sender_ok() or barea_stage() != "power" or _event_running():
+		return
+	var s := get_survivor_by_slot(slot)
+	if s == null or not s.able() or s.global_position.distance_to(markers.breaker) > 4.0:
+		return
+	Game.show_banner.rpc("POWERING UP", "Hold out while Substation 4 spins up the grid!")
+	fx_sound.rpc("alarm", markers.breaker)
+	_start_event("power", Story.POWER_TIME)
 
 
 func _story_tick(delta: float) -> void:
@@ -988,11 +1086,11 @@ func _story_tick(delta: float) -> void:
 		return
 	for s: Survivor in humans:
 		var v := vehicle_for_slot(s.slot)
-		if v == null or v.kind != "boat" or (boat != null and v != boat):
+		if v == null or v.kind != "boat" or not v.ferry or (boat != null and v != boat):
 			return
 		boat = v
-	if OpenWorld.land_index(boat.global_position, -70.0) == 0:
-		return  # still too close to Barea's shore
+	if OpenWorld.land_index(boat.global_position, -170.0) == 0:
+		return  # still too close to Barea's shore (the pier alone runs well out)
 	if vehicle_for_slot(carrier.slot) != boat:
 		return
 	Game.story.barea = "escaped"
@@ -1008,9 +1106,9 @@ func request_story_talk(npc_id: String) -> void:
 	if not _sender_ok():
 		return
 	if barea_stage() == "arrive":
-		Game.story.barea = "hunt"
+		Game.story.barea = "keys"
 		Game.mark_dirty()
-		Game.toast.rpc("New lead: the Yellow Sticker idol is at the Price Slasher Megamart, west Barea.", Color(1.0, 0.85, 0.2))
+		Game.toast.rpc("New objective: the substation keys at Barea Police HQ, north-east.", Color(1.0, 0.85, 0.2))
 		_story_changed.rpc(Game.story)
 
 
@@ -1031,7 +1129,9 @@ func request_idol(slot: int) -> void:
 		Game.toast.rpc("%s has the idol again. Keep moving!" % s.short_name(), Color(1.0, 0.85, 0.2))
 		_story_changed.rpc(Game.story)
 		return
-	if not barea_stage() in ["arrive", "hunt"]:
+	if barea_stage() != "megamart":
+		if barea_stage() in ["arrive", "keys", "power"]:
+			Game.toast.rpc("The Megamart is shuttered. It needs power first.", Color(1.0, 0.7, 0.3))
 		return
 	Game.story.idol_carrier = slot
 	Game.story.idol_drop = Vector3.INF
@@ -1039,8 +1139,8 @@ func request_idol(slot: int) -> void:
 	Game.mark_dirty()
 	director.city_alert = true
 	director.relax_t = 0.0
-	Game.show_banner.rpc("BAREA CITY IS ON HIGH ALERT", "%s took the Yellow Sticker idol. Get to a boat!" % s.short_name())
-	Game.toast.rpc("Every infected in the city knows. RUN for the harbour!", Color(1.0, 0.35, 0.25))
+	Game.show_banner.rpc("BAREA CITY IS ON HIGH ALERT", "%s took the Yellow Sticker idol." % s.short_name())
+	Game.toast.rpc("Marla (radio): \"The harbour's overrun! I'm at the OLD FERRY TERMINAL on the west shore. Move!\"", Color(0.6, 0.9, 1.0))
 	fx_sound.rpc("siren", Vector3.INF)
 	fx_sound.rpc("horde_music", Vector3.INF)
 	_story_changed.rpc(Game.story)

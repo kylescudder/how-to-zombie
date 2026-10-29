@@ -451,11 +451,14 @@ func _update_objective(lvl: Level) -> void:
 		if lvl.barea_stage() == "alert":
 			var carrier := lvl.get_survivor_by_slot(int(Game.story.get("idol_carrier", -1)))
 			if carrier == null:
-				goal = "The idol's on the ground! Pick it up, then get to a boat!"
+				goal = "The idol's on the ground! Pick it up, then get to the old ferry terminal (west)!"
 			elif carrier == me:
-				goal = "YOU have the idol (it slows you down). Get everyone onto a boat!"
+				goal = "YOU have the idol (it slows you down). Get everyone onto Marla's ferry (west shore)!"
 			else:
-				goal = "%s has the idol. Get everyone onto a boat!" % carrier.short_name()
+				goal = "%s has the idol. Get everyone onto Marla's ferry (west shore)!" % carrier.short_name()
+		if lvl.event_left() > 0.0:
+			var left := int(ceil(lvl.event_left()))
+			goal += "\nHOLD OUT: %d:%02d" % [left / 60, left % 60]
 		objective.text = "DEAD LOW TIDE • %s\n%s\n[M] World map" % [region, goal]
 		if vehicle: objective.text += "\n%s • %d km/h • %d/4 aboard" % [vehicle.kind.capitalize(),roundi(absf(vehicle.net_speed)*3.6),4-Array(vehicle.seats).count(-1)]
 		if lvl.local_waypoint!=Vector3.INF: objective.text += "\nWaypoint: %d m" % roundi(me.global_position.distance_to(lvl.local_waypoint))

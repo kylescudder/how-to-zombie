@@ -59,10 +59,27 @@ func _draw() -> void:
 	for n: StoryNPC in level.npcs:
 		var p := chart(n.global_position)
 		draw_string(ThemeDB.fallback_font, p + Vector2(-3, 5), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1.0, 0.85, 0.2))
-	if level.barea_stage() == "hunt" and level.markers.get("idol", Vector3.INF) != Vector3.INF:
-		var p := chart(level.markers.idol)
+	var goal := Vector3.INF
+	var what := ""
+	match level.barea_stage():
+		"keys":
+			goal = level.markers.get("keys", Vector3.INF)
+			what = "Police HQ: keys"
+		"power":
+			goal = level.markers.get("breaker", Vector3.INF)
+			what = "Substation 4"
+		"megamart":
+			goal = level.markers.get("idol", Vector3.INF)
+			what = "Megamart: the idol"
+		"alert":
+			goal = level.markers.get("ferry_terminal", Vector3.INF)
+			what = "Old ferry terminal"
+	if goal != Vector3.INF:
+		var p := chart(goal)
 		draw_circle(p, 7, Color(1.0, 0.85, 0.1))
-		draw_string(ThemeDB.fallback_font, p + Vector2(10, 5), "Yellow Sticker idol", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.9, 0.3))
+		draw_arc(p, 11, 0, TAU, 20, Color(1.0, 0.85, 0.1), 2)
+		draw_string_outline(ThemeDB.fallback_font, p + Vector2(12, 5), what, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, Color(0, 0, 0, 0.85))
+		draw_string(ThemeDB.fallback_font, p + Vector2(12, 5), what, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.9, 0.3))
 	for vehicle: TeamVehicle in level.vehicles():
 		var point := chart(vehicle.global_position)
 		draw_circle(point,3.5,Color(0.4,0.85,1) if vehicle.kind=="boat" else Color(1,0.7,0.25))

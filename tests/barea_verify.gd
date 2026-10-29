@@ -12,12 +12,12 @@ func run(owner: Node) -> void:
 	var me := level.local_survivor()
 	test.check(OpenWorld.ISLANDS[0].name == "Barea City" and OpenWorld.land_index(me.global_position) == 0, "the squad starts on Barea City")
 	var blocks: Array = level.markers.city_blocks
-	test.check(blocks.size() >= 120, "Barea is a big city (%d blocks)" % blocks.size())
+	test.check(blocks.size() >= 450, "Barea is a big city (%d blocks)" % blocks.size())
 	var xs := blocks.map(func(b): return b.x)
 	var zs := blocks.map(func(b): return b.z)
-	test.check(xs.max() - xs.min() > 700.0 and zs.max() - zs.min() > 600.0, "city spans %.0f x %.0f m" % [xs.max() - xs.min(), zs.max() - zs.min()])
-	test.check(level.markers.roadblocks.size() >= 40, "army roadblocks across the streets (%d)" % level.markers.roadblocks.size())
-	test.check(level.markers.alarm_cars.size() >= 25, "alarmed cars parked around town (%d)" % level.markers.alarm_cars.size())
+	test.check(xs.max() - xs.min() > 1500.0 and zs.max() - zs.min() > 1300.0, "city spans %.0f x %.0f m" % [xs.max() - xs.min(), zs.max() - zs.min()])
+	test.check(level.markers.roadblocks.size() >= 150, "army roadblocks across the streets (%d)" % level.markers.roadblocks.size())
+	test.check(level.markers.alarm_cars.size() >= 60, "alarmed cars parked around town (%d)" % level.markers.alarm_cars.size())
 	test.check(level.npcs.size() == Story.NPCS.size(), "%d survivors to talk to" % level.npcs.size())
 	test.check(level.markers.idol != Vector3.INF and level._idol.visible, "the Yellow Sticker idol waits on its shrine")
 	test.check(level.barea_stage() == "arrive", "story starts on arrival")
@@ -41,7 +41,7 @@ func run(owner: Node) -> void:
 	var rb: Dictionary = level.markers.roadblocks[level.markers.roadblocks.size() / 2]
 	var across: Vector3 = rb.axis
 	var through := Vector3(across.z, 0, across.x)  # perpendicular: the way traffic runs
-	var car := level.vehicles()[0] as TeamVehicle
+	var car: TeamVehicle = level.vehicles().filter(func(v): return v.kind == "car")[0]
 	car.global_position = rb.pos - through * 14.0 + Vector3.UP * 0.2
 	car.rotation.y = atan2(-through.x, -through.z)
 	car.seats = PackedInt32Array([me.slot, -1, -1, -1])
@@ -98,7 +98,7 @@ func run(owner: Node) -> void:
 	level.director.set_process(false)
 	for i in level.all_infected(): i.queue_free()
 
-	# Talk to Captain Marla on the harbour.
+	# Act 1: talk to Captain Marla on the harbour.
 	var marla := level.npc("marla")
 	me.global_position = marla.global_position + marla.global_transform.basis.z * 1.8 + Vector3.UP * 0.3
 	await test.wait(0.2)
@@ -106,22 +106,75 @@ func run(owner: Node) -> void:
 	hud.talk(level, "marla")
 	await test.wait(0.3)
 	test.check(hud._talk_panel.visible and hud._talk_text.text.contains("Barea"), "Marla tells her story")
-	test.check(level.barea_stage() == "hunt", "talking reveals the idol's whereabouts")
+	test.check(level.barea_stage() == "keys", "Act 2 begins: get the keys")
 	for k in Story.npc("marla").lines.size():
 		hud.talk(level, "marla")
 	test.check(not hud._talk_panel.visible, "conversation ends after the last line")
+	test.check(not level.npc("marla_ferry").visible, "Marla isn't at the ferry terminal yet")
 
-	# The Megamart is indoors: a roof over the shrine, a way in from the street.
+	# Scale: each act is in its own district. Walk the whole route with every lock open.
+	for lock: Dictionary in [level.markers.sub_gate, level.markers.shutter]:
+		level.nav.set_open(lock.rect, true)
+	var legs := [["harbour", OpenWorld.camp(0)], ["Police HQ keys", level.markers.keys], ["Substation 4 breaker", level.markers.breaker], ["Megamart idol", level.markers.idol - Vector3.UP * 2.6], ["old ferry terminal", level.markers.ferry_terminal]]
+	var total := 0.0
+	var ok := true
+	for k in range(1, legs.size()):
+		var route := level.nav.path(legs[k - 1][1], legs[k][1])
+		var leg := 0.0
+		for q in range(1, route.size()):
+			leg += route[q - 1].distance_to(route[q])
+		ok = ok and not route.is_empty()
+		total += leg
+		print("[BAREA] %s -> %s: %.0f m" % [legs[k - 1][0], legs[k][0], leg])
+	var pure := total / Survivor.RUN
+	print("[BAREA] whole route %.0f m: %.1f min of nonstop running, plus %.1f min of hold-outs" % [total, pure / 60.0, (Story.LOCKDOWN_TIME + Story.POWER_TIME) / 60.0])
+	test.check(ok, "every act is reachable on foot")
+	test.check(total > 3500.0, "the story route is long (%.1f km)" % (total / 1000.0))
+	level._apply_story()  # put the locks back
+	test.check(not level.nav.walkable(level.markers.sub_gate.rect.position) and not level.nav.walkable(level.markers.shutter.rect.position), "substation gate and Megamart shutter start locked")
+
+	# The Megamart is indoors, and shuttered until the power's back.
 	var space := level.get_world_3d().direct_space_state
 	var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(level.markers.idol, level.markers.idol + Vector3.UP * 30, 1))
 	test.check(not up.is_empty() and up.position.y < 12.0, "the idol's shrine is indoors (roof at %.1f m)" % (up.position.y if not up.is_empty() else -1.0))
-	var route := level.nav.path(OpenWorld.dock(0) + Vector3(-30, 0, 0), level.markers.idol - Vector3.UP * 2.6)
-	var walk := 0.0
-	for k in range(1, route.size()):
-		walk += route[k - 1].distance_to(route[k])
-	test.check(not route.is_empty(), "you can walk from the harbour into the Megamart")
-	var carry_time := walk / (Survivor.RUN * 0.88)
-	print("[BAREA] harbour <-> idol walking route %.0f m: %.0f s at the idol carrier's full running speed" % [walk, carry_time])
+	me.global_position = level.markers.idol + Vector3(2.5, -2.3, 0)
+	await test.wait(0.2)
+	level.request_idol.rpc_id(1, me.slot)
+	await test.wait(0.2)
+	test.check(level.barea_stage() == "keys", "no idol before the power's back on")
+
+	# Act 2: Police HQ keys, with a holding-cell alarm hold-out.
+	level.director.set_process(true)
+	level.director.relax_t = 9999.0
+	level.director.wander_t = 9999.0
+	me.global_position = level.markers.keys + Vector3(1.5, -0.9, 0)
+	for s: Survivor in level.get_survivors():
+		if s.bot: s.global_position = me.global_position + Vector3(2.0, 0, s.slot * 1.2)
+	await test.wait(0.3)
+	level.request_breaker.rpc_id(1, me.slot)
+	level.request_keys.rpc_id(1, me.slot)
+	await test.wait(0.3)
+	test.check(level.barea_stage() == "power" and level.event_left() > 50.0, "taking the keys sets off a %d s alarm" % int(level.event_left()))
+	test.check(level.nav.walkable(level.markers.sub_gate.rect.position), "the keys unlock Substation 4's gate")
+	test.check(await test.wait_for(func(): return level.count_commons() >= 8, 15.0), "the alarm brings a horde (%d)" % level.count_commons())
+	level.director.crescendo_t = 0.05
+	test.check(await test.wait_for(func(): return level.event_left() == 0.0, 3.0), "the alarm hold-out ends")
+	for i in level.all_infected(): i.queue_free()
+
+	# Act 3: the substation breaker, with a 90 s power-up hold-out.
+	me.global_position = level.markers.breaker + Vector3(1.5, -0.9, 0)
+	for s: Survivor in level.get_survivors():
+		if s.bot: s.global_position = me.global_position + Vector3(2.0, 0, s.slot * 1.2)
+	await test.wait(0.3)
+	level.request_breaker.rpc_id(1, me.slot)
+	await test.wait(0.3)
+	test.check(level.event_left() > 80.0 and level.barea_stage() == "power", "throwing the breaker starts a %d s hold-out" % int(level.event_left()))
+	test.check(await test.wait_for(func(): return level.count_commons() >= 8, 15.0), "the substation draws a horde (%d)" % level.count_commons())
+	level.director.crescendo_t = 0.05
+	test.check(await test.wait_for(func(): return level.barea_stage() == "megamart", 3.0), "the grid comes back: Act 4")
+	test.check(level.nav.walkable(level.markers.shutter.rect.position), "the Megamart shutters roll up")
+	level.director.set_process(false)
+	for i in level.all_infected(): i.queue_free()
 
 	# The discounted rifle: cheap, powerful, misfires, and goes off after 5 minutes.
 	var deal: Pickup = null
@@ -189,20 +242,40 @@ func run(owner: Node) -> void:
 	var sent := level._next_id - first_id
 	test.check(sent >= 35, "nonstop hordes while on alert (%d infected sent in 20 s, %d at once)" % [sent, peak])
 
-	# Escape by boat.
-	var boat: TeamVehicle = null
+	test.check(level.npc("marla_ferry").visible, "Marla has moved to the old ferry terminal")
+	# The harbour boats won't do: Marla's at the ferry terminal.
+	var harbour_boat: TeamVehicle = null
+	var ferry: TeamVehicle = null
 	for v: TeamVehicle in level.vehicles():
 		if v.kind == "boat" and v.global_position.distance_to(OpenWorld.dock(0)) < 60.0:
-			boat = v
-	test.check(boat != null, "Barea has a boat at the harbour")
-	me.global_position = boat.global_position + Vector3(0, 0.6, 2)
-	boat.request_enter(me.slot)
+			harbour_boat = v
+		if v.ferry:
+			ferry = v
+	test.check(ferry != null and ferry.global_position.distance_to(level.markers.ferry_terminal) < 160.0, "Marla's ferry is moored at the terminal")
+	me.global_position = harbour_boat.global_position + Vector3(0, 0.6, 2)
+	harbour_boat.request_enter(me.slot)
 	await test.wait(0.2)
-	test.check(level.vehicle_for_slot(me.slot) == boat, "boarded the boat")
+	harbour_boat.global_position = OpenWorld.dock(0) + Vector3(160, -0.45, 0)
+	harbour_boat.net_pos = harbour_boat.global_position
+	await test.wait(1.0)
+	test.check(level.barea_stage() == "alert", "sailing off in a harbour boat doesn't count")
+	harbour_boat.request_exit(me.slot)
+	harbour_boat.seats = PackedInt32Array([-1, -1, -1, -1])
+	me.global_position = ferry.global_position + Vector3(0, 0.6, 2)
+	ferry.request_enter(me.slot)
+	await test.wait(0.2)
+	test.check(level.vehicle_for_slot(me.slot) == ferry, "boarded Marla's ferry")
 	test.check(level.barea_stage() == "alert", "still on alert while moored")
-	boat.global_position = OpenWorld.dock(0) + Vector3(160, -0.45, 0)
-	boat.net_pos = boat.global_position
-	test.check(await test.wait_for(func(): return level.barea_stage() == "escaped", 3.0), "sailing away escapes Barea City")
+	# Actually sail it out: it must not be stuck on the beach shelf.
+	var moored := ferry.global_position
+	ferry._send_t = 1000
+	for k in 80:
+		ferry.drive(me.slot, 1.0, 0.0, false)
+		await test.wait(0.05)
+	test.check(ferry.global_position.distance_to(moored) > 25.0, "Marla's ferry sails away from the pier (%.0f m)" % ferry.global_position.distance_to(moored))
+	ferry.global_position = level.markers.ferry_terminal + Vector3(-360, -0.45, 0)
+	ferry.net_pos = ferry.global_position
+	test.check(await test.wait_for(func(): return level.barea_stage() == "escaped", 3.0), "sailing away on the ferry escapes Barea City")
 	test.check(not level.director.city_alert, "the alert ends once you're away")
 
 
@@ -227,11 +300,21 @@ func shots(owner: Node) -> void:
 	cam.current = true
 	await _snap(dir + "/01_skyline.png")
 	# 2. Aerial over downtown
-	cam.global_position = OpenWorld.camp(0) + Vector3(-150, 260, 300)
-	cam.look_at(OpenWorld.camp(0) + Vector3(-480, 0, 0), Vector3.UP)
+	cam.global_position = OpenWorld.camp(0) + Vector3(-200, 520, 700)
+	cam.look_at(OpenWorld.camp(0) + Vector3(-950, 0, -100), Vector3.UP)
 	await _snap(dir + "/02_aerial.png")
 	cam.current = false
 	me.camera.current = true
+	# 2b. Each act's landmark
+	cam.current = false
+	me.camera.current = true
+	for shot: Array in [["13_police_keys", level.markers.keys, Vector3(12, -0.9, 6)], ["14_substation", level.markers.breaker, Vector3(30, 0.3, 14)], ["15_megamart_shutter", level.markers.idol, Vector3(48, -2.3, 10)], ["16_ferry_terminal", level.markers.ferry_terminal + Vector3(-125, 0, 9), Vector3(118, 0.3, -2)]]:
+		var target: Vector3 = shot[1]
+		var c := level.nav.nearest_walkable(target + shot[2], 8)
+		me.global_position = level.nav.center(c) + Vector3.UP * 0.3
+		test.aim_at(me, target + Vector3.UP * 1.0)
+		await test.wait(0.7)
+		await _snap(dir + "/%s.png" % shot[0])
 	# 3. Street level on the avenue
 	var avenue := OpenWorld.camp(0) + Vector3(-300, 0.3, 0)
 	me.global_position = avenue
@@ -310,7 +393,8 @@ func shots(owner: Node) -> void:
 		test.aim_at(me, near[0].global_position + Vector3.UP)
 	await test.wait(0.05)
 	await _snap(dir + "/08_alert.png")
-	# 9. World map
+	# 9. World map, mid-story (Act 3 marker showing)
+	Game.story.barea = "power"
 	hud.open_world_map(level)
 	await test.wait(0.3)
 	await _snap(dir + "/09_map.png")

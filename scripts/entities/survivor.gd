@@ -1044,6 +1044,10 @@ func _interact() -> void:
 				hud.talk(level(), String(t.get_meta("npc")))
 		"idol":
 			level().request_idol.rpc_id(1, slot)
+		"keys":
+			level().request_keys.rpc_id(1, slot)
+		"breaker":
+			level().request_breaker.rpc_id(1, slot)
 
 
 func _refill_ammo() -> void:

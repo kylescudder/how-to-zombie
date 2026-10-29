@@ -9,7 +9,7 @@ func run(test: Node, host: bool) -> void:
 		test.check(await test.wait_for(func(): return Net.in_session() and test.get_tree().get_first_node_in_group("level")!=null,30),"client received open-world level")
 	var level := test.get_tree().get_first_node_in_group("level") as Level
 	if not level: return
-	test.check(await test.wait_for(func(): return level.vehicles().size()==10 and level.local_survivor()!=null,20),"ten vehicles and local survivor replicated")
+	test.check(await test.wait_for(func(): return level.vehicles().size()==11 and level.local_survivor()!=null,20),"ten vehicles and local survivor replicated")
 	if host: level.director.set_process(false)
 	var car := level.vehicles()[0] as TeamVehicle
 	var me := level.local_survivor()
@@ -57,8 +57,8 @@ func run(test: Node, host: bool) -> void:
 func _story(test: Node, level: Level, host: bool) -> void:
 	var me := level.local_survivor()
 	if host:
-		test.check(await test.wait_for(func(): return level.barea_stage() == "hunt", 20), "host sees the client's conversation reveal the idol")
-		test.check(await test.wait_for(func(): return level.barea_stage() == "alert" and level.director.city_alert, 20), "client taking the idol puts the host's city on alert")
+		test.check(await test.wait_for(func(): return level.barea_stage() == "keys", 20), "host sees the client's conversation start Act 2")
+		test.check(await test.wait_for(func(): return level.barea_stage() == "power" and level.event_left() > 0.0, 20), "client taking the keys starts the host's alarm hold-out")
 		await test.wait(3)
 	else:
 		test.check(await test.wait_for(func(): return level.npcs.size() == Story.NPCS.size(), 10), "client builds the story NPCs")
@@ -67,13 +67,14 @@ func _story(test: Node, level: Level, host: bool) -> void:
 		me.global_position = marla.global_position + marla.global_transform.basis.z * 1.8 + Vector3.UP * 0.3
 		await test.wait(0.5)
 		hud.talk(level, "marla")
-		test.check(await test.wait_for(func(): return level.barea_stage() == "hunt", 5), "client's story stage synced after talking")
-		level.request_idol.rpc_id(1, me.slot)
+		test.check(await test.wait_for(func(): return level.barea_stage() == "keys", 5), "client's story stage synced after talking")
+		level.request_keys.rpc_id(1, me.slot)
 		await test.wait(0.5)
-		test.check(level.barea_stage() == "hunt", "host refuses the idol from across the city")
-		me.global_position = level.markers.idol + Vector3(2.5, -2.3, 0)
+		test.check(level.barea_stage() == "keys", "host refuses the keys from across the city")
+		me.global_position = level.markers.keys + Vector3(1.5, -0.9, 0)
 		await test.wait(0.8)
-		level.request_idol.rpc_id(1, me.slot)
-		test.check(await test.wait_for(func(): return level.barea_stage() == "alert", 5), "client takes the idol; city on alert everywhere")
-		test.check(not level._idol.visible, "the idol vanishes for the client too")
+		level.request_keys.rpc_id(1, me.slot)
+		test.check(await test.wait_for(func(): return level.barea_stage() == "power", 5), "client takes the keys; Act 3 everywhere")
+		test.check(await test.wait_for(func(): return level.event_left() > 30.0, 5), "client sees the hold-out countdown (%d s)" % int(level.event_left()))
+		test.check(await test.wait_for(func(): return level.nav.walkable(level.markers.sub_gate.rect.position), 5), "substation gate opens for the client too")
 		await test.wait(1)

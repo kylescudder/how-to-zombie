@@ -18,19 +18,30 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 | ![Barea City skyline](docs/barea_01_skyline.jpg) | ![Roadblock](docs/barea_04_roadblock.jpg) |
 | ![The Yellow Sticker idol](docs/barea_06_idol.jpg) | ![The Reduced Rifle](docs/barea_11_reduced_rifle.jpg) |
 
-One 3 km map with five islands: **Barea City**, **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland.
+One 5.2 km map with five islands: **Barea City**, **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland.
 
 ### Barea City: the Yellow Sticker idol
 
-You land in Barea City, a metropolis about 900 × 770 m: skyscrapers downtown, mid-rise blocks and alleys, petrol stations, Barea Mart convenience stores, a police station, Fire Station 7, a plaza and the **Price Slasher Megamart**.
+| | |
+|---|---|
+| ![Barea from the air](docs/barea_02_aerial.jpg) | ![Substation 4](docs/barea_14_substation.jpg) |
+| ![The shuttered Megamart](docs/barea_15_megamart_shutter.jpg) | ![World map, Act 3](docs/barea_09_map.jpg) |
+
+Barea is a metropolis about 1.7 × 1.5 km (559 city blocks): downtown towers, residential mid-rises and alleys, a north-west industrial estate, petrol stations, Barea Mart convenience stores, Barea Police, Fire Station 7, a plaza and the **Price Slasher Megamart**. The story is a five-act run of roughly 45–50 minutes across about 4.4 km of the city. Each act is in a different district, and the world map (**M**) marks the current objective.
+
+1. **The harbour.** Land and talk to Captain Marla. The idol is in the Megamart, but the Megamart is shuttered with no power. The substation that feeds it is padlocked, and Sgt. Okafor at Police HQ has the keys.
+2. **Police HQ (north-east, ~0.9 km).** Take the master keys from the evidence lockup. That sets off the holding-cell alarm: hold out for 60 seconds while the district piles in.
+3. **Substation 4 (north-west industrial estate, ~0.9 km).** The keys open the gate. Throw the main breaker, then hold out for 90 seconds while the grid spins up.
+4. **The Megamart (south, ~1.5 km).** The shutters roll up. Inside are aisles of shelving, checkouts, and right at the back the Yellow Sticker idol (a chunky reduced label: *was £1.40p, NOW £0.27p*) on a shrine of shopping trolleys.
+5. **Escape (west shore, ~1.1 km).** Taking the idol puts the whole city on high alert: sirens and nonstop hordes. The harbour's overrun, so Marla moves to the **old ferry terminal on the far shore**. Only her ferry counts. Get everyone still alive, including whoever carries the idol, aboard and out to sea.
+
+Hold-outs, hordes and roadblocks are where the time goes: nonstop running alone would be about 14 minutes plus 2.5 minutes of hold-outs.
 
 - **Roadblocks.** The army closed most streets. Every roadblock leaves a gap you can squeeze through on foot, but no car fits, so you can't drive across town. The streets become corridors and hordes funnel through the same gaps you do.
 - **Car alarms.** Cars with a blinking red light are alarmed. Shoot one or drive into one and a horde comes running.
-- **Survivors.** Five people are holed up around town: Captain Marla at the harbour, Dev at a petrol station, Sgt. Okafor at the police station, Bex at the fire station, and Old Reg in the plaza. Walk up and press **E** to talk; each tells you part of the story. Talking to any of them puts the idol on your map.
-- **The Megamart.** Walk in through the front doors: aisles of shelving, checkouts, and right at the back the Yellow Sticker idol (a chunky reduced label: *was £1.40p, NOW £0.27p*) on a shrine of shopping trolleys. A giant billboard of it sits on the roof.
-- **The Reduced Rifle.** On the "Reduced to Clear" stand by the tills: the normal assault rifle with a yellow sticker on the side, for 27 credits. Huge damage (130 vs 33), but it randomly misfires and passes its use-by date 5 minutes after you buy it, then falls apart. The countdown shows under the gun in your weapon list. No gunsmith upgrades.
-- **The idol.** Press **E** to take it. Whoever takes it carries it on their back, a little slower than everyone else. If the carrier goes down, the idol drops where they fell and someone has to pick it up again.
-- **High alert.** The moment it moves, sirens start and the whole city comes for you: hordes every few seconds and specials on top, nonstop. You escape Barea City when everyone still alive, including whoever has the idol, is on the same boat out at sea.
+- **Survivors.** People are holed up around town: Marla, Dev at a petrol station, Sgt. Okafor at Police HQ, Bex at Fire Station 7 and Old Reg in the plaza. Press **E** to talk; each fills in part of the story and gives tips.
+- **The Reduced Rifle.** On the "Reduced to Clear" stand by the Megamart tills: the normal assault rifle with a yellow sticker on the side, for 27 credits. Huge damage (130 vs 33), but it randomly misfires and passes its use-by date 5 minutes after you buy it. The escape is much longer than that, so it won't make it to the ferry. No gunsmith upgrades.
+- **Carrying the idol.** Whoever takes it wears it on their back, a little slower than everyone else. If they go down, it drops where they fell and someone has to pick it up again.
 
 ### Getting around
 
@@ -182,8 +193,9 @@ There are no imported art or audio assets. Models combine authored cross-section
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
-tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: roadblocks, alarms, NPCs, Megamart, Reduced Rifle, carrying the idol, alert, escape
+tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: all five acts, route length, roadblocks, alarms, Reduced Rifle, carrying the idol, ferry escape
 tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
+tools/godot -- --solo --test=perf                                     # frame times and draw calls around the city (needs a window)
 tools/godot --headless -- --solo --test=guns       # shop interaction, wallet, upgrades, actual damage, ADS, reload, carryover
 tools/godot -- --solo --test=gun_screens            # detailed gun and gunsmith screenshots in screenshots/guns/
 tools/godot --headless -- --solo --linear --test=solo       # every mechanic: guns, shove, incap + bot revive, medkit, specials, throwables, Tank, Witch, wipe

@@ -1,15 +1,16 @@
 class_name OpenWorld
 extends RefCounted
-## One deterministic 3 km archipelago. Flat combat terrain, curved beaches and local POIs.
+## One deterministic 5.2 km archipelago. Flat combat terrain, curved beaches and local POIs.
 ## Barea City (index 0) is the big starting island with its own story; see BareaCity.
-const EXTENT := 1500.0
-const GRID := 750  # 4 m cells
+const EXTENT := 2600.0
+const GRID := 1300  # 4 m cells
+const BEACH := 22.0  # metres of sloping shelf from the shore down under the water
 const ISLANDS := [
-	{"name": "Barea City", "center": Vector2(-650,-150), "radius": Vector2(560,480), "color": Color(0.42,0.44,0.42), "kind": "city"},
-	{"name": "Rustwater Works", "center": Vector2(440,-560), "radius": Vector2(250,220), "color": Color(0.46,0.49,0.32), "kind": "industry"},
-	{"name": "Pinefall Reserve", "center": Vector2(-500,760), "radius": Vector2(240,250), "color": Color(0.26,0.46,0.32), "kind": "forest"},
-	{"name": "Sunfield County", "center": Vector2(520,520), "radius": Vector2(285,245), "color": Color(0.58,0.62,0.33), "kind": "farm"},
-	{"name": "Last Light", "center": Vector2(150,-1180), "radius": Vector2(150,125), "color": Color(0.41,0.52,0.42), "kind": "lighthouse"},
+	{"name": "Barea City", "center": Vector2(-1300,-200), "radius": Vector2(1000,860), "color": Color(0.42,0.44,0.42), "kind": "city"},
+	{"name": "Rustwater Works", "center": Vector2(900,-900), "radius": Vector2(250,220), "color": Color(0.46,0.49,0.32), "kind": "industry"},
+	{"name": "Pinefall Reserve", "center": Vector2(150,1500), "radius": Vector2(240,250), "color": Color(0.26,0.46,0.32), "kind": "forest"},
+	{"name": "Sunfield County", "center": Vector2(1000,700), "radius": Vector2(285,245), "color": Color(0.58,0.62,0.33), "kind": "farm"},
+	{"name": "Last Light", "center": Vector2(300,-1900), "radius": Vector2(150,125), "color": Color(0.41,0.52,0.42), "kind": "lighthouse"},
 ]
 var grid: NavGrid
 var markers: Dictionary
@@ -83,6 +84,7 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 		markers.vehicles.append({"type": "car", "pos": base + Vector3(-8,0,0), "yaw": PI/2})
 		markers.vehicles.append({"type": "boat", "pos": dock(index) + Vector3(31,-0.45,10), "yaw": PI})
 	for index in 4: markers.spawns.append(camp(0) + Vector3(index*1.5-3,0.1,3))
+	if markers.has("ferry_boat"): markers.vehicles.append(markers.ferry_boat)
 	grid.build_astar()
 
 func _terrain(index: int) -> void:
@@ -96,8 +98,9 @@ func _terrain(index: int) -> void:
 			points.append(Vector3(island.center.x+d.x,0,island.center.y+d.y))
 		var center := Vector3(island.center.x,0,island.center.y)
 		for point in [center,points[0],points[1]]: st.add_vertex(point)
-		var outer_a := center + (points[0]-center)*1.07 + Vector3.DOWN*0.9
-		var outer_b := center + (points[1]-center)*1.07 + Vector3.DOWN*0.9
+		# A fixed-width beach shelf (not proportional, or a big island gets a 70 m mudflat).
+		var outer_a := points[0] + (points[0]-center).normalized()*BEACH + Vector3.DOWN*1.4
+		var outer_b := points[1] + (points[1]-center).normalized()*BEACH + Vector3.DOWN*1.4
 		for point in [points[0],outer_b,points[1],points[0],outer_a,outer_b]: st.add_vertex(point)
 	st.generate_normals()
 	var mesh := st.commit()
@@ -115,10 +118,11 @@ func _terrain(index: int) -> void:
 	sand.mesh = mesh
 	sand.material_override = Build.mat(Color(0.75,0.67,0.44))
 	sand.position = Vector3(island.center.x, -0.12, island.center.y)
-	sand.scale = Vector3(1.045,1,1.045)
+	var k := 1.0 + 12.0 / maxf(island.radius.x, island.radius.y)
+	sand.scale = Vector3(k,1,k)
 	mi.position = Vector3.ZERO
 	# Scale about island centre rather than world origin.
-	sand.position -= Vector3(island.center.x*1.045,0,island.center.y*1.045)
+	sand.position -= Vector3(island.center.x*k,0,island.center.y*k)
 	root.add_child(sand)
 
 func _roads(index: int) -> void:

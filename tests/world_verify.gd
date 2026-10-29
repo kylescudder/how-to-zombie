@@ -11,7 +11,7 @@ func run(owner: Node) -> void:
 	level.director.set_process(false)
 	for infected in level.all_infected(): infected.queue_free()
 	await test.wait(0.1)
-	test.check(level.vehicles().size()==10,"five cars and five boats spawned in shared world")
+	test.check(level.vehicles().size()==11,"five cars, five boats and Marla's ferry spawned in shared world")
 	test.check(level.nav.w==OpenWorld.GRID and is_equal_approx(level.nav.cell_size,4),"3 km navigation uses bounded 4 m grid")
 	for index in 5:
 		var base := OpenWorld.camp(index)
@@ -60,7 +60,7 @@ func run(owner: Node) -> void:
 	# Real continuous physics journey around Rustwater's south coast to its east dock.
 	boat._send_t=1000
 	var finish: Vector3 = OpenWorld.dock(1)+Vector3(31,-0.45,10)
-	for point in [Vector3(-40,-0.45,-100),Vector3(790,-0.45,-100),Vector3(790,-0.45,-540),finish]:
+	for point in [Vector3(-200,-0.45,-160),Vector3(1250,-0.45,-160),Vector3(1250,-0.45,-890),finish]:
 		await drive_to(boat,me.slot,point)
 	boat.drive(me.slot,0,0,true)
 	await test.wait(2)
@@ -85,7 +85,7 @@ func run(owner: Node) -> void:
 
 func drive_to(vehicle: TeamVehicle, slot: int, goal: Vector3) -> void:
 	var elapsed := 0.0
-	while vehicle.global_position.distance_to(goal)>1.8 and elapsed<100:
+	while vehicle.global_position.distance_to(goal)>1.8 and elapsed<160:
 		var delta := goal-vehicle.global_position
 		var target := atan2(-delta.x,-delta.z)
 		var error := angle_difference(vehicle.rotation.y,target)

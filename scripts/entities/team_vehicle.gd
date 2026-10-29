@@ -2,6 +2,7 @@ class_name TeamVehicle
 extends CharacterBody3D
 ## Host simulates vehicles and seat ownership; clients send clamped driver controls only.
 var kind := "car"
+var ferry := false  # Marla's boat at Barea's old ferry terminal (the escape boat)
 var net_pos := Vector3.ZERO
 var net_yaw := 0.0
 var net_speed := 0.0
@@ -17,6 +18,7 @@ var last_exit := {}
 
 func setup(data: Dictionary) -> void:
 	kind = data.type
+	ferry = bool(data.get("ferry", false))
 	position = data.pos
 	net_pos = position
 	rotation.y = float(data.yaw)
@@ -55,7 +57,7 @@ func _ready() -> void:
 		for z in [-0.9,0.8]: Build.box(self,Vector3(2.4,0.45,0.6),Color(0.67,0.28,0.18),Vector3(0,1.03,z))
 		Build.box(self,Vector3(0.7,0.8,0.6),Color(0.25,0.35,0.35),Vector3(-0.65,1.22,-1.7))
 		Build.box(self,Vector3(0.9,0.8,0.5),Color(0.17,0.22,0.23),Vector3(0,0.65,3))
-		Build.label(self,"HAVEN FERRY",Vector3(0,1.9,0),20,Color(1,0.9,0.7))
+		Build.label(self,"MARLA'S FERRY" if ferry else "SQUAD BOAT",Vector3(0,1.9,0),20,Color(1,0.9,0.7))
 
 func level() -> Level:
 	return get_parent().get_parent() as Level

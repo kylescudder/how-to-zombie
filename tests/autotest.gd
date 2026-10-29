@@ -17,6 +17,8 @@ func _ready() -> void:
 			await _suite("res://tests/world_network.gd").new().run(self,test_name=="world_net_host")
 		"world":
 			await _suite("res://tests/world_verify.gd").new().run(self)
+		"perf":
+			await _suite("res://tests/perf_probe.gd").new().run(self)
 		"barea_shots":
 			await _suite("res://tests/barea_verify.gd").new().shots(self)
 		"barea":
