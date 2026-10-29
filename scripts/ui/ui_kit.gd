@@ -2,7 +2,7 @@ class_name UIKit
 ## Shared look for all menus: chunky rounded panels, bold outlined text.
 
 const BG := Color(0.08, 0.1, 0.12, 0.82)
-const ACCENT := Color(0.55, 0.9, 0.35)
+const ACCENT := Color(0.45, 0.85, 0.35)
 const WARN := Color(1.0, 0.45, 0.3)
 const GOLD := Color(1.0, 0.82, 0.3)
 
@@ -20,15 +20,15 @@ static func theme() -> Theme:
 	t.default_font = font
 	t.set_stylebox("panel", "PanelContainer", box(BG, 14))
 	t.set_stylebox("panel", "Panel", box(BG, 14))
-	t.set_stylebox("normal", "Button", box(Color(0.95, 0.55, 0.2), 10, 2, Color(0.5, 0.25, 0.08)))
-	t.set_stylebox("hover", "Button", box(Color(1.0, 0.68, 0.3), 10, 2, Color(0.5, 0.25, 0.08)))
-	t.set_stylebox("pressed", "Button", box(Color(0.8, 0.42, 0.12), 10, 2, Color(0.5, 0.25, 0.08)))
+	t.set_stylebox("normal", "Button", box(Color(0.62, 0.13, 0.1), 10, 2, Color(0.3, 0.05, 0.04)))
+	t.set_stylebox("hover", "Button", box(Color(0.78, 0.2, 0.15), 10, 2, Color(0.3, 0.05, 0.04)))
+	t.set_stylebox("pressed", "Button", box(Color(0.48, 0.09, 0.07), 10, 2, Color(0.3, 0.05, 0.04)))
 	t.set_stylebox("disabled", "Button", box(Color(0.35, 0.35, 0.38), 10))
 	t.set_stylebox("focus", "Button", box(Color(1, 1, 1, 0), 10, 3, Color(1, 1, 1, 0.8)))
 	t.set_color("font_color", "Button", Color.WHITE)
 	t.set_color("font_disabled_color", "Button", Color(0.7, 0.7, 0.7))
 	t.set_constant("outline_size", "Button", 6)
-	t.set_color("font_outline_color", "Button", Color(0.3, 0.12, 0.02))
+	t.set_color("font_outline_color", "Button", Color(0.15, 0.02, 0.02))
 	t.set_constant("outline_size", "Label", 6)
 	t.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.85))
 	t.set_stylebox("normal", "LineEdit", box(Color(0.15, 0.17, 0.2), 8, 2, Color(0.4, 0.4, 0.45)))

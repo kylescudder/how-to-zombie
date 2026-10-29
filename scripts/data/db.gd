@@ -1,153 +1,145 @@
 class_name DB
-## Static game data: weapons, rods, zombies, islands, quests and hats.
-## Tweak numbers here to rebalance the game.
+## All the tuning in one place: survivors, weapons, infected, difficulty and the campaign.
 
-const WATER_LEVEL := 0.0
+const SURVIVORS := [
+	{"name": "Gus", "skin": Color(0.78, 0.6, 0.45), "shirt": Color(0.36, 0.4, 0.24), "pants": Color(0.25, 0.22, 0.2), "hat": "cap", "hat_color": Color(0.55, 0.15, 0.12), "ui": Color(0.55, 0.85, 0.4)},
+	{"name": "Rosa", "skin": Color(0.62, 0.45, 0.34), "shirt": Color(0.85, 0.45, 0.6), "pants": Color(0.82, 0.42, 0.58), "hat": "ponytail", "hat_color": Color(0.15, 0.1, 0.08), "ui": Color(0.95, 0.55, 0.75)},
+	{"name": "Dex", "skin": Color(0.9, 0.75, 0.62), "shirt": Color(0.14, 0.13, 0.13), "pants": Color(0.2, 0.25, 0.4), "hat": "bandana", "hat_color": Color(0.75, 0.12, 0.12), "ui": Color(0.95, 0.6, 0.25)},
+	{"name": "Mei", "skin": Color(0.95, 0.82, 0.68), "shirt": Color(0.25, 0.5, 0.75), "pants": Color(0.18, 0.18, 0.22), "hat": "beanie", "hat_color": Color(0.95, 0.85, 0.3), "ui": Color(0.45, 0.75, 1.0)},
+]
 
-# kind: "rod", "melee", "gun", "throw"
+## slot: primary / secondary / throwable / medkit / pills
+## Guns: dmg per pellet, rof = seconds between shots, spread in degrees, pierce = commons a bullet passes through.
 const WEAPONS := {
-	"rod": {"name": "Rod", "kind": "rod", "price": 0},
-	"fists": {"name": "Slappers", "kind": "melee", "price": 0, "damage": 6.0, "range": 2.2, "cooldown": 0.4, "knock": 7.0},
-	"knife": {"name": "Rusty Knife", "kind": "melee", "price": 0, "damage": 20.0, "range": 2.3, "cooldown": 0.38, "knock": 2.0},
-	"knuckles": {"name": "Brass Knuckles", "kind": "melee", "price": 150, "damage": 30.0, "range": 2.1, "cooldown": 0.32, "knock": 10.0},
-	"bat": {"name": "Nail Bat", "kind": "melee", "price": 450, "damage": 45.0, "range": 2.7, "cooldown": 0.75, "knock": 24.0},
-	"pistol": {"name": "Pea Shooter", "kind": "gun", "price": 300, "damage": 24.0, "cooldown": 0.28, "mag": 8, "reload": 1.1, "spread": 0.012, "pellets": 1, "knock": 2.5},
-	"shotgun": {"name": "Boomstick", "kind": "gun", "price": 900, "damage": 13.0, "cooldown": 0.85, "mag": 4, "reload": 1.8, "spread": 0.085, "pellets": 8, "knock": 4.0},
-	"smg": {"name": "Brrrt-9", "kind": "gun", "price": 1600, "damage": 11.0, "cooldown": 0.075, "mag": 30, "reload": 1.5, "spread": 0.035, "pellets": 1, "knock": 1.2},
-	"harpoon": {"name": "Harpoon Gun", "kind": "gun", "price": 2600, "damage": 85.0, "cooldown": 1.3, "mag": 1, "reload": 1.2, "spread": 0.0, "pellets": 1, "knock": 30.0},
-	"dynamite": {"name": "Dynamite", "kind": "throw", "price": 1200, "damage": 120.0, "cooldown": 2.5, "radius": 6.0, "knock": 26.0},
+	"pistol": {"name": "Pistol", "slot": "secondary", "kind": "gun", "dmg": 36.0, "pellets": 1, "rof": 0.14, "auto": false, "mag": 15, "reserve": -1, "spread": 1.2, "reload": 1.4, "pierce": 1, "sound": "pistol"},
+	"dual_pistols": {"name": "Dual Pistols", "slot": "secondary", "kind": "gun", "dmg": 36.0, "pellets": 1, "rof": 0.09, "auto": false, "mag": 30, "reserve": -1, "spread": 1.8, "reload": 2.0, "pierce": 1, "sound": "pistol"},
+	"bat": {"name": "Baseball Bat", "slot": "secondary", "kind": "melee", "dmg": 160.0, "rof": 0.65, "range": 2.3, "arc": 70.0, "sound": "swing"},
+	"axe": {"name": "Fire Axe", "slot": "secondary", "kind": "melee", "dmg": 240.0, "rof": 0.8, "range": 2.4, "arc": 60.0, "sound": "swing"},
+	"machete": {"name": "Machete", "slot": "secondary", "kind": "melee", "dmg": 200.0, "rof": 0.55, "range": 2.1, "arc": 75.0, "sound": "swing"},
+	"smg": {"name": "SMG", "slot": "primary", "kind": "gun", "tier": 1, "dmg": 20.0, "pellets": 1, "rof": 0.065, "auto": true, "mag": 50, "reserve": 650, "spread": 2.4, "reload": 2.1, "pierce": 1, "sound": "smg"},
+	"pump_shotgun": {"name": "Pump Shotgun", "slot": "primary", "kind": "gun", "tier": 1, "dmg": 25.0, "pellets": 10, "rof": 0.85, "auto": false, "mag": 8, "reserve": 56, "spread": 5.5, "reload": 2.6, "pierce": 1, "sound": "shotgun"},
+	"rifle": {"name": "Assault Rifle", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 33.0, "pellets": 1, "rof": 0.0875, "auto": true, "mag": 50, "reserve": 360, "spread": 1.5, "reload": 2.3, "pierce": 2, "sound": "rifle"},
+	"auto_shotgun": {"name": "Auto Shotgun", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 23.0, "pellets": 11, "rof": 0.3, "auto": true, "mag": 10, "reserve": 90, "spread": 6.0, "reload": 3.0, "pierce": 1, "sound": "shotgun"},
+	"hunting_rifle": {"name": "Hunting Rifle", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 90.0, "pellets": 1, "rof": 0.25, "auto": false, "mag": 15, "reserve": 150, "spread": 0.3, "reload": 3.0, "pierce": 5, "sound": "sniper"},
+	"pipe_bomb": {"name": "Pipe Bomb", "slot": "throwable", "kind": "throw"},
+	"molotov": {"name": "Molotov", "slot": "throwable", "kind": "throw"},
+	"bile_jar": {"name": "Bile Jar", "slot": "throwable", "kind": "throw"},
+	"medkit": {"name": "First Aid Kit", "slot": "medkit", "kind": "heal"},
+	"pills": {"name": "Pain Pills", "slot": "pills", "kind": "heal"},
 }
+const SLOTS := ["primary", "secondary", "throwable", "medkit", "pills"]
 
-const WEAPON_ORDER := ["rod", "fists", "knife", "knuckles", "bat", "pistol", "shotgun", "smg", "harpoon", "dynamite"]
-const STARTING_ITEMS := ["rod", "fists", "knife", "rod_1"]
-
-# Rods: cast = throw distance, reel = reel speed, line = tension resistance, tier = biggest zombie tier you can hook.
-const RODS := {
-	"rod_1": {"name": "Stick & String", "price": 0, "cast": 1.0, "reel": 1.0, "line": 1.0, "tier": 1, "lure": 1.0, "color": Color(0.55, 0.38, 0.2)},
-	"rod_2": {"name": "Fibreglass Fury", "price": 500, "cast": 1.3, "reel": 1.3, "line": 1.35, "tier": 2, "lure": 0.8, "color": Color(0.2, 0.6, 0.9)},
-	"rod_3": {"name": "Carbon Deadliner", "price": 2200, "cast": 1.6, "reel": 1.7, "line": 1.8, "tier": 3, "lure": 0.65, "color": Color(0.15, 0.15, 0.17)},
-	"rod_4": {"name": "The Golden Gaff", "price": 6500, "cast": 2.0, "reel": 2.2, "line": 2.5, "tier": 4, "lure": 0.5, "color": Color(1.0, 0.8, 0.2)},
+## hp, run speed (m/s), dmg = per hit at Normal (scaled by difficulty for commons).
+const INFECTED := {
+	"common": {"name": "Infected", "hp": 50.0, "speed": 6.2, "dmg": 2.0, "size": 1.0},
+	"boomer": {"name": "Boomer", "hp": 50.0, "speed": 3.6, "dmg": 4.0, "size": 1.15, "special": true},
+	"hunter": {"name": "Hunter", "hp": 250.0, "speed": 7.0, "dmg": 10.0, "size": 1.0, "special": true},
+	"smoker": {"name": "Smoker", "hp": 250.0, "speed": 4.6, "dmg": 8.0, "size": 1.15, "special": true},
+	"spitter": {"name": "Spitter", "hp": 100.0, "speed": 5.0, "dmg": 4.0, "size": 1.05, "special": true},
+	"tank": {"name": "Tank", "hp": 4000.0, "speed": 5.6, "dmg": 24.0, "size": 1.9, "special": true, "boss": true},
+	"witch": {"name": "Witch", "hp": 1000.0, "speed": 9.5, "dmg": 100.0, "size": 0.95, "boss": true},
 }
-const ROD_ORDER := ["rod_1", "rod_2", "rod_3", "rod_4"]
+const SPECIALS := ["boomer", "hunter", "smoker", "spitter"]
 
-# fight = how hard it pulls on the line (0..1+)
-const ZOMBIES := {
-	"shambler": {"name": "Shambler", "tier": 1, "hp": 40.0, "speed": 1.7, "damage": 10.0, "value": 25, "fight": 0.35,
-		"skin": Color(0.48, 0.66, 0.38), "shirt": Color(0.75, 0.3, 0.25), "pants": Color(0.25, 0.3, 0.5)},
-	"drowned": {"name": "Drowned", "tier": 1, "hp": 32.0, "speed": 2.4, "damage": 8.0, "value": 32, "fight": 0.45,
-		"skin": Color(0.45, 0.62, 0.68), "shirt": Color(0.9, 0.85, 0.7), "pants": Color(0.3, 0.25, 0.2)},
-	"runner": {"name": "Runner", "tier": 2, "hp": 36.0, "speed": 4.6, "damage": 8.0, "value": 65, "fight": 0.6,
-		"skin": Color(0.6, 0.7, 0.35), "shirt": Color(0.95, 0.85, 0.2), "pants": Color(0.15, 0.15, 0.2)},
-	"bloater": {"name": "Bloater", "tier": 2, "hp": 60.0, "speed": 1.2, "damage": 12.0, "value": 85, "fight": 0.5, "explodes": true,
-		"skin": Color(0.62, 0.72, 0.3), "shirt": Color(0.55, 0.75, 0.3), "pants": Color(0.4, 0.3, 0.25), "belly": 1.7},
-	"diver": {"name": "Scuba Steve", "tier": 3, "hp": 95.0, "speed": 3.2, "damage": 14.0, "value": 160, "fight": 0.75,
-		"skin": Color(0.4, 0.55, 0.45), "shirt": Color(0.1, 0.1, 0.12), "pants": Color(0.1, 0.1, 0.12), "hat": "goggles"},
-	"brute": {"name": "Brute", "tier": 3, "hp": 230.0, "speed": 2.0, "damage": 28.0, "value": 240, "fight": 0.95, "scale": 1.6,
-		"skin": Color(0.42, 0.55, 0.32), "shirt": Color(0.3, 0.3, 0.32), "pants": Color(0.35, 0.25, 0.15)},
-	"golden": {"name": "Golden Boy", "tier": 1, "hp": 50.0, "speed": 5.2, "damage": 5.0, "value": 400, "fight": 0.9, "rare": true,
-		"skin": Color(1.0, 0.82, 0.25), "shirt": Color(1.0, 0.9, 0.4), "pants": Color(0.9, 0.7, 0.2)},
-	"mini": {"name": "Lil' Biter", "tier": 1, "hp": 14.0, "speed": 3.6, "damage": 5.0, "value": 8, "fight": 0.2, "scale": 0.6,
-		"skin": Color(0.5, 0.7, 0.4), "shirt": Color(0.8, 0.4, 0.6), "pants": Color(0.3, 0.3, 0.5)},
-	# Bosses
-	"big_bloaty": {"name": "BIG BLOATY", "tier": 9, "hp": 1400.0, "speed": 1.6, "damage": 25.0, "value": 1500, "fight": 1.0, "scale": 3.0, "boss": true, "explodes": true,
-		"skin": Color(0.6, 0.75, 0.28), "shirt": Color(0.4, 0.6, 0.85), "pants": Color(0.3, 0.3, 0.4), "belly": 2.0, "hat": "captain"},
-	"grill_dad": {"name": "GRILL DAD", "tier": 9, "hp": 2800.0, "speed": 2.6, "damage": 30.0, "value": 4000, "fight": 1.0, "scale": 2.6, "boss": true,
-		"skin": Color(0.55, 0.68, 0.38), "shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.75, 0.6, 0.4), "hat": "chef", "belly": 1.4},
-	"mall_santa": {"name": "MALL SANTA", "tier": 9, "hp": 5000.0, "speed": 2.2, "damage": 35.0, "value": 10000, "fight": 1.0, "scale": 3.2, "boss": true,
-		"skin": Color(0.6, 0.7, 0.45), "shirt": Color(0.85, 0.1, 0.12), "pants": Color(0.85, 0.1, 0.12), "hat": "santa", "belly": 1.6},
-}
+const DIFFICULTIES := [
+	{"name": "Easy", "common_dmg": 1.0, "special_dmg": 0.6, "ff": 0.0, "tank_hp": 3000.0, "horde": 0.7, "special_every": 50.0, "max_specials": 2, "witch_incaps": true},
+	{"name": "Normal", "common_dmg": 2.0, "special_dmg": 1.0, "ff": 0.1, "tank_hp": 4000.0, "horde": 1.0, "special_every": 35.0, "max_specials": 3, "witch_incaps": true},
+	{"name": "Advanced", "common_dmg": 5.0, "special_dmg": 1.5, "ff": 0.5, "tank_hp": 6000.0, "horde": 1.25, "special_every": 28.0, "max_specials": 3, "witch_incaps": false},
+	{"name": "Expert", "common_dmg": 20.0, "special_dmg": 2.0, "ff": 1.0, "tank_hp": 8000.0, "horde": 1.5, "special_every": 22.0, "max_specials": 4, "witch_incaps": false},
+]
 
-const ISLANDS := [
+const MAX_HP := 100.0
+const INCAP_HP := 300.0
+const REVIVE_TIME := 5.0
+const HEAL_TIME := 5.0
+const REVIVED_HP := 30.0
+const MAX_INCAPS := 2  # The third one kills you.
+const TEMP_DECAY := 0.27  # temp health lost per second
+const RESPAWN_HP := 50.0
+
+## The campaign. Each chapter is a run of segments that MapGen lays out end to end along +Z.
+## Layout seeds are fixed so a chapter is the same map every time; what spawns in it isn't.
+const CAMPAIGN_NAME := "Dead Low Tide"
+const CHAPTERS := [
 	{
-		"name": "Bait & Tackle Pier",
-		"boss": "big_bloaty", "bait_price": 200,
-		"table": {"shambler": 60, "drowned": 35, "runner": 6, "bloater": 4, "golden": 2},
-		"sky_top": Color(0.35, 0.6, 0.95), "sky_horizon": Color(0.95, 0.75, 0.6), "water": Color(0.15, 0.45, 0.5), "fog": Color(0.85, 0.75, 0.7),
-		"quests": [
-			{"id": "catch", "goal": 3, "text": "Reel in %d zombies"},
-			{"id": "sell", "goal": 150, "text": "Sell $%d of zombie"},
-			{"id": "combo", "goal": 1, "text": "Score a x2 kill (trick shot!)"},
-			{"id": "bait", "goal": 1, "text": "Buy Boss Bait from Doc"},
-			{"id": "boss", "goal": 1, "text": "Pour the chum & kill BIG BLOATY"},
-		],
+		"name": "Main Street", "seed": 1101,
+		"segments": ["saferoom_start", "street", "alley", "street", "park", "alley", "street_alarm", "saferoom_end"],
+		"start_weapons": ["smg", "smg", "pump_shotgun", "pump_shotgun"],
+		"tank": true, "witch": true,
+		"sky": Color(0.24,0.50,0.62), "fog": Color(0.57,0.68,0.60),
 	},
 	{
-		"name": "Cul-de-Sac Reef",
-		"boss": "grill_dad", "bait_price": 900,
-		"table": {"shambler": 30, "drowned": 25, "runner": 30, "bloater": 15, "diver": 6, "brute": 3, "golden": 2},
-		"sky_top": Color(0.45, 0.5, 0.85), "sky_horizon": Color(1.0, 0.6, 0.45), "water": Color(0.2, 0.4, 0.35), "fog": Color(0.9, 0.65, 0.55),
-		"quests": [
-			{"id": "catch", "goal": 8, "text": "Reel in %d zombies"},
-			{"id": "headshot", "goal": 3, "text": "Land %d headshot kills"},
-			{"id": "airborne", "goal": 1, "text": "AIR MAIL: kill one mid-air"},
-			{"id": "bait", "goal": 1, "text": "Buy Boss Bait from Doc"},
-			{"id": "boss", "goal": 1, "text": "Pour the chum & kill GRILL DAD"},
-		],
+		"name": "The Warehouse", "seed": 2202,
+		"segments": ["saferoom_start", "alley", "warehouse", "warehouse_gate", "yard", "warehouse", "saferoom_end"],
+		"start_weapons": ["rifle", "auto_shotgun", "hunting_rifle", "smg"],
+		"tank": true, "witch": true,
+		"sky": Color(0.06, 0.05, 0.09), "fog": Color(0.09, 0.08, 0.11),
 	},
 	{
-		"name": "Mega-Mall Atoll",
-		"boss": "mall_santa", "bait_price": 2800,
-		"table": {"runner": 25, "bloater": 20, "diver": 25, "brute": 18, "shambler": 10, "golden": 3},
-		"sky_top": Color(0.25, 0.2, 0.5), "sky_horizon": Color(0.95, 0.45, 0.55), "water": Color(0.15, 0.3, 0.4), "fog": Color(0.6, 0.4, 0.55),
-		"quests": [
-			{"id": "catch_tier3", "goal": 2, "text": "Reel in %d tier-3 zombies"},
-			{"id": "sell", "goal": 3000, "text": "Sell $%d of zombie"},
-			{"id": "slot", "goal": 1, "text": "Gamble a corpse at the Lucky Brain"},
-			{"id": "bait", "goal": 1, "text": "Buy Boss Bait from Doc"},
-			{"id": "boss", "goal": 1, "text": "Pour the chum & kill MALL SANTA"},
-		],
+		"name": "The Docks (Finale)", "seed": 3303,
+		"segments": ["saferoom_start", "street", "containers", "docks_finale"],
+		"start_weapons": ["rifle", "auto_shotgun", "rifle", "auto_shotgun"],
+		"tank": false, "witch": false, "finale": true,
+		"sky": Color(0.08, 0.06, 0.12), "fog": Color(0.1, 0.09, 0.14),
 	},
 ]
 
-const HATS := ["none", "bucket", "cone", "viking", "crown", "propeller", "chef", "party", "pot", "santa"]
-const HAT_NAMES := {
-	"none": "No Hat", "bucket": "Bucket Hat", "cone": "Traffic Cone", "viking": "Viking Helm", "crown": "Crown",
-	"propeller": "Propeller Cap", "chef": "Chef Hat", "party": "Party Hat", "pot": "Cooking Pot", "santa": "Santa Hat",
+## Finale stages after the radio call. "wait" = seconds of quiet, "horde" = n waves, "tank" = n tanks.
+const FINALE := [
+	{"kind": "horde", "count": 2}, {"kind": "wait", "time": 12.0},
+	{"kind": "tank", "count": 1}, {"kind": "wait", "time": 10.0},
+	{"kind": "horde", "count": 3}, {"kind": "tank", "count": 1},
+	{"kind": "rescue"},
+]
+
+const MAX_COMMONS := 36
+
+
+static func difficulty(i: int) -> Dictionary:
+	return DIFFICULTIES[clampi(i, 0, DIFFICULTIES.size() - 1)]
+
+
+static func weapon(id: String) -> Dictionary:
+	return WEAPONS.get(id, {})
+
+
+# Semi-real platforms. These are game tuning values, not manufacturer specifications.
+const GUN_PROFILES := {
+	"pistol": {"model": "M9 SERVICE", "caliber": "9×19 mm", "recoil": 0.012, "recovery": 7.0, "range": 35.0, "zoom": 1.35},
+	"dual_pistols": {"model": "M9 / AKIMBO", "caliber": "9×19 mm", "recoil": 0.016, "recovery": 6.0, "range": 30.0, "zoom": 1.2},
+	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "zoom": 1.4},
+	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "zoom": 1.3},
+	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "zoom": 1.5},
+	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "zoom": 1.3},
+	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "zoom": 3.0},
+}
+const UPGRADES := {
+	"power": {"name": "MATCH AMMUNITION", "detail": "+20% damage per tier", "cost": 180, "max": 3},
+	"magazine": {"name": "EXTENDED MAGAZINE", "detail": "+25% capacity per tier · reload to fill", "cost": 140, "max": 3},
+	"handling": {"name": "TUNED ACTION", "detail": "Less recoil, tighter spread, faster reload", "cost": 160, "max": 3},
+	"optic": {"name": "PRECISION OPTIC", "detail": "Magnified aim, tighter aimed grouping", "cost": 220, "max": 1},
 }
 
-const PLAYER_COLORS := [Color(0.95, 0.45, 0.2), Color(0.25, 0.6, 0.95), Color(0.95, 0.8, 0.2), Color(0.75, 0.35, 0.9)]
 
-# Kill style bonuses (added together, then +1). Shown as popups.
-const BONUSES := {
-	"headshot": {"text": "HEADSHOT", "value": 0.5},
-	"airborne": {"text": "AIR MAIL", "value": 1.0},
-	"explosion": {"text": "KABOOM", "value": 0.5},
-	"slap": {"text": "SLAPPED TO DEATH", "value": 2.0},
-	"melee": {"text": "UP CLOSE", "value": 0.2},
-	"homerun": {"text": "HOME RUN", "value": 1.0},
-	"longshot": {"text": "LONG SHOT", "value": 0.5},
-	"multikill": {"text": "MULTI-KILL", "value": 0.5},
-	"overkill": {"text": "OVERKILL", "value": 0.25},
-	"water": {"text": "DROWNED TWICE", "value": 0.5},
-	"chain": {"text": "CHAIN REACTION", "value": 0.75},
-	"harpoon": {"text": "SKEWERED", "value": 0.5},
-}
-
-
-static func zombie_tier_ok(type: String, rod_id: String) -> bool:
-	return ZOMBIES[type].tier <= RODS[rod_id].tier
+static func gun_stats(id: String, upgrades := {}) -> Dictionary:
+	var w := weapon(id).duplicate(true)
+	if not GUN_PROFILES.has(id):
+		return w
+	w.merge(GUN_PROFILES[id], true)
+	var power := clampi(int(upgrades.get("power", 0)), 0, 3)
+	var magazine := clampi(int(upgrades.get("magazine", 0)), 0, 3)
+	var handling := clampi(int(upgrades.get("handling", 0)), 0, 3)
+	w.dmg *= 1.0 + power * 0.2
+	w.mag = ceili(float(w.mag) * (1.0 + magazine * 0.25))
+	w.reload *= pow(0.88, handling)
+	w.spread *= pow(0.85, handling)
+	w.recoil *= pow(0.8, handling)
+	w.recovery *= 1.0 + handling * 0.15
+	w.optic = int(upgrades.get("optic", 0)) > 0
+	if w.optic:
+		w.zoom = 4.0 if id == "hunting_rifle" else 2.0
+	return w
 
 
-static func roll_zombie(island: int, rod_id: String, rng: RandomNumberGenerator) -> String:
-	var table: Dictionary = ISLANDS[island].table
-	var total := 0
-	for t in table:
-		if zombie_tier_ok(t, rod_id):
-			total += int(table[t])
-	var r := rng.randi_range(1, max(total, 1))
-	for t in table:
-		if not zombie_tier_ok(t, rod_id):
-			continue
-		r -= int(table[t])
-		if r <= 0:
-			return t
-	return "shambler"
-
-
-static func format_money(v: int) -> String:
-	var s := str(abs(v))
-	var out := ""
-	while s.length() > 3:
-		out = "," + s.substr(s.length() - 3) + out
-		s = s.substr(0, s.length() - 3)
-	return ("-" if v < 0 else "") + "$" + s + out
+static func upgrade_cost(kind: String, tier: int) -> int:
+	return int(UPGRADES[kind].cost) * (tier + 1) if UPGRADES.has(kind) else 0

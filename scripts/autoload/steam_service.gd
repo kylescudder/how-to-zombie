@@ -94,9 +94,9 @@ func _on_lobby_created(result: int, id: int) -> void:
 		return
 	lobby_id = id
 	steam.setLobbyJoinable(id, true)
-	steam.setLobbyData(id, "name", "%s's island" % persona_name)
+	steam.setLobbyData(id, "name", "%s's survivor squad" % persona_name)
 	steam.setLobbyData(id, "game", "how_to_zombie")
-	set_presence("Fishing for zombies")
+	set_presence("Fighting the infected")
 	lobby_ready.emit(id)
 
 
@@ -106,7 +106,7 @@ func _on_lobby_joined(id: int, _permissions: int, _locked: bool, response: int) 
 		return
 	lobby_id = id
 	var owner_id: int = steam.getLobbyOwner(id)
-	set_presence("Fishing for zombies")
+	set_presence("Fighting the infected")
 	lobby_entered.emit(id, owner_id)
 
 

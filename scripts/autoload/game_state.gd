@@ -1,47 +1,37 @@
 extends Node
-## Shared team progression: wallet, unlocks, quests, island. The host owns it and pushes
-## the whole thing to clients whenever it changes (it's tiny).
+## Campaign state shared by the team: chapter, difficulty, what each survivor carries between
+## chapters, and the stats for the end screens. The host owns it and pushes it to clients.
 
 signal state_changed
-signal toast_received(text: String)
-signal travel_requested(island: int)
+signal toast_received(text: String, color: Color)
+signal chapter_requested(chapter: int)
+signal banner(title: String, subtitle: String)
 
 const SAVE_PATH := "user://save.json"
-const LOCAL_PATH := "user://local.cfg"
 
-var money := 0
-var owned: Array = DB.STARTING_ITEMS.duplicate()
-var hats: Array = ["none"]
-var island := 0
-var unlocked_island := 0
-var quest_stage := [0, 0, 0]
-var quest_count := [0, 0, 0]
-var has_bait := false
-var boss_alive := false
-var won := false
-var stats := {"catches": 0, "kills": 0, "earned": 0, "best_mult": 1.0}
-
-var local_hat := "none"  # This machine's player's chosen hat (cosmetic, not saved in team save).
+var open_world := true
+var chapter := 0
+var difficulty := 1
+## "playing", "complete" (safe room reached), "failed" (team wiped), "victory" (rescued)
+var phase := "playing"
+## Per survivor slot: {"hp": float, "inv": Dictionary} captured when a chapter starts.
+var carry: Array = [{}, {}, {}, {}]
+## Per survivor slot.
+var stats: Array = []
+var arsenal: Array = []  # Host-owned credits and gun-specific upgrades, per survivor slot.
+var finale_stage := -1  # -1 = not started
 
 var _dirty := false
-var _autosave_timer := 0.0
 
 
 func _ready() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(LOCAL_PATH) == OK:
-		local_hat = cfg.get_value("cosmetic", "hat", "none")
+	reset()
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _dirty and Net.in_session() and Net.is_host():
 		_dirty = false
 		_sync.rpc(to_dict())
-	if Net.in_session() and Net.is_host():
-		_autosave_timer += delta
-		if _autosave_timer > 30.0:
-			_autosave_timer = 0.0
-			save_game()
 
 
 func mark_dirty() -> void:
@@ -49,80 +39,65 @@ func mark_dirty() -> void:
 	state_changed.emit()
 
 
-# --- Save / load (host) -------------------------------------------------------
+func reset(start_chapter := 0) -> void:
+	chapter = start_chapter
+	phase = "playing"
+	finale_stage = -1
+	carry = [{}, {}, {}, {}]
+	arsenal = []
+	for i in 4:
+		arsenal.append({"credits": 500, "guns": {}})
+	reset_stats()
 
-func reset() -> void:
-	money = 0
-	owned = DB.STARTING_ITEMS.duplicate()
-	hats = ["none"]
-	island = 0
-	unlocked_island = 0
-	quest_stage = [0, 0, 0]
-	quest_count = [0, 0, 0]
-	has_bait = false
-	boss_alive = false
-	won = false
-	stats = {"catches": 0, "kills": 0, "earned": 0, "best_mult": 1.0}
 
+func reset_stats() -> void:
+	stats = []
+	for i in 4:
+		stats.append({"kills": 0, "specials": 0, "headshots": 0, "ff": 0, "damage": 0, "revives": 0, "incaps": 0})
+
+
+func diff() -> Dictionary:
+	return DB.difficulty(difficulty)
+
+
+func chapter_data() -> Dictionary:
+	return DB.CHAPTERS[clampi(chapter, 0, DB.CHAPTERS.size() - 1)]
+
+
+# --- Save: just remembers the furthest chapter so you can carry on later ------
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return saved_chapter() > 0
 
 
-func load_game() -> bool:
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return false
-	var d = JSON.parse_string(f.get_as_text())
-	if typeof(d) != TYPE_DICTIONARY:
-		return false
-	from_dict(d)
-	boss_alive = false
-	return true
+func saved_chapter() -> int:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return 0
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	return clampi(int(d.get("chapter", 0)), 0, DB.CHAPTERS.size() - 1) if d is Dictionary else 0
 
 
-func save_game() -> void:
-	if not Net.is_host():
-		return
+func save_progress() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify(to_dict(), "\t"))
+		f.store_string(JSON.stringify({"chapter": chapter, "difficulty": difficulty}))
 
 
-func save_local() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("cosmetic", "hat", local_hat)
-	cfg.save(LOCAL_PATH)
-
+# --- Sync ----------------------------------------------------------------------
 
 func to_dict() -> Dictionary:
-	return {
-		"money": money, "owned": owned, "hats": hats, "island": island, "unlocked_island": unlocked_island,
-		"quest_stage": quest_stage, "quest_count": quest_count, "has_bait": has_bait, "boss_alive": boss_alive,
-		"won": won, "stats": stats,
-	}
-
-
-func from_dict(d: Dictionary) -> void:
-	money = int(d.get("money", 0))
-	owned = Array(d.get("owned", DB.STARTING_ITEMS))
-	for s in DB.STARTING_ITEMS:
-		if s not in owned:
-			owned.append(s)
-	hats = Array(d.get("hats", ["none"]))
-	island = int(d.get("island", 0))
-	unlocked_island = int(d.get("unlocked_island", 0))
-	quest_stage = Array(d.get("quest_stage", [0, 0, 0])).map(func(v): return int(v))
-	quest_count = Array(d.get("quest_count", [0, 0, 0])).map(func(v): return int(v))
-	has_bait = bool(d.get("has_bait", false))
-	boss_alive = bool(d.get("boss_alive", false))
-	won = bool(d.get("won", false))
-	stats = d.get("stats", stats)
+	return {"open_world": open_world, "chapter": chapter, "difficulty": difficulty, "phase": phase, "stats": stats, "finale_stage": finale_stage, "arsenal": arsenal}
 
 
 @rpc("authority", "call_remote", "reliable")
 func _sync(d: Dictionary) -> void:
-	from_dict(d)
+	open_world = d.get("open_world", false)
+	chapter = d.chapter
+	difficulty = d.difficulty
+	phase = d.phase
+	stats = d.stats
+	arsenal = d.get("arsenal", arsenal)
+	finale_stage = d.finale_stage
 	state_changed.emit()
 
 
@@ -130,200 +105,62 @@ func on_peer_joined(id: int) -> void:
 	_sync.rpc_id(id, to_dict())
 
 
-# --- Queries ------------------------------------------------------------------
-
-func best_rod() -> String:
-	var best := "rod_1"
-	for r in DB.ROD_ORDER:
-		if r in owned:
-			best = r
-	return best
-
-
-func weapons_owned() -> Array:
-	return DB.WEAPON_ORDER.filter(func(w): return w in owned)
+func add_stat(slot: int, key: String, amount := 1) -> void:
+	if not Net.is_host() or slot < 0 or slot >= stats.size():
+		return
+	stats[slot][key] = int(stats[slot].get(key, 0)) + amount
+	if key in ["kills", "specials"]:
+		arsenal[slot].credits += amount * (15 if key == "kills" else 75)
+	mark_dirty()
 
 
-func current_quests() -> Array:
-	return DB.ISLANDS[island].quests
+@rpc("authority", "call_local", "reliable")
+func toast(text: String, color := Color.WHITE) -> void:
+	toast_received.emit(text, color)
 
 
-func quests_done(i: int = -1) -> bool:
-	if i < 0:
-		i = island
-	return quest_stage[i] >= DB.ISLANDS[i].quests.size()
+@rpc("authority", "call_local", "reliable")
+func show_banner(title: String, subtitle := "") -> void:
+	banner.emit(title, subtitle)
 
 
-func current_quest() -> Dictionary:
-	if quests_done():
+## Host: go to a chapter (also used to restart the current one after a wipe).
+func goto_chapter(i: int) -> void:
+	if not Net.is_host():
+		return
+	chapter = i
+	phase = "playing"
+	finale_stage = -1
+	save_progress()
+	mark_dirty()
+	chapter_requested.emit(i)
+
+
+func gun_upgrades(slot: int, id: String) -> Dictionary:
+	if slot < 0 or slot >= arsenal.size():
 		return {}
-	return current_quests()[quest_stage[island]]
+	return arsenal[slot].guns.get(id, {})
 
 
-func bait_available() -> bool:
-	## Boss bait unlocks once you reach the "bait" step (or any time after beating the island).
-	if quests_done():
-		return true
-	var q := current_quest()
-	return q.get("id", "") in ["bait", "boss"]
+func gun_stats(slot: int, id: String) -> Dictionary:
+	return DB.gun_stats(id, gun_upgrades(slot, id))
 
 
-func quest_text(q: Dictionary, count: int) -> String:
-	var t: String = q.text
-	if "%d" in t:
-		t = t % q.goal
-	if q.goal > 1:
-		t += "  (%d/%d)" % [min(count, q.goal), q.goal]
-	return t
+func credits(slot: int) -> int:
+	return int(arsenal[slot].credits) if slot >= 0 and slot < arsenal.size() else 0
 
 
-# --- Host-side mutations ------------------------------------------------------
-
-func add_money(amount: int) -> void:
-	money = max(money + amount, 0)
-	if amount > 0:
-		stats.earned += amount
+# Called only after Level validates the requesting peer, equipped gun and bench distance.
+func buy_upgrade(slot: int, id: String, kind: String) -> bool:
+	if not Net.is_host() or not DB.GUN_PROFILES.has(id) or not DB.UPGRADES.has(kind) or slot < 0 or slot >= arsenal.size():
+		return false
+	var upgrades := gun_upgrades(slot, id).duplicate()
+	var tier := int(upgrades.get(kind, 0))
+	var cost := DB.upgrade_cost(kind, tier)
+	if tier >= int(DB.UPGRADES[kind].max) or credits(slot) < cost:
+		return false
+	arsenal[slot].credits -= cost
+	upgrades[kind] = tier + 1
+	arsenal[slot].guns[id] = upgrades
 	mark_dirty()
-
-
-## Called by the host whenever something quest-relevant happens.
-func event(kind: String, amount: int = 1, data: Dictionary = {}) -> void:
-	if not Net.is_host():
-		return
-	match kind:
-		"catch":
-			stats.catches += 1
-		"kill":
-			stats.kills += 1
-			stats.best_mult = max(float(stats.best_mult), float(data.get("mult", 1.0)))
-	var q := current_quest()
-	if q.is_empty():
-		mark_dirty()
-		return
-	var hit := false
-	match q.id:
-		"catch":
-			hit = kind == "catch"
-		"catch_tier3":
-			hit = kind == "catch" and int(data.get("tier", 1)) >= 3
-		"sell":
-			hit = kind == "sell"
-		"combo":
-			hit = kind == "kill" and float(data.get("mult", 1.0)) >= 2.0
-			amount = 1
-		"headshot":
-			hit = kind == "kill" and data.get("headshot", false)
-			amount = 1
-		"airborne":
-			hit = kind == "kill" and data.get("airborne", false)
-			amount = 1
-		"slot":
-			hit = kind == "slot"
-		"bait":
-			hit = kind == "bait"
-		"boss":
-			hit = kind == "boss"
-	if hit:
-		quest_count[island] += amount
-		if quest_count[island] >= int(q.goal):
-			_advance_quest()
-	mark_dirty()
-
-
-func _advance_quest() -> void:
-	var q := current_quest()
-	quest_stage[island] += 1
-	quest_count[island] = 0
-	Sfx.play("jackpot")
-	toast.rpc("QUEST COMPLETE: %s" % quest_text(q, q.goal).split("  (")[0])
-	if q.id == "boss":
-		if island + 1 < DB.ISLANDS.size():
-			unlocked_island = max(unlocked_island, island + 1)
-			toast.rpc("The boat is fixed! Sail to %s from the dock." % DB.ISLANDS[island + 1].name)
-		else:
-			won = true
-			toast.rpc("YOU BEAT HOW TO ZOMBIE! Keep fishing for the high score.")
-	# The bait step auto-completes if they already bought bait earlier.
-	var nq := current_quest()
-	if not nq.is_empty() and nq.id == "bait" and has_bait:
-		_advance_quest()
-	save_game()
-
-
-@rpc("any_peer", "call_local", "reliable")
-func request_buy(item: String) -> void:
-	if not Net.is_host():
-		return
-	var buyer := multiplayer.get_remote_sender_id()
-	var price := item_price(item)
-	if price < 0 or (item in owned and item != "bait") or money < price:
-		_buy_result.rpc_id(buyer, item, false)
-		return
-	if item == "bait":
-		if has_bait or not bait_available() or boss_alive:
-			_buy_result.rpc_id(buyer, item, false)
-			return
-		has_bait = true
-		money -= price
-		event("bait")
-		toast.rpc("%s bought Boss Bait. Pour it in the chum bucket!" % Net.player_name(buyer))
-	else:
-		owned.append(item)
-		money -= price
-		toast.rpc("%s bought %s" % [Net.player_name(buyer), item_name(item)])
-	mark_dirty()
-	save_game()
-	_buy_result.rpc_id(buyer, item, true)
-
-
-@rpc("authority", "call_local", "reliable")
-func _buy_result(_item: String, ok: bool) -> void:
-	Sfx.play("buy" if ok else "deny")
-
-
-func item_price(item: String) -> int:
-	if item == "bait":
-		return int(DB.ISLANDS[island].bait_price)
-	if DB.WEAPONS.has(item):
-		return int(DB.WEAPONS[item].price)
-	if DB.RODS.has(item):
-		return int(DB.RODS[item].price)
-	return -1
-
-
-func item_name(item: String) -> String:
-	if item == "bait":
-		return "Boss Bait"
-	if DB.WEAPONS.has(item):
-		return DB.WEAPONS[item].name
-	if DB.RODS.has(item):
-		return DB.RODS[item].name
-	return item
-
-
-@rpc("any_peer", "call_local", "reliable")
-func request_travel(to_island: int) -> void:
-	if not Net.is_host() or to_island < 0 or to_island > unlocked_island or to_island == island or boss_alive:
-		return
-	island = to_island
-	has_bait = false
-	mark_dirty()
-	save_game()
-	travel_requested.emit(to_island)
-
-
-@rpc("authority", "call_local", "reliable")
-func toast(text: String) -> void:
-	toast_received.emit(text)
-
-
-func set_local_hat(hat: String) -> void:
-	local_hat = hat
-	save_local()
-	_request_hat.rpc_id(1, hat)
-
-
-@rpc("any_peer", "call_local", "reliable")
-func _request_hat(hat: String) -> void:
-	if Net.is_host() and hat in hats:
-		Net.set_player_hat(multiplayer.get_remote_sender_id(), hat)
+	return true

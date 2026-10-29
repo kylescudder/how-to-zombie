@@ -1,11 +1,12 @@
 class_name MainMenu
 extends CanvasLayer
-## Title screen: solo, Steam friends hosting, LAN host/join.
+## Title screen: campaign + difficulty, solo with bots, Steam friends hosting, LAN host/join.
 
 var status_label: Label
 var name_edit: LineEdit
 var ip_edit: LineEdit
-var continue_check: CheckBox
+var chapter_pick: OptionButton
+var diff_pick: OptionButton
 var _bg: ColorRect
 var _t := 0.0
 
@@ -25,15 +26,19 @@ func _ready() -> void:
 shader_type canvas_item;
 void fragment() {
 	vec2 uv = UV;
-	float w = sin(uv.x * 12.0 + TIME * 1.5) * 0.015 + sin(uv.x * 31.0 - TIME * 2.3) * 0.006;
-	vec3 sky = mix(vec3(0.98, 0.62, 0.45), vec3(0.3, 0.45, 0.85), smoothstep(0.65, 0.0, uv.y));
-	vec3 sea = mix(vec3(0.15, 0.45, 0.5), vec3(0.05, 0.18, 0.25), (uv.y - 0.62) * 2.5);
-	float horizon = step(0.62 + w, uv.y);
-	vec3 c = mix(sky, sea, horizon);
-	float sun = smoothstep(0.13, 0.12, distance(uv * vec2(1.8, 1.0), vec2(1.35, 0.55)));
-	c = mix(c, vec3(1.0, 0.9, 0.6), sun * (1.0 - horizon));
-	float hand = step(0.6, uv.y) * (1.0 - step(0.66, uv.y)) * step(abs(uv.x - 0.22 + sin(TIME) * 0.01), 0.012);
-	c = mix(c, vec3(0.45, 0.65, 0.35), hand);
+	// Night sky, a red moon, and a city skyline of blocks with the odd lit window.
+	vec3 sky = mix(vec3(0.16, 0.04, 0.05), vec3(0.02, 0.02, 0.05), smoothstep(0.75, 0.0, uv.y));
+	float moon = smoothstep(0.09, 0.085, distance(uv * vec2(1.8, 1.0), vec2(1.32, 0.28)));
+	vec3 c = mix(sky, vec3(0.85, 0.3, 0.2), moon);
+	float bx = floor(uv.x * 22.0);
+	float h = 0.55 + fract(sin(bx * 12.9898) * 43758.5453) * 0.25;
+	float building = step(h, uv.y);
+	vec2 win = fract(vec2(uv.x * 22.0 * 4.0, uv.y * 40.0));
+	float lit = step(0.93, fract(sin(dot(floor(vec2(uv.x * 88.0, uv.y * 40.0)), vec2(12.9898, 78.233))) * 43758.5453));
+	float flicker = 0.7 + 0.3 * sin(TIME * 3.0 + bx);
+	vec3 bc = vec3(0.03, 0.03, 0.04) + vec3(0.9, 0.6, 0.25) * lit * step(0.3, win.x) * step(0.3, win.y) * flicker;
+	c = mix(c, bc, building);
+	c += vec3(0.25, 0.05, 0.03) * smoothstep(0.5, 1.0, uv.y) * (0.5 + 0.5 * sin(TIME * 0.7));
 	COLOR = vec4(c, 1.0);
 }
 """
@@ -47,12 +52,12 @@ void fragment() {
 	center.add_theme_constant_override("separation", 10)
 	root.add_child(center)
 
-	var title := UIKit.label("HOW TO ZOMBIE", 92, Color(0.6, 0.95, 0.35))
+	var title := UIKit.label("HOW TO ZOMBIE", 92, Color(0.85, 0.15, 0.1))
 	title.add_theme_constant_override("outline_size", 22)
-	title.add_theme_color_override("font_outline_color", Color(0.12, 0.2, 0.05))
+	title.add_theme_color_override("font_outline_color", Color(0.1, 0.0, 0.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	center.add_child(title)
-	var sub := UIKit.label("fish them up. beat them down. sell them to Doc.", 22, Color(1, 1, 1, 0.9))
+	var sub := UIKit.label("4 survivors. 5 islands. One open world.  %s" % DB.CAMPAIGN_NAME, 22, Color(1, 1, 1, 0.9))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	center.add_child(sub)
 
@@ -77,13 +82,22 @@ void fragment() {
 	name_row.add_child(name_edit)
 	v.add_child(name_row)
 
-	continue_check = CheckBox.new()
-	continue_check.text = "Continue saved island (when hosting)"
-	continue_check.button_pressed = Game.has_save()
-	continue_check.disabled = not Game.has_save()
-	v.add_child(continue_check)
+	var opts := HBoxContainer.new()
+	opts.add_theme_constant_override("separation", 10)
+	opts.add_child(UIKit.label("World", 20))
+	chapter_pick = OptionButton.new()
+	chapter_pick.add_item("Dead Low Tide — Archipelago", 0)
+	chapter_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opts.add_child(chapter_pick)
+	opts.add_child(UIKit.label("Difficulty", 20))
+	diff_pick = OptionButton.new()
+	for i in DB.DIFFICULTIES.size():
+		diff_pick.add_item(DB.DIFFICULTIES[i].name, i)
+	diff_pick.select(1)
+	opts.add_child(diff_pick)
+	v.add_child(opts)
 
-	v.add_child(UIKit.button("Play Solo", func():
+	v.add_child(UIKit.button("Play Solo (with bots)", func():
 		_prep_host()
 		Net.start_solo(), 28))
 	var steam_btn := UIKit.button("Host Steam Game (friends can join)", func():
@@ -91,7 +105,7 @@ void fragment() {
 		Net.host_steam(), 26)
 	steam_btn.disabled = not SteamService.available
 	v.add_child(steam_btn)
-	var hint := UIKit.label("Friends join via your Steam profile > Join Game, or invite them from the pause menu.", 15, Color(0.8, 0.85, 0.9))
+	var hint := UIKit.label("Friends join via your Steam profile > Join Game, or invite them from the pause menu. They take over a bot.", 15, Color(0.8, 0.85, 0.9))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hint)
 
@@ -108,6 +122,7 @@ void fragment() {
 		_prep_client()
 		Net.join_enet(ip_edit.text.strip_edges()), 20))
 	v.add_child(lan)
+	v.add_child(UIKit.button("Settings", func(): add_child(SettingsPanel.new()), 20))
 	v.add_child(UIKit.button("Quit", func(): get_tree().quit(), 20))
 
 	status_label = UIKit.label("", 20, UIKit.GOLD)
@@ -121,7 +136,6 @@ void fragment() {
 func show_menu(reason := "") -> void:
 	visible = true
 	status_label.text = reason
-	continue_check.disabled = not Game.has_save()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -134,9 +148,9 @@ func _save_name() -> void:
 
 func _prep_host() -> void:
 	_save_name()
-	Game.reset()
-	if continue_check.button_pressed:
-		Game.load_game()
+	Game.open_world = true
+	Game.reset(0)
+	Game.difficulty = diff_pick.get_selected_id()
 
 
 func _prep_client() -> void:

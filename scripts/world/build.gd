@@ -91,38 +91,6 @@ static func solid_cyl(parent: Node3D, radius: float, height: float, color: Color
 	return body
 
 
-## Sloped sandy island: a squashed cone so you can walk out of the sea.
-static func island_mound(parent: Node3D, radius: float, top_y: float, pos: Vector3, color: Color) -> StaticBody3D:
-	var body := StaticBody3D.new()
-	body.position = pos
-	body.collision_layer = 1
-	parent.add_child(body)
-	var depth := 6.0
-	var c := CylinderMesh.new()
-	c.top_radius = radius
-	c.bottom_radius = radius + depth * 2.2
-	c.height = top_y + depth
-	c.radial_segments = 28
-	c.rings = 2
-	var mi := mesh(body, c, color, Vector3(0, (top_y - depth) * 0.5, 0))
-	var shape := CollisionShape3D.new()
-	shape.shape = _cone_shape(radius, radius + depth * 2.2, top_y + depth)
-	shape.position = mi.position
-	body.add_child(shape)
-	return body
-
-
-static func _cone_shape(top: float, bottom: float, h: float) -> ConvexPolygonShape3D:
-	var pts := PackedVector3Array()
-	for i in 24:
-		var a := TAU * i / 24.0
-		pts.append(Vector3(cos(a) * top, h * 0.5, sin(a) * top))
-		pts.append(Vector3(cos(a) * bottom, -h * 0.5, sin(a) * bottom))
-	var s := ConvexPolygonShape3D.new()
-	s.points = pts
-	return s
-
-
 static func label(parent: Node3D, text: String, pos: Vector3, size := 64, color := Color.WHITE) -> Label3D:
 	var l := Label3D.new()
 	l.text = text

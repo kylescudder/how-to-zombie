@@ -1,57 +1,50 @@
 class_name ItemModels
-## Builds held-item meshes. Origin = grip; items point down -Z.
+## Builds weapon and item meshes. Origin = grip; guns point down -Z.
 
-static func make(item: String, rod_id := "rod_1") -> Node3D:
+static func make(item: String, upgrades := {}) -> Node3D:
+	if DB.GUN_PROFILES.has(item):
+		return GunModels.make(item, upgrades)
 	var n := Node3D.new()
 	var metal := Color(0.45, 0.47, 0.5)
-	var dark := Color(0.15, 0.15, 0.17)
+	var dark := Color(0.13, 0.13, 0.15)
+	var wood := Color(0.45, 0.3, 0.18)
 	match item:
-		"rod":
-			var c: Color = DB.RODS[rod_id].color
-			var tip := Node3D.new()
-			tip.name = "Tip"
-			n.add_child(tip)
-			Build.cyl(n, 0.012, 0.03, 1.6, c, Vector3(0, 0.35, -0.65), Vector3(-65, 0, 0), 6)
-			Build.cyl(n, 0.035, 0.035, 0.3, dark, Vector3(0, -0.05, 0.05), Vector3(-65, 0, 0), 6)
-			Build.cyl(n, 0.07, 0.07, 0.05, metal, Vector3(0.06, 0.02, -0.05), Vector3(0, 0, 90), 10)
-			tip.position = Vector3(0, 0.69, -1.37)
-		"fists":
-			Build.box(n, Vector3(0.12, 0.12, 0.14), Color(0.95, 0.78, 0.62), Vector3(0, 0, -0.05))
-		"knife":
-			Build.box(n, Vector3(0.04, 0.05, 0.14), Color(0.35, 0.22, 0.12), Vector3(0, 0, 0))
-			Build.box(n, Vector3(0.015, 0.06, 0.3), Color(0.6, 0.45, 0.35), Vector3(0, 0.01, -0.22))
-		"knuckles":
-			Build.box(n, Vector3(0.14, 0.12, 0.14), Color(0.95, 0.78, 0.62), Vector3(0, 0, 0))
-			Build.box(n, Vector3(0.16, 0.05, 0.05), Color(0.85, 0.7, 0.25), Vector3(0, 0.03, -0.08))
 		"bat":
-			Build.cyl(n, 0.07, 0.03, 0.9, Color(0.7, 0.5, 0.3), Vector3(0, 0, -0.4), Vector3(-90, 0, 0), 8)
-			for i in 5:
-				Build.box(n, Vector3(0.2, 0.012, 0.012), metal, Vector3(0, 0, -0.55 - i * 0.07), Vector3(0, i * 37.0, 0))
-		"pistol":
-			Build.box(n, Vector3(0.06, 0.13, 0.08), dark, Vector3(0, -0.04, 0.02), Vector3(15, 0, 0))
-			Build.box(n, Vector3(0.07, 0.07, 0.26), Color(0.3, 0.75, 0.4), Vector3(0, 0.04, -0.08))
-		"shotgun":
-			Build.box(n, Vector3(0.07, 0.12, 0.3), Color(0.45, 0.3, 0.18), Vector3(0, -0.03, 0.12))
-			Build.cyl(n, 0.035, 0.035, 0.7, dark, Vector3(-0.03, 0.03, -0.35), Vector3(-90, 0, 0), 8)
-			Build.cyl(n, 0.035, 0.035, 0.7, dark, Vector3(0.03, 0.03, -0.35), Vector3(-90, 0, 0), 8)
-		"smg":
-			Build.box(n, Vector3(0.08, 0.12, 0.38), dark, Vector3(0, 0.02, -0.1))
-			Build.box(n, Vector3(0.05, 0.22, 0.07), Color(0.95, 0.6, 0.15), Vector3(0, -0.13, -0.1))
-			Build.box(n, Vector3(0.06, 0.1, 0.07), dark, Vector3(0, -0.07, 0.06))
-		"harpoon":
-			Build.box(n, Vector3(0.1, 0.14, 0.5), Color(0.95, 0.85, 0.2), Vector3(0, 0.0, -0.1))
-			Build.cyl(n, 0.015, 0.015, 0.8, metal, Vector3(0, 0.07, -0.5), Vector3(-90, 0, 0), 6)
-			Build.cyl(n, 0.0, 0.05, 0.12, metal, Vector3(0, 0.07, -0.95), Vector3(-90, 0, 0), 6)
-		"dynamite":
-			Build.cyl(n, 0.05, 0.05, 0.3, Color(0.85, 0.15, 0.15), Vector3(0, 0.05, -0.05), Vector3(-20, 0, 0), 8)
-			Build.box(n, Vector3(0.01, 0.1, 0.01), Color(0.9, 0.9, 0.8), Vector3(0, 0.22, -0.1))
+			Build.cyl(n, 0.065, 0.025, 0.95, Color(0.7, 0.55, 0.35), Vector3(0, 0, -0.42), Vector3(-90, 0, 0), 8)
+		"axe":
+			Build.cyl(n, 0.025, 0.025, 0.9, Color(0.75, 0.15, 0.1), Vector3(0, 0, -0.4), Vector3(-90, 0, 0), 6)
+			Build.box(n, Vector3(0.03, 0.22, 0.18), metal, Vector3(0, 0.1, -0.8))
+		"machete":
+			Build.box(n, Vector3(0.04, 0.05, 0.14), dark, Vector3(0, 0, 0))
+			Build.box(n, Vector3(0.012, 0.07, 0.55), metal, Vector3(0, 0.01, -0.33))
+		"pipe_bomb":
+			Build.cyl(n, 0.045, 0.045, 0.24, Color(0.5, 0.5, 0.52), Vector3(0, 0, -0.05), Vector3(-90, 0, 0), 8)
+			Build.box(n, Vector3(0.05, 0.05, 0.04), Color(0.9, 0.15, 0.1), Vector3(0, 0.05, -0.05), Vector3.ZERO, 2.0)
+		"molotov":
+			Build.cyl(n, 0.05, 0.06, 0.18, Color(0.35, 0.55, 0.3, 0.9), Vector3(0, 0, -0.05))
+			Build.cyl(n, 0.02, 0.025, 0.1, Color(0.35, 0.55, 0.3, 0.9), Vector3(0, 0.14, -0.05))
+			Build.box(n, Vector3(0.04, 0.08, 0.04), Color(0.9, 0.85, 0.75), Vector3(0, 0.22, -0.05))
+		"bile_jar":
+			Build.cyl(n, 0.06, 0.06, 0.16, Color(0.55, 0.7, 0.25, 0.9), Vector3(0, 0, -0.05))
+			Build.cyl(n, 0.05, 0.05, 0.03, metal, Vector3(0, 0.09, -0.05))
+		"medkit":
+			Build.box(n, Vector3(0.32, 0.22, 0.12), Color(0.85, 0.15, 0.12), Vector3(0, 0, -0.05))
+			Build.box(n, Vector3(0.14, 0.04, 0.13), Color.WHITE, Vector3(0, 0, -0.05))
+			Build.box(n, Vector3(0.04, 0.14, 0.13), Color.WHITE, Vector3(0, 0, -0.05))
+		"pills":
+			Build.cyl(n, 0.035, 0.035, 0.1, Color(0.95, 0.7, 0.2), Vector3(0, 0, -0.05))
+			Build.cyl(n, 0.037, 0.037, 0.03, Color.WHITE, Vector3(0, 0.06, -0.05))
+		"hands":
+			Build.box(n, Vector3(0.1, 0.1, 0.14), Color(0.85, 0.7, 0.55), Vector3(0, 0, -0.05))
 	return n
 
 
 static func muzzle(item: String) -> Vector3:
 	match item:
-		"pistol": return Vector3(0, 0.04, -0.24)
-		"shotgun": return Vector3(0, 0.03, -0.72)
-		"smg": return Vector3(0, 0.02, -0.32)
-		"harpoon": return Vector3(0, 0.07, -1.0)
+		"pistol", "dual_pistols": return Vector3(0, 0.04, -0.21)
+		"smg": return Vector3(0, 0.067, -0.58)
+		"pump_shotgun": return Vector3(0, 0.067, -0.82)
+		"auto_shotgun": return Vector3(0, 0.067, -0.86)
+		"rifle": return Vector3(0, 0.067, -0.79)
+		"hunting_rifle": return Vector3(0, 0.067, -0.9)
 	return Vector3(0, 0, -0.3)

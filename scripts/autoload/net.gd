@@ -1,5 +1,6 @@
 extends Node
-## Session management. Host-authoritative: peer 1 (the host) owns zombies, money and progress.
+## Session management. Host-authoritative: peer 1 (the host) runs the infected, the Director,
+## the bots and campaign progress.
 ## Transport is Steam P2P (SteamMultiplayerPeer) or ENet for LAN / testing without Steam.
 ## Solo play just uses Godot's OfflineMultiplayerPeer, so all the same code paths run.
 
@@ -11,7 +12,7 @@ signal status(text: String)
 const DEFAULT_PORT := 24680
 
 var mode := ""  # "", "solo", "steam", "enet"
-var players := {}  # peer_id -> {"name": String, "color": int, "hat": String}
+var players := {}  # peer_id -> {"name": String, "slot": int}  (slot = which survivor they play)
 var _connecting := false
 
 
@@ -49,6 +50,10 @@ func player_name(peer_id: int) -> String:
 	return players.get(peer_id, {}).get("name", "Survivor")
 
 
+func slot_of(peer_id: int) -> int:
+	return int(players.get(peer_id, {}).get("slot", -1))
+
+
 # --- Starting sessions -------------------------------------------------------
 
 func start_solo() -> void:
@@ -72,7 +77,6 @@ func join_steam(lobby_id: int) -> void:
 		return
 	if in_session():
 		leave("Joining friend...")
-	Game.reset()
 	status.emit("Joining Steam lobby...")
 	_connecting = true
 	SteamService.join_lobby(lobby_id)
@@ -121,13 +125,9 @@ func _reset_peer() -> void:
 
 func _begin_host() -> void:
 	_connecting = false
-	players = {1: _my_info(0)}
+	players = {1: {"name": my_name(), "slot": 0}}
 	players_changed.emit()
 	session_started.emit()
-
-
-func _my_info(color: int) -> Dictionary:
-	return {"name": my_name(), "color": color, "hat": Game.local_hat}
 
 
 func _fail(reason: String) -> void:
@@ -171,7 +171,7 @@ func _on_steam_join_requested(lobby_id: int) -> void:
 
 func _on_connected_to_server() -> void:
 	_connecting = false
-	_register.rpc_id(1, my_name(), Game.local_hat)
+	_register.rpc_id(1, my_name())
 	session_started.emit()
 
 
@@ -198,18 +198,21 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 @rpc("any_peer", "reliable")
-func _register(pname: String, hat: String) -> void:
+func _register(pname: String) -> void:
 	if not is_host():
 		return
 	var id := multiplayer.get_remote_sender_id()
-	var used := players.values().map(func(p): return p.color)
-	var color := 0
-	while color in used:
-		color += 1
-	players[id] = {"name": pname.substr(0, 24), "color": color % DB.PLAYER_COLORS.size(), "hat": hat}
-	_sync_players.rpc(players)
+	var used := players.values().map(func(p): return p.slot)
+	var slot := 0
+	while slot in used:
+		slot += 1
+	if slot >= DB.SURVIVORS.size():
+		_kick.rpc_id(id, "The game is full (4 survivors).")
+		return
+	players[id] = {"name": pname.substr(0, 24), "slot": slot}
 	Game.on_peer_joined(id)
-	Game.toast.rpc("%s joined the island" % players[id].name)
+	_sync_players.rpc(players)
+	Game.toast.rpc("%s joined as %s" % [players[id].name, DB.SURVIVORS[slot].name])
 
 
 @rpc("authority", "call_local", "reliable")
@@ -218,9 +221,6 @@ func _sync_players(p: Dictionary) -> void:
 	players_changed.emit()
 
 
-## Host-only helper to change a player's cosmetic.
-func set_player_hat(id: int, hat: String) -> void:
-	if not is_host() or not players.has(id):
-		return
-	players[id].hat = hat
-	_sync_players.rpc(players)
+@rpc("authority", "reliable")
+func _kick(reason: String) -> void:
+	leave(reason)

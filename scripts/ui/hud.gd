@@ -1,33 +1,44 @@
 class_name HUD
 extends CanvasLayer
-## In-game overlay plus the shop, travel, pause and scoreboard panels.
+## In-game overlay: team health, your health and weapons, crosshair, prompts, alerts,
+## chapter banners, screen effects (bile, incap, black & white), scoreboard and pause menu.
 
 var root: Control
-var money_label: Label
-var island_label: Label
-var quest_box: VBoxContainer
+var team_box: VBoxContainer
+var me_panel: PanelContainer
+var me_name: Label
+var me_hp_label: Label
+var me_bar: ProgressBar
+var me_temp: ProgressBar
+var me_status: Label
+var weapon_box: VBoxContainer
+var objective: Label
 var toast_box: VBoxContainer
-var boss_panel: PanelContainer
-var boss_name: Label
-var boss_bar: ProgressBar
-var prompt_label: Label
+var tank_panel: PanelContainer
+var tank_bar: ProgressBar
+var _hit_t := 0.0
 var crosshair: Control
-var hotbar: HBoxContainer
-var hp_bar: ProgressBar
-var fish_panel: PanelContainer
-var fish_title: Label
-var tension_bar: ProgressBar
-var stamina_bar: ProgressBar
-var fish_hint: Label
-var cast_bar: ProgressBar
-var bite_label: Label
-var downed_overlay: ColorRect
-var downed_label: Label
+var prompt_label: Label
+var action_panel: PanelContainer
+var action_label: Label
+var action_bar: ProgressBar
+var banner: VBoxContainer
+var banner_title: Label
+var banner_sub: Label
+var fx_rect: ColorRect
+var fx_mat: ShaderMaterial
+var big_status: Label
 var scoreboard: PanelContainer
-var score_list: VBoxContainer
+var score_grid: GridContainer
 var modal: PanelContainer
 var modal_kind := ""
-var _hotbar_key := ""
+var _banner_t := 0.0
+var _hurt := 0.0
+var _hp_seen := -1.0
+var _team_key := ""
+var _weapon_key := ""
+var _score_key := ""
+var _heartbeat := 0.0
 
 
 func _ready() -> void:
@@ -39,126 +50,171 @@ func _ready() -> void:
 	root.theme = UIKit.theme()
 	add_child(root)
 
-	# Top-left: money + island
-	var tl := VBoxContainer.new()
-	tl.position = Vector2(24, 18)
-	root.add_child(tl)
-	money_label = UIKit.label("$0", 46, UIKit.ACCENT)
-	tl.add_child(money_label)
-	island_label = UIKit.label("", 20, Color(0.85, 0.9, 1.0))
-	tl.add_child(island_label)
+	# Full-screen effects: damage, bile, incapacitated, black & white.
+	fx_rect = ColorRect.new()
+	fx_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fx_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx_mat = ShaderMaterial.new()
+	fx_mat.shader = Shader.new()
+	fx_mat.shader.code = """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
+uniform float hurt = 0.0;
+uniform float bile = 0.0;
+uniform float down = 0.0;
+uniform float grey = 0.0;
+void fragment() {
+	vec2 uv = SCREEN_UV;
+	if (bile > 0.0) {
+		uv += vec2(sin(uv.y * 30.0 + TIME * 3.0), cos(uv.x * 24.0 + TIME * 2.0)) * 0.004 * bile;
+	}
+	vec3 c = texture(screen_tex, uv).rgb;
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(c, vec3(l), grey);
+	float v = distance(UV, vec2(0.5));
+	c = mix(c, vec3(0.6, 0.0, 0.0), hurt * smoothstep(0.25, 0.75, v) * 0.8);
+	c = mix(c, vec3(0.35, 0.6, 0.1) * (0.5 + l), bile * (0.55 + 0.3 * smoothstep(0.2, 0.7, v)));
+	c = mix(c, c * vec3(1.0, 0.35, 0.3), down * 0.7);
+	c *= 1.0 - down * smoothstep(0.3, 0.8, v) * 0.7;
+	COLOR = vec4(c, 1.0);
+}
+"""
+	fx_rect.material = fx_mat
+	root.add_child(fx_rect)
 
-	# Top-right: quests
-	var qp := PanelContainer.new()
-	qp.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	qp.position = Vector2(-444, 18)
-	qp.custom_minimum_size = Vector2(420, 0)
-	root.add_child(qp)
-	quest_box = VBoxContainer.new()
-	qp.add_child(quest_box)
+	# Left: teammates
+	team_box = VBoxContainer.new()
+	team_box.position = Vector2(20, 20)
+	team_box.add_theme_constant_override("separation", 6)
+	root.add_child(team_box)
 
-	# Top-center: boss bar + toasts
+	# Bottom-left: me
+	me_panel = PanelContainer.new()
+	me_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	me_panel.position = Vector2(20, -128)
+	me_panel.custom_minimum_size = Vector2(360, 0)
+	root.add_child(me_panel)
+	var mv := VBoxContainer.new()
+	me_panel.add_child(mv)
+	var mh := HBoxContainer.new()
+	mv.add_child(mh)
+	me_name = UIKit.label("", 22)
+	me_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mh.add_child(me_name)
+	me_hp_label = UIKit.label("100", 34, UIKit.ACCENT)
+	mh.add_child(me_hp_label)
+	var bars := Control.new()
+	bars.custom_minimum_size = Vector2(330, 22)
+	mv.add_child(bars)
+	me_temp = UIKit.bar(Color(0.85, 0.85, 0.85, 0.75), 330, 22)
+	bars.add_child(me_temp)
+	me_bar = UIKit.bar(UIKit.ACCENT, 330, 22)
+	me_bar.add_theme_stylebox_override("background", UIKit.box(Color(0, 0, 0, 0), 8))
+	bars.add_child(me_bar)
+	me_status = UIKit.label("", 16, Color(0.85, 0.85, 0.85))
+	mv.add_child(me_status)
+
+	# Bottom-right: weapons
+	weapon_box = VBoxContainer.new()
+	weapon_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	weapon_box.position = Vector2(-330, -250)
+	weapon_box.custom_minimum_size = Vector2(310, 230)
+	weapon_box.alignment = BoxContainer.ALIGNMENT_END
+	weapon_box.add_theme_constant_override("separation", 4)
+	root.add_child(weapon_box)
+
+	# Top-right: objective
+	objective = UIKit.label("", 18, Color(0.9, 0.9, 0.9))
+	objective.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	objective.position = Vector2(-520, 20)
+	objective.custom_minimum_size = Vector2(500, 0)
+	objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(objective)
+
+	# Top-centre: tank bar, toasts
 	var tc := VBoxContainer.new()
 	tc.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	tc.position = Vector2(-330, 18)
 	tc.custom_minimum_size = Vector2(660, 0)
-	tc.alignment = BoxContainer.ALIGNMENT_BEGIN
 	tc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(tc)
-	boss_panel = PanelContainer.new()
-	var bv := VBoxContainer.new()
-	boss_panel.add_child(bv)
-	boss_name = UIKit.label("", 26, Color(1.0, 0.45, 0.35))
-	boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bv.add_child(boss_name)
-	boss_bar = UIKit.bar(Color(0.9, 0.2, 0.2), 620, 22)
-	bv.add_child(boss_bar)
-	tc.add_child(boss_panel)
+	tank_panel = PanelContainer.new()
+	var tv := VBoxContainer.new()
+	tank_panel.add_child(tv)
+	var tl := UIKit.label("TANK", 24, Color(1.0, 0.4, 0.3))
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tv.add_child(tl)
+	tank_bar = UIKit.bar(Color(0.85, 0.2, 0.15), 620, 18)
+	tv.add_child(tank_bar)
+	tc.add_child(tank_panel)
 	toast_box = VBoxContainer.new()
 	toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tc.add_child(toast_box)
 
-	# Center: crosshair, prompt, bite alert
+	# Centre: crosshair, prompt, channel progress, big status
 	crosshair = Control.new()
 	crosshair.set_anchors_preset(Control.PRESET_CENTER)
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	crosshair.draw.connect(_draw_crosshair)
 	root.add_child(crosshair)
-	prompt_label = UIKit.label("", 24)
+	prompt_label = UIKit.label("", 22)
 	prompt_label.set_anchors_preset(Control.PRESET_CENTER)
-	prompt_label.position = Vector2(-400, 40)
+	prompt_label.position = Vector2(-400, 50)
 	prompt_label.custom_minimum_size = Vector2(800, 0)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt_label)
-	bite_label = UIKit.label("!!! LEFT-CLICK !!!", 64, UIKit.GOLD)
-	bite_label.set_anchors_preset(Control.PRESET_CENTER)
-	bite_label.position = Vector2(-300, -140)
-	bite_label.custom_minimum_size = Vector2(600, 0)
-	bite_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root.add_child(bite_label)
+	action_panel = PanelContainer.new()
+	action_panel.set_anchors_preset(Control.PRESET_CENTER)
+	action_panel.position = Vector2(-200, 90)
+	action_panel.custom_minimum_size = Vector2(400, 0)
+	root.add_child(action_panel)
+	var av := VBoxContainer.new()
+	action_panel.add_child(av)
+	action_label = UIKit.label("", 20)
+	action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	av.add_child(action_label)
+	action_bar = UIKit.bar(Color(0.5, 0.8, 1.0), 370, 16)
+	av.add_child(action_bar)
+	big_status = UIKit.label("", 34)
+	big_status.set_anchors_preset(Control.PRESET_CENTER)
+	big_status.position = Vector2(-500, -170)
+	big_status.custom_minimum_size = Vector2(1000, 0)
+	big_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	big_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(big_status)
 
-	# Fishing panel
-	fish_panel = PanelContainer.new()
-	fish_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	fish_panel.position = Vector2(-220, -260)
-	fish_panel.custom_minimum_size = Vector2(440, 0)
-	root.add_child(fish_panel)
-	var fv := VBoxContainer.new()
-	fish_panel.add_child(fv)
-	fish_title = UIKit.label("", 24, UIKit.GOLD)
-	fish_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	fv.add_child(fish_title)
-	fv.add_child(UIKit.label("LINE TENSION", 16, Color(0.8, 0.8, 0.85)))
-	tension_bar = UIKit.bar(Color(0.4, 0.85, 0.4), 410, 22)
-	fv.add_child(tension_bar)
-	fv.add_child(UIKit.label("ZOMBIE STAMINA", 16, Color(0.8, 0.8, 0.85)))
-	stamina_bar = UIKit.bar(Color(0.95, 0.65, 0.2), 410, 14)
-	fv.add_child(stamina_bar)
-	fish_hint = UIKit.label("", 20)
-	fish_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	fv.add_child(fish_hint)
-	cast_bar = UIKit.bar(UIKit.GOLD, 300, 18)
-	cast_bar.set_anchors_preset(Control.PRESET_CENTER)
-	cast_bar.position = Vector2(-150, 70)
-	root.add_child(cast_bar)
-
-	# Bottom: hp + hotbar
-	hp_bar = UIKit.bar(Color(0.9, 0.25, 0.3), 280, 26)
-	hp_bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hp_bar.position = Vector2(24, -50)
-	root.add_child(hp_bar)
-	hotbar = HBoxContainer.new()
-	hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	hotbar.position = Vector2(-450, -90)
-	hotbar.custom_minimum_size = Vector2(900, 70)
-	hotbar.alignment = BoxContainer.ALIGNMENT_CENTER
-	hotbar.add_theme_constant_override("separation", 6)
-	root.add_child(hotbar)
-
-	# Downed overlay
-	downed_overlay = ColorRect.new()
-	downed_overlay.color = Color(0.6, 0.05, 0.05, 0.35)
-	downed_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	downed_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(downed_overlay)
-	downed_label = UIKit.label("YOU'RE DOWN!\nA friend can slap you awake...\nor Mr. Squawks the seagull will come for you.", 34)
-	downed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	downed_label.set_anchors_preset(Control.PRESET_CENTER)
-	downed_label.position = Vector2(-450, -60)
-	downed_label.custom_minimum_size = Vector2(900, 0)
-	downed_overlay.add_child(downed_label)
+	# Banner (chapter titles, safe room, failure, rescue)
+	banner = VBoxContainer.new()
+	banner.set_anchors_preset(Control.PRESET_CENTER)
+	banner.position = Vector2(-600, -300)
+	banner.custom_minimum_size = Vector2(1200, 0)
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(banner)
+	banner_title = UIKit.label("", 64, Color(0.95, 0.9, 0.85))
+	banner_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner_title.add_theme_constant_override("outline_size", 14)
+	banner.add_child(banner_title)
+	banner_sub = UIKit.label("", 26, Color(0.85, 0.3, 0.25))
+	banner_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.add_child(banner_sub)
 
 	# Scoreboard
 	scoreboard = PanelContainer.new()
 	scoreboard.set_anchors_preset(Control.PRESET_CENTER)
-	scoreboard.position = Vector2(-260, -180)
-	scoreboard.custom_minimum_size = Vector2(520, 0)
+	scoreboard.position = Vector2(-430, -120)
+	scoreboard.custom_minimum_size = Vector2(860, 0)
 	root.add_child(scoreboard)
-	score_list = VBoxContainer.new()
-	scoreboard.add_child(score_list)
+	var sv := VBoxContainer.new()
+	scoreboard.add_child(sv)
+	sv.add_child(UIKit.label("SURVIVORS", 28, UIKit.GOLD))
+	score_grid = GridContainer.new()
+	score_grid.columns = 7
+	score_grid.add_theme_constant_override("h_separation", 22)
+	sv.add_child(score_grid)
 
 	Game.toast_received.connect(_on_toast)
-	Game.state_changed.connect(_refresh_quests)
+	Game.banner.connect(_on_banner)
 	set_active(false)
 
 
@@ -168,141 +224,288 @@ func set_active(on: bool) -> void:
 		close_modal()
 
 
-# --- Per-frame ------------------------------------------------------------------
+# --- Per frame ------------------------------------------------------------------------
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not visible:
 		return
 	var lvl := get_tree().get_first_node_in_group("level") as Level
-	var p: Player = lvl.local_player() if lvl else null
-	money_label.text = DB.format_money(Game.money)
-	island_label.text = "%s   |   %d survivor%s" % [DB.ISLANDS[Game.island].name, Net.players.size(), "" if Net.players.size() == 1 else "s"]
-	_update_boss()
-	if p == null:
-		return
-	if Input.is_action_just_pressed("pause"):
+	var me: Survivor = lvl.local_survivor() if lvl and is_instance_valid(lvl) else null
+	if modal:
+		modal.position = (get_viewport().get_visible_rect().size - modal.size) * 0.5
+	_banner_t -= delta
+	banner.modulate.a = clampf(_banner_t, 0.0, 1.0)
+	if Input.is_action_just_pressed("pause") and not get_tree().has_group("settings_panel"):
 		if modal:
 			close_modal()
 		else:
 			open_pause()
-	scoreboard.visible = Input.is_action_pressed("scoreboard") and modal == null
-	if scoreboard.visible:
-		_refresh_scoreboard()
-	p.ui_open = modal != null
-	hp_bar.value = p.hp / Player.MAX_HP
-	prompt_label.text = p.prompt if modal == null else ""
-	downed_overlay.visible = p.downed
-	crosshair.queue_redraw()
-	_update_hotbar(p)
-	_update_fishing(p)
-
-
-func _update_boss() -> void:
-	var bosses := get_tree().get_nodes_in_group("boss")
-	boss_panel.visible = not bosses.is_empty()
-	if bosses.size() > 0:
-		var b: Zombie = bosses[0]
-		boss_name.text = b.data.name
-		boss_bar.value = b.hp_fraction()
-
-
-func _update_fishing(p: Player) -> void:
-	var reeling := p.rod_state == Player.Rod.REELING
-	fish_panel.visible = reeling
-	cast_bar.visible = p.rod_state == Player.Rod.CHARGING
-	cast_bar.value = p.cast_power
-	bite_label.visible = p.rod_state == Player.Rod.BITE
-	if reeling:
-		var z: Dictionary = DB.ZOMBIES.get(p.hooked, {})
-		fish_title.text = "HOOKED: %s  (%dm)" % [("???" if z.get("rare", false) else "Something"), int(p.reel_dist)]
-		tension_bar.value = p.tension
-		var tc := Color(0.4, 0.85, 0.4).lerp(Color(1.0, 0.2, 0.2), clampf((p.tension - 0.4) / 0.5, 0.0, 1.0))
-		tension_bar.add_theme_stylebox_override("fill", UIKit.box(tc, 8))
-		stamina_bar.value = p.stamina
-		if p.tension > 0.8:
-			fish_hint.text = "LET GO! The line's about to snap!"
-			fish_hint.add_theme_color_override("font_color", UIKit.WARN)
-		elif p.stamina < 0.3:
-			fish_hint.text = "It's TIRED!  [Right-click] to YANK it into the air!"
-			fish_hint.add_theme_color_override("font_color", UIKit.GOLD)
-		elif p.thrashing:
-			fish_hint.text = "It's THRASHING! Ease off..."
-			fish_hint.add_theme_color_override("font_color", UIKit.WARN)
-		elif p.reel_boost > 0.5:
-			fish_hint.text = "FAST REEL x%.1f  (watch the tension!)" % (1.0 + p.reel_boost)
-			fish_hint.add_theme_color_override("font_color", UIKit.ACCENT)
-		else:
-			fish_hint.text = "Hold [Left-click] to reel, mash it to go faster"
-			fish_hint.add_theme_color_override("font_color", Color.WHITE)
-
-
-func _update_hotbar(p: Player) -> void:
-	var key := "%s|%d|%s|%.1f" % [",".join(p.items), p.item_idx, str(p.ammo.get(p.current_item(), 0)), p.reload_t]
-	if key == _hotbar_key:
+	if lvl and lvl.open_world and Input.is_action_just_pressed("world_map") and not get_tree().has_group("settings_panel"):
+		if modal_kind == "world_map": close_modal()
+		elif modal == null: open_world_map(lvl)
+	var show_scores := (Input.is_action_pressed("scoreboard") and modal == null) or Game.phase in ["complete", "victory"]
+	scoreboard.visible = show_scores
+	if show_scores:
+		_refresh_scoreboard(lvl)
+	if me == null or lvl == null:
+		for n in [me_panel, weapon_box, team_box, action_panel, tank_panel]:
+			n.visible = false
+		prompt_label.text = ""
 		return
-	_hotbar_key = key
-	for c in hotbar.get_children():
+	if modal_kind == "gunsmith" and (not lvl.at_gunsmith(me) or Game.phase not in ["playing", "complete"]):
+		close_modal()
+	me.ui_open = modal != null or get_tree().has_group("settings_panel")
+	me_panel.visible = true
+	weapon_box.visible = true
+	team_box.visible = true
+	_update_me(me, delta)
+	_update_team(lvl, me)
+	_update_weapons(me)
+	_update_action(lvl, me)
+	_update_objective(lvl)
+	_update_tank(lvl)
+	prompt_label.text = me.prompt if modal == null and not me.dead else ""
+	crosshair.set_meta("spread", me.spread)
+	crosshair.set_meta("aim", me.aim_blend)
+	crosshair.visible = lvl.vehicle_for_slot(me.slot)==null and not me.dead and me.pinned_by == "" and modal == null
+	_hit_t = maxf(0.0, _hit_t - delta)
+	crosshair.queue_redraw()
+
+
+func _health_color(s: Survivor) -> Color:
+	if s.incapped or s.dead:
+		return Color(0.85, 0.15, 0.1)
+	var t := s.total_hp()
+	if t >= 40.0:
+		return Color(0.35, 0.8, 0.3)
+	if t >= 25.0:
+		return Color(0.95, 0.8, 0.2)
+	return Color(0.9, 0.25, 0.15)
+
+
+func _update_me(me: Survivor, delta: float) -> void:
+	me_name.text = me.short_name()
+	me_name.add_theme_color_override("font_color", DB.SURVIVORS[me.slot].ui)
+	var c := _health_color(me)
+	if me.incapped:
+		me_bar.value = me.hp / DB.INCAP_HP
+		me_temp.value = 0.0
+		me_hp_label.text = str(ceili(me.hp))
+	else:
+		me_bar.value = me.hp / DB.MAX_HP
+		me_temp.value = (me.hp + me.temp_hp) / DB.MAX_HP
+		me_hp_label.text = str(ceili(me.total_hp()))
+	me_bar.add_theme_stylebox_override("fill", UIKit.box(c, 8))
+	me_hp_label.add_theme_color_override("font_color", c)
+	var status := ""
+	if me.dead:
+		status = "DEAD"
+	elif me.incapped:
+		status = "INCAPACITATED - bleeding out"
+	elif me.black_and_white():
+		status = "BLACK & WHITE - one more down and you're dead"
+	elif me.total_hp() < 40.0:
+		status = "Limping"
+	me_status.text = status
+	# Screen effects
+	if _hp_seen >= 0.0 and me.total_hp() < _hp_seen - 0.5:
+		_hurt = 1.0
+	_hp_seen = me.total_hp()
+	_hurt = maxf(_hurt - delta * 2.0, 0.0)
+	fx_mat.set_shader_parameter("hurt", _hurt * Settings.hit_flashes)
+	fx_mat.set_shader_parameter("bile", clampf(me.biled / 3.0, 0.0, 1.0))
+	fx_mat.set_shader_parameter("down", 1.0 if me.incapped else 0.0)
+	fx_mat.set_shader_parameter("grey", 0.9 if me.black_and_white() or me.dead else 0.0)
+	if me.black_and_white() or me.incapped:
+		_heartbeat -= delta
+		if _heartbeat <= 0.0:
+			_heartbeat = 0.9
+			Sfx.play("heartbeat", Vector3.INF, -4.0)
+	# Big centre text for the bad moments
+	var big := ""
+	if me.dead:
+		var who: String = me.spectating.short_name() if is_instance_valid(me.spectating) else "your team"
+		big = "You're dead.  Watching %s  [click to switch]\nYou'll be back next chapter." % who
+	elif me.pinned_by != "":
+		big = "%s HAS YOU!\nA teammate needs to shove it off or kill it." % me.pin_type.to_upper()
+	elif me.incapped:
+		big = "YOU'RE DOWN\nShoot with your pistol and wait for a teammate to revive you."
+	big_status.text = big
+	big_status.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3) if not me.dead else Color(0.85, 0.85, 0.85))
+
+
+func _update_team(lvl: Level, me: Survivor) -> void:
+	var mates := lvl.get_survivors().filter(func(s): return s != me)
+	mates.sort_custom(func(a, b): return a.slot < b.slot)
+	var key := ""
+	for s in mates:
+		key += "%s|%d|%d|%s|%s|%s|%s;" % [s.name, int(s.total_hp()), int(s.hp), s.incapped, s.dead, s.pinned_by, str(s.net_inv.hash())]
+	if key == _team_key:
+		return
+	_team_key = key
+	for c in team_box.get_children():
 		c.queue_free()
-	for i in p.items.size():
-		var id: String = p.items[i]
-		var w: Dictionary = DB.WEAPONS[id]
-		var panel := PanelContainer.new()
-		var sel := i == p.item_idx
-		panel.add_theme_stylebox_override("panel", UIKit.box(Color(0.95, 0.55, 0.2, 0.95) if sel else Color(0.08, 0.1, 0.12, 0.7), 10, 3 if sel else 0, Color.WHITE))
+	for s in mates:
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(250, 0)
 		var v := VBoxContainer.new()
-		panel.add_child(v)
-		v.add_child(UIKit.label(str((i + 1) % 10), 14, Color(1, 1, 1, 0.7)))
-		var nm: String = w.name if id != "rod" else DB.RODS[Game.best_rod()].name
-		v.add_child(UIKit.label(nm, 17 if sel else 15))
-		if w.kind == "gun" and sel:
-			var txt := "RELOADING" if p.reload_t > 0.0 else "%d / %d" % [int(p.ammo.get(id, 0)), int(w.mag)]
-			v.add_child(UIKit.label(txt, 14, UIKit.GOLD))
-		hotbar.add_child(panel)
+		v.add_theme_constant_override("separation", 2)
+		card.add_child(v)
+		var top := HBoxContainer.new()
+		v.add_child(top)
+		var nm := UIKit.label(s.short_name() + ("  (bot)" if s.bot else ""), 17, DB.SURVIVORS[s.slot].ui)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(nm)
+		var st := "DEAD" if s.dead else ("DOWN" if s.incapped else ("PINNED" if s.pinned_by != "" else str(ceili(s.total_hp()))))
+		top.add_child(UIKit.label(st, 17, _health_color(s)))
+		var bar := UIKit.bar(_health_color(s), 220, 10)
+		bar.value = 0.0 if s.dead else (s.hp / DB.INCAP_HP if s.incapped else s.total_hp() / DB.MAX_HP)
+		v.add_child(bar)
+		var inv: Dictionary = s.net_inv
+		var items: Array = []
+		if inv.get("primary", {}).has("id"):
+			items.append(DB.weapon(inv.primary.id).name)
+		if String(inv.get("throwable", "")) != "":
+			items.append(DB.weapon(inv.throwable).name)
+		if inv.get("medkit", false):
+			items.append("Medkit")
+		if inv.get("pills", false):
+			items.append("Pills")
+		if not items.is_empty():
+			v.add_child(UIKit.label("  ".join(items), 13, Color(0.75, 0.75, 0.78)))
+		team_box.add_child(card)
+
+
+func _update_weapons(me: Survivor) -> void:
+	var key := "%s|%s|%.1f|%s" % [str(me.inv.hash()), me.cur, me.reload_t, str(Game.arsenal.hash())]
+	if key == _weapon_key:
+		return
+	_weapon_key = key
+	for c in weapon_box.get_children():
+		c.queue_free()
+	for i in DB.SLOTS.size():
+		var sl: String = DB.SLOTS[i]
+		var id := me.weapon_id(sl)
+		if id == "":
+			continue
+		var w := Game.gun_stats(me.slot, id)
+		var sel := sl == me.cur
+		var panel := PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", UIKit.box(Color(0.55, 0.12, 0.1, 0.92) if sel else Color(0.08, 0.09, 0.1, 0.7), 8, 2 if sel else 0, Color(1, 1, 1, 0.8)))
+		var row := HBoxContainer.new()
+		panel.add_child(row)
+		row.add_child(UIKit.label(str(i + 1), 14, Color(1, 1, 1, 0.6)))
+		var nm := UIKit.label(w.get("model", w.name), 19 if sel else 16)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nm)
+		if w.kind == "gun":
+			var si: Dictionary = me.inv[sl]
+			var txt := "RELOADING" if sel and me.reload_t > 0.0 else ("%d" % int(si.mag) + ("" if int(si.get("reserve", -1)) < 0 else " / %d" % int(si.reserve)))
+			row.add_child(UIKit.label(txt, 18 if sel else 15, UIKit.GOLD))
+		weapon_box.add_child(panel)
+
+
+func _update_action(lvl: Level, me: Survivor) -> void:
+	var text := ""
+	var t := 0.0
+	if me.action_t > 0.0:
+		var kind := me.net_action.get_slice(":", 0)
+		var target := lvl.get_survivor(me.action_target)
+		match kind:
+			"revive":
+				text = "Reviving %s..." % (target.short_name() if target else "")
+			"heal":
+				text = "Healing %s..." % (target.short_name() if target else "")
+			"heal_self":
+				text = "Healing yourself..."
+		t = me.net_action_t
+	else:
+		for s: Survivor in lvl.get_survivors():
+			if s != me and s.net_action.ends_with(":" + me.name):
+				text = ("%s is reviving you..." if s.net_action.begins_with("revive") else "%s is healing you...") % s.short_name()
+				t = s.net_action_t
+	action_panel.visible = text != ""
+	action_label.text = text
+	action_bar.value = t
+
+
+func _update_objective(lvl: Level) -> void:
+	if lvl.open_world:
+		var me := lvl.local_survivor()
+		if not me: return
+		var index := OpenWorld.land_index(me.global_position)
+		var region: String = OpenWorld.ISLANDS[index].name if index>=0 else "Open Sea"
+		var vehicle := lvl.vehicle_for_slot(me.slot)
+		objective.text = "DEAD LOW TIDE • %s\n[M] World map • Explore, resupply and survive" % region
+		if vehicle: objective.text += "\n%s • %d km/h • %d/4 aboard" % [vehicle.kind.capitalize(),roundi(absf(vehicle.net_speed)*3.6),4-Array(vehicle.seats).count(-1)]
+		if lvl.local_waypoint!=Vector3.INF: objective.text += "\nWaypoint: %d m" % roundi(me.global_position.distance_to(lvl.local_waypoint))
+		return
+	var ch: Dictionary = DB.CHAPTERS[lvl.chapter]
+	var txt := "%s  -  Chapter %d: %s\n%s" % [DB.CAMPAIGN_NAME, lvl.chapter + 1, ch.name, DB.difficulty(Game.difficulty).name]
+	var goal := "Get to the safe room."
+	if lvl.markers.button != Vector3.INF and not lvl.gate_open:
+		goal = "Hold out while the gate opens!" if lvl.gate_opening else "Find the gate control to get through the warehouse."
+	if lvl.markers.radio != Vector3.INF:
+		if not lvl.radio_used:
+			goal = "Find the radio on the docks and call for rescue."
+		elif lvl.rescue_ready:
+			goal = "The boat is here! Get to the end of the pier!" if lvl._boat_t >= 1.0 else "The boat's coming. Hold out!"
+		else:
+			goal = "Survive until the rescue boat arrives."
+	objective.text = txt + "\n" + goal
+
+
+func _update_tank(lvl: Level) -> void:
+	var tank: Infected = null
+	for i: Infected in lvl.all_infected():
+		if i.is_tank() and not i.is_dead():
+			tank = i
+	tank_panel.visible = tank != null
+	if tank:
+		tank_bar.value = tank.hp_fraction()
+
+
+func confirm_hit() -> void:
+	_hit_t = 0.18
+	if Settings.hit_marker_sound: Sfx.play("hitmarker")
 
 
 func _draw_crosshair() -> void:
-	var c := Color(1, 1, 1, 0.9)
-	crosshair.draw_circle(Vector2.ZERO, 3.0, c)
-	crosshair.draw_arc(Vector2.ZERO, 11.0, 0, TAU, 24, Color(1, 1, 1, 0.35), 2.0)
-
-
-func _refresh_quests() -> void:
-	for c in quest_box.get_children():
-		c.queue_free()
-	quest_box.add_child(UIKit.label("QUESTS", 20, UIKit.GOLD))
-	var qs: Array = Game.current_quests()
-	var stage: int = Game.quest_stage[Game.island]
-	for i in qs.size():
-		var q: Dictionary = qs[i]
-		var done := i < stage
-		var cur := i == stage
-		var txt: String = ("✔ " if done else ("▶ " if cur else "• ")) + Game.quest_text(q, Game.quest_count[Game.island] if cur else (q.goal if done else 0))
-		var l := UIKit.label(txt, 18, Color(0.6, 0.65, 0.6) if done else (Color.WHITE if cur else Color(0.6, 0.6, 0.65)))
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size = Vector2(390, 0)
-		quest_box.add_child(l)
-	if Game.quests_done():
-		var nxt := "All done! Sail on from the boat." if Game.island < DB.ISLANDS.size() - 1 else "You beat the game! Keep fishing for glory."
-		quest_box.add_child(UIKit.label(nxt, 18, UIKit.ACCENT))
-	if Game.has_bait and not Game.boss_alive:
-		quest_box.add_child(UIKit.label("You have Boss Bait! Pour it in the chum bucket.", 16, UIKit.WARN))
-
-
-func _refresh_scoreboard() -> void:
-	if score_list.get_child_count() == Net.players.size() + 2:
+	if _hit_t > 0 and Settings.hit_markers:
+		for direction in [Vector2(1,1), Vector2(-1,1), Vector2(1,-1), Vector2(-1,-1)]:
+			crosshair.draw_line(direction * 5, direction * 11, Color.WHITE, 2)
+	if float(crosshair.get_meta("aim", 0.0)) > 0.8:
+		crosshair.draw_circle(Vector2.ZERO, 2.0 * Settings.crosshair_size, Color(Settings.crosshair_color, Settings.crosshair_opacity))
 		return
-	for c in score_list.get_children():
+	var gap := (6.0 + float(crosshair.get_meta("spread", 1.0)) * 6.0) * Settings.crosshair_size
+	var c := Color(Settings.crosshair_color, Settings.crosshair_opacity)
+	for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+		crosshair.draw_line(d * gap, d * (gap + 9.0 * Settings.crosshair_size), c, 2.0)
+	crosshair.draw_circle(Vector2.ZERO, 1.5 * Settings.crosshair_size, c)
+
+
+func _refresh_scoreboard(lvl: Level) -> void:
+	var key := str(Game.stats.hash()) + str(Net.players.hash())
+	if key == _score_key:
+		return
+	_score_key = key
+	for c in score_grid.get_children():
 		c.queue_free()
-	score_list.add_child(UIKit.label("SURVIVORS", 26, UIKit.GOLD))
-	for id in Net.players:
-		var info: Dictionary = Net.players[id]
-		var col: Color = DB.PLAYER_COLORS[int(info.color) % DB.PLAYER_COLORS.size()]
-		score_list.add_child(UIKit.label("%s%s" % [info.name, "  (host)" if id == 1 else ""], 22, col))
-	score_list.add_child(UIKit.label("Catches %d  |  Kills %d  |  Earned %s  |  Best combo x%.1f" % [Game.stats.catches, Game.stats.kills, DB.format_money(int(Game.stats.earned)), float(Game.stats.best_mult)], 16, Color(0.8, 0.8, 0.85)))
+	for h in ["Survivor", "Kills", "Specials", "Headshots", "Revives", "Friendly fire", "Damage taken"]:
+		score_grid.add_child(UIKit.label(h, 16, Color(0.75, 0.75, 0.78)))
+	for slot in DB.SURVIVORS.size():
+		var who := "bot"
+		for id in Net.players:
+			if Net.slot_of(id) == slot:
+				who = Net.player_name(id)
+		var st: Dictionary = Game.stats[slot] if slot < Game.stats.size() else {}
+		score_grid.add_child(UIKit.label("%s (%s)" % [DB.SURVIVORS[slot].name, who], 18, DB.SURVIVORS[slot].ui))
+		for k in ["kills", "specials", "headshots", "revives", "ff", "damage"]:
+			score_grid.add_child(UIKit.label(str(st.get(k, 0)), 18))
 
 
-func _on_toast(text: String) -> void:
-	var l := UIKit.label(text, 22)
+func _on_toast(text: String, color: Color) -> void:
+	var l := UIKit.label(text, 21, color)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(660, 0)
@@ -315,7 +518,13 @@ func _on_toast(text: String) -> void:
 	tw.tween_callback(l.queue_free)
 
 
-# --- Modals ---------------------------------------------------------------------
+func _on_banner(title: String, sub: String) -> void:
+	banner_title.text = title
+	banner_sub.text = sub
+	_banner_t = 5.0
+
+
+# --- Modals ---------------------------------------------------------------------------
 
 func close_modal() -> void:
 	if modal:
@@ -330,10 +539,10 @@ func _open_modal(kind: String, title: String) -> VBoxContainer:
 	close_modal()
 	modal_kind = kind
 	modal = PanelContainer.new()
-	modal.set_anchors_preset(Control.PRESET_CENTER)
+	modal.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	modal.custom_minimum_size = Vector2(760, 0)
 	modal.position = Vector2(-380, -330)
-	modal.add_theme_stylebox_override("panel", UIKit.box(Color(0.1, 0.12, 0.14, 0.96), 18, 4, Color(0.95, 0.55, 0.2)))
+	modal.add_theme_stylebox_override("panel", UIKit.box(Color(0.08, 0.08, 0.09, 0.96), 14, 3, Color(0.6, 0.12, 0.1)))
 	root.add_child(modal)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -348,102 +557,9 @@ func _open_modal(kind: String, title: String) -> VBoxContainer:
 	return v
 
 
-func open_shop() -> void:
-	var v := _open_modal("shop", "DOC'S BAIT & BRAINS")
-	v.add_child(UIKit.label("\"Bring me zombies, I give you money. Don't ask what I do with them.\"", 16, Color(0.75, 0.8, 0.75)))
-	var money := UIKit.label("Team wallet: " + DB.format_money(Game.money), 24, UIKit.ACCENT)
-	v.add_child(money)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(720, 470)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(scroll)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list)
-	var rebuild := func():
-		if modal_kind == "shop":
-			open_shop()
-
-	list.add_child(UIKit.label("BOSS BAIT", 20, UIKit.WARN))
-	var bait_desc := "Pour it in the chum bucket at the end of the pier to summon %s." % DB.ZOMBIES[DB.ISLANDS[Game.island].boss].name
-	var bait_state := ""
-	if Game.boss_alive:
-		bait_state = "Boss is out!"
-	elif Game.has_bait:
-		bait_state = "In the bucket"
-	elif not Game.bait_available():
-		bait_state = "Finish quests first"
-	list.add_child(_shop_row("bait", "Boss Bait", bait_desc, bait_state, rebuild))
-
-	list.add_child(UIKit.label("RODS (bigger rods hook tougher zombies)", 20, UIKit.GOLD))
-	for r in DB.ROD_ORDER:
-		var rd: Dictionary = DB.RODS[r]
-		if rd.price == 0:
-			continue
-		list.add_child(_shop_row(r, rd.name, "Cast x%.1f  Reel x%.1f  Line x%.1f  Hooks tier %d zombies" % [rd.cast, rd.reel, rd.line, rd.tier], "Owned" if r in Game.owned else "", rebuild))
-	list.add_child(UIKit.label("WEAPONS", 20, UIKit.GOLD))
-	for w in DB.WEAPON_ORDER:
-		var wd: Dictionary = DB.WEAPONS[w]
-		if wd.price == 0:
-			continue
-		var desc := ""
-		match wd.kind:
-			"melee": desc = "Melee. %d dmg, big knockback x%.0f" % [wd.damage, wd.knock]
-			"gun": desc = "%d dmg%s, %d round mag" % [wd.damage, (" x%d pellets" % wd.pellets) if wd.pellets > 1 else "", wd.mag]
-			"throw": desc = "Thrown. %d dmg, %dm blast. KABOOM bonus!" % [wd.damage, wd.radius]
-		list.add_child(_shop_row(w, wd.name, desc, "Owned" if w in Game.owned else "", rebuild))
-	v.add_child(UIKit.label("Purchases are shared by the whole team.", 14, Color(0.7, 0.7, 0.75)))
-
-
-func _shop_row(id: String, nm: String, desc: String, state: String, rebuild: Callable) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	var info := VBoxContainer.new()
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	info.add_child(UIKit.label(nm, 22))
-	var d := UIKit.label(desc, 15, Color(0.75, 0.78, 0.8))
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.custom_minimum_size = Vector2(480, 0)
-	info.add_child(d)
-	var price := Game.item_price(id)
-	var b := UIKit.button(state if state != "" else DB.format_money(price), func():
-		Game.request_buy.rpc_id(1, id)
-		get_tree().create_timer(0.25).timeout.connect(rebuild), 20)
-	b.custom_minimum_size = Vector2(170, 0)
-	b.disabled = state != "" or Game.money < price
-	row.add_child(b)
-	return row
-
-
-func open_travel() -> void:
-	var v := _open_modal("travel", "THE S.S. NOPE")
-	if Game.boss_alive:
-		v.add_child(UIKit.label("Not while there's a boss on the island!", 22, UIKit.WARN))
-		return
-	v.add_child(UIKit.label("Beat each island's boss to unlock the next one.", 18, Color(0.8, 0.85, 0.9)))
-	for i in DB.ISLANDS.size():
-		var isl: Dictionary = DB.ISLANDS[i]
-		var row := HBoxContainer.new()
-		var l := UIKit.label("%d. %s" % [i + 1, isl.name], 24, Color.WHITE if i <= Game.unlocked_island else Color(0.5, 0.5, 0.55))
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(l)
-		var txt := "You are here" if i == Game.island else ("Sail!" if i <= Game.unlocked_island else "Locked")
-		var idx := i
-		var b := UIKit.button(txt, func():
-			Game.request_travel.rpc_id(1, idx)
-			close_modal(), 20)
-		b.disabled = i == Game.island or i > Game.unlocked_island or not Net.is_host()
-		b.custom_minimum_size = Vector2(170, 0)
-		row.add_child(b)
-		v.add_child(row)
-	if not Net.is_host():
-		v.add_child(UIKit.label("Only the host can steer the boat.", 16, Color(0.7, 0.7, 0.75)))
-
-
 func open_pause() -> void:
-	var v := _open_modal("pause", "PAUSED (the zombies aren't)")
-	var mode_txt: String = {"solo": "Solo game", "steam": "Steam friends lobby", "enet": "LAN game"}.get(Net.mode, "")
+	var v := _open_modal("pause", "PAUSED (the infected aren't)")
+	var mode_txt: String = {"solo": "Solo game (bots fill the team)", "steam": "Steam friends lobby", "enet": "LAN game"}.get(Net.mode, "")
 	v.add_child(UIKit.label(mode_txt, 18, Color(0.8, 0.85, 0.9)))
 	v.add_child(UIKit.button("Resume", close_modal, 24))
 	if Net.mode == "steam":
@@ -451,20 +567,18 @@ func open_pause() -> void:
 	elif Net.mode == "enet" and Net.is_host():
 		var ips := Array(IP.get_local_addresses()).filter(func(a): return a.begins_with("192.") or a.begins_with("10.") or a.begins_with("172."))
 		v.add_child(UIKit.label("Friends on your network can join: %s  (port %d)" % [", ".join(ips), Net.DEFAULT_PORT], 16, UIKit.ACCENT))
-	v.add_child(_slider("Mouse sensitivity", 0.0005, 0.008, Settings.mouse_sensitivity, func(x): Settings.mouse_sensitivity = x))
-	v.add_child(_slider("Volume", 0.0, 1.0, Settings.master_volume, func(x):
-		Settings.master_volume = x
-		Settings.apply()))
-	v.add_child(_slider("Field of view", 60.0, 110.0, Settings.fov, func(x):
-		Settings.fov = x
-		var vp_cam := get_viewport().get_camera_3d()
-		if vp_cam:
-			vp_cam.fov = x))
-	v.add_child(UIKit.label("Controls: WASD move, Shift sprint, Space jump, Left-click use / reel (mash to reel faster), Right-click cast rod / yank, E interact,\nQ drop, R reload, 1-0 / wheel switch, Tab scores", 15, Color(0.75, 0.78, 0.8)))
+	v.add_child(UIKit.button("Settings", func():
+		var settings := SettingsPanel.new()
+		add_child(settings), 24))
+	var controls := UIKit.label("WASD move, Space jump, Ctrl crouch, Shift walk, Left-click fire / use, Right-click aim, V shove (or heal/give a teammate),\nR reload, I inspect, E use / pick up / hold to revive, F flashlight, 1-5 or wheel switch, Tab scores", 15, Color(0.75, 0.78, 0.8))
+	controls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(controls)
+	if Net.is_host():
+		v.add_child(UIKit.button("Restart world" if Game.open_world else "Restart chapter", func():
+			close_modal()
+			Game.goto_chapter(Game.chapter), 20))
 	v.add_child(UIKit.button("Leave to menu", func():
 		Settings.save_settings()
-		if Net.is_host():
-			Game.save_game()
 		Net.leave(""), 22))
 
 
@@ -484,3 +598,25 @@ func _slider(text: String, lo: float, hi: float, val: float, cb: Callable) -> Co
 		Settings.save_settings())
 	row.add_child(s)
 	return row
+
+
+func open_gunsmith(s: Survivor) -> void:
+	if not s.level().at_gunsmith(s):
+		return
+	var v := _open_modal("gunsmith", "THE GUNSMITH")
+	modal.custom_minimum_size.x = 1120
+	modal.position = Vector2(-560, -360)
+	modal.add_theme_stylebox_override("panel", UIKit.box(Color(0.035, 0.055, 0.065, 0.99), 8, 2, ArsenalPanel.MINT.darkened(0.4)))
+	var panel := ArsenalPanel.new()
+	panel.setup(s)
+	v.add_child(panel)
+	s.ui_open = true
+
+
+func open_world_map(lvl: Level) -> void:
+	var box := _open_modal("world_map", "DEAD LOW TIDE — WORLD MAP")
+	modal.custom_minimum_size.x = 900
+	var map := WorldMap.new()
+	map.level = lvl
+	box.add_child(map)
+	box.add_child(UIKit.label("Green squares: camps / gunsmiths • Orange: cars • Blue: boats\nClick to mark a personal waypoint. [M] or Esc to close.",16,UIKit.ACCENT))
