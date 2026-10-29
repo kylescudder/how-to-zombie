@@ -44,6 +44,8 @@ func _rebuild() -> void:
 	var tabs := HBoxContainer.new()
 	add_child(tabs)
 	for id: String in DB.GUN_PROFILES:
+		if DB.weapon(id).has("expires"):
+			continue  # discounted stock: no warranty, no upgrades
 		var gun_id := id
 		var button := UIKit.button(DB.GUN_PROFILES[id].model, func(): selected = gun_id, 13)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

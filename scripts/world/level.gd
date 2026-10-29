@@ -378,6 +378,8 @@ func _push_world_later() -> void:
 
 
 func _place_items() -> void:
+	if markers.get("deal_gun", Vector3.INF) != Vector3.INF:
+		spawn_pickup("reduced_rifle", markers.deal_gun, {"price": int(DB.weapon("reduced_rifle").price)})
 	for cache in markers.caches:
 		var items: Array = cache.items
 		var dir: Vector3 = cache.dir
@@ -470,6 +472,8 @@ func _finish_phase() -> void:
 			# Wiped during Barea's escape: try the escape again from the hunt.
 			if Game.story.get("barea", "") == "alert":
 				Game.story.barea = "hunt"
+				Game.story.idol_carrier = -1
+				Game.story.idol_drop = Vector3.INF
 			Game.goto_chapter(chapter)
 		"victory":
 			Game.reset(0)
@@ -646,7 +650,15 @@ func request_pickup(pickup_name: String, slot: int) -> void:
 	if p.global_position.distance_to(s.global_position) > 3.5 or not p.can_take(s):
 		return
 	var item := p.item
-	var extra := p.extra
+	var extra := p.extra.duplicate()
+	if extra.has("price"):
+		if Game.credits(slot) < int(extra.price):
+			Game.toast.rpc("%s can't afford the %s (%d credits)." % [s.short_name(), DB.weapon(item).name, int(extra.price)], Color(1.0, 0.6, 0.3))
+			return
+		Game.arsenal[slot].credits -= int(extra.price)
+		Game.mark_dirty()
+		extra.erase("price")
+		Game.toast.rpc("%s bought the %s. Bargain! (It won't last.)" % [s.short_name(), DB.weapon(item).name], Color(1.0, 0.85, 0.2))
 	p.queue_free()
 	s.receive_item.rpc_id(s.peer_id, item, extra)
 
@@ -923,7 +935,7 @@ func _build_story() -> void:
 		glow.light_energy = 3.0
 		glow.omni_range = 9.0
 		_idol.add_child(glow)
-		Build.interact_zone(_idol, "idol", Vector3(2.2, 2.2, 2.2), Vector3.ZERO, "Take the Yellow Sticker idol")
+		Build.interact_zone(_idol, "idol", Vector3(2.2, 2.6, 2.2), Vector3.ZERO, "Take the Yellow Sticker idol (one of you has to carry it)")
 	_apply_story()
 
 
@@ -934,7 +946,12 @@ func barea_stage() -> String:
 ## Shows or hides story props to match Game.story (all peers).
 func _apply_story() -> void:
 	if _idol:
-		_idol.visible = barea_stage() in ["arrive", "hunt"]
+		# On its shrine before the alert; on the ground wherever its carrier went down during it.
+		var drop: Vector3 = Game.story.get("idol_drop", Vector3.INF)
+		var dropped := barea_stage() == "alert" and int(Game.story.get("idol_carrier", -1)) < 0 and drop != Vector3.INF
+		_idol.visible = barea_stage() in ["arrive", "hunt"] or dropped
+		_idol.global_position = (drop + Vector3.UP * 1.0) if dropped else markers.idol
+		_idol.scale = Vector3.ONE * (0.6 if dropped else 1.0)
 		for c in _idol.get_children():
 			if c is Area3D:
 				(c as Area3D).collision_layer = 8 if _idol.visible else 0
@@ -945,6 +962,16 @@ func _story_tick(delta: float) -> void:
 		_idol.get_node("Art").rotation.y += delta * 0.8
 	if barea_stage() != "alert":
 		return
+	# Whoever carries the idol drops it if they go down; someone has to grab it again.
+	var carrier_slot := int(Game.story.get("idol_carrier", -1))
+	if carrier_slot >= 0:
+		var c := get_survivor_by_slot(carrier_slot)
+		if c == null or c.dead or c.incapped:
+			Game.story.idol_carrier = -1
+			Game.story.idol_drop = c.global_position if c else markers.idol
+			Game.mark_dirty()
+			Game.toast.rpc("%s dropped the Yellow Sticker idol! Pick it up!" % (c.short_name() if c else "Someone"), Color(1.0, 0.75, 0.2))
+			_story_changed.rpc(Game.story)
 	# High alert: sirens, nonstop hordes, until everyone alive is on a boat out at sea.
 	_siren_t -= delta
 	if _siren_t <= 0.0:
@@ -953,7 +980,12 @@ func _story_tick(delta: float) -> void:
 	var humans := get_survivors().filter(func(s): return not s.bot and not s.dead)
 	if humans.is_empty():
 		return
+	if int(Game.story.get("idol_carrier", -1)) < 0:
+		return  # you're not leaving without it
 	var boat: TeamVehicle = null
+	var carrier := get_survivor_by_slot(int(Game.story.idol_carrier))
+	if carrier == null or vehicle_for_slot(carrier.slot) == null:
+		return
 	for s: Survivor in humans:
 		var v := vehicle_for_slot(s.slot)
 		if v == null or v.kind != "boat" or (boat != null and v != boat):
@@ -961,6 +993,8 @@ func _story_tick(delta: float) -> void:
 		boat = v
 	if OpenWorld.land_index(boat.global_position, -70.0) == 0:
 		return  # still too close to Barea's shore
+	if vehicle_for_slot(carrier.slot) != boat:
+		return
 	Game.story.barea = "escaped"
 	Game.mark_dirty()
 	director.city_alert = false
@@ -982,11 +1016,25 @@ func request_story_talk(npc_id: String) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_idol(slot: int) -> void:
-	if not _sender_ok() or not barea_stage() in ["arrive", "hunt"] or _idol == null:
+	if not _sender_ok() or _idol == null or not _idol.visible:
 		return
 	var s := get_survivor_by_slot(slot)
 	if s == null or not s.able() or s.global_position.distance_to(_idol.global_position) > 4.5:
 		return
+	if barea_stage() == "alert":
+		# Picking a dropped idol back up.
+		if int(Game.story.get("idol_carrier", -1)) >= 0:
+			return
+		Game.story.idol_carrier = slot
+		Game.story.idol_drop = Vector3.INF
+		Game.mark_dirty()
+		Game.toast.rpc("%s has the idol again. Keep moving!" % s.short_name(), Color(1.0, 0.85, 0.2))
+		_story_changed.rpc(Game.story)
+		return
+	if not barea_stage() in ["arrive", "hunt"]:
+		return
+	Game.story.idol_carrier = slot
+	Game.story.idol_drop = Vector3.INF
 	Game.story.barea = "alert"
 	Game.mark_dirty()
 	director.city_alert = true

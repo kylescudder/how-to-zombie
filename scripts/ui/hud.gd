@@ -265,7 +265,7 @@ func _process(delta: float) -> void:
 	_update_objective(lvl)
 	_update_talk(lvl, me)
 	_update_tank(lvl)
-	prompt_label.text = me.prompt if modal == null and not me.dead else ""
+	prompt_label.text = ("MISFIRE!" if me.misfire_t > 0.0 else me.prompt) if modal == null and not me.dead else ""
 	crosshair.set_meta("spread", me.spread)
 	crosshair.set_meta("aim", me.aim_blend)
 	crosshair.visible = lvl.vehicle_for_slot(me.slot)==null and not me.dead and me.pinned_by == "" and modal == null
@@ -378,7 +378,12 @@ func _update_team(lvl: Level, me: Survivor) -> void:
 
 
 func _update_weapons(me: Survivor) -> void:
-	var key := "%s|%s|%.1f|%s" % [str(me.inv.hash()), me.cur, me.reload_t, str(Game.arsenal.hash())]
+	var inv_key: Dictionary = me.inv.duplicate(true)
+	var expire := -1
+	if inv_key.primary.has("expire"):
+		expire = int(inv_key.primary.expire)
+		inv_key.primary.erase("expire")
+	var key := "%s|%s|%.1f|%s|%d" % [str(inv_key.hash()), me.cur, me.reload_t, str(Game.arsenal.hash()), expire]
 	if key == _weapon_key:
 		return
 	_weapon_key = key
@@ -393,8 +398,10 @@ func _update_weapons(me: Survivor) -> void:
 		var sel := sl == me.cur
 		var panel := PanelContainer.new()
 		panel.add_theme_stylebox_override("panel", UIKit.box(Color(0.55, 0.12, 0.1, 0.92) if sel else Color(0.08, 0.09, 0.1, 0.7), 8, 2 if sel else 0, Color(1, 1, 1, 0.8)))
+		var rows := VBoxContainer.new()
+		panel.add_child(rows)
 		var row := HBoxContainer.new()
-		panel.add_child(row)
+		rows.add_child(row)
 		row.add_child(UIKit.label(str(i + 1), 14, Color(1, 1, 1, 0.6)))
 		var nm := UIKit.label(w.get("model", w.name), 19 if sel else 16)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -403,6 +410,9 @@ func _update_weapons(me: Survivor) -> void:
 			var si: Dictionary = me.inv[sl]
 			var txt := "RELOADING" if sel and me.reload_t > 0.0 else ("%d" % int(si.mag) + ("" if int(si.get("reserve", -1)) < 0 else " / %d" % int(si.reserve)))
 			row.add_child(UIKit.label(txt, 18 if sel else 15, UIKit.GOLD))
+			if si.has("expire"):
+				var left := maxi(int(si.expire), 0)
+				rows.add_child(UIKit.label("REDUCED · USE BY %d:%02d" % [left / 60, left % 60], 15, Color(1.0, 0.3, 0.2) if left < 60 else Color(1.0, 0.85, 0.2)))
 		weapon_box.add_child(panel)
 
 
@@ -437,7 +447,16 @@ func _update_objective(lvl: Level) -> void:
 		var index := OpenWorld.land_index(me.global_position)
 		var region: String = OpenWorld.ISLANDS[index].name if index>=0 else "Open Sea"
 		var vehicle := lvl.vehicle_for_slot(me.slot)
-		objective.text = "DEAD LOW TIDE • %s\n%s\n[M] World map" % [region, Story.objective(lvl.barea_stage())]
+		var goal := Story.objective(lvl.barea_stage())
+		if lvl.barea_stage() == "alert":
+			var carrier := lvl.get_survivor_by_slot(int(Game.story.get("idol_carrier", -1)))
+			if carrier == null:
+				goal = "The idol's on the ground! Pick it up, then get to a boat!"
+			elif carrier == me:
+				goal = "YOU have the idol (it slows you down). Get everyone onto a boat!"
+			else:
+				goal = "%s has the idol. Get everyone onto a boat!" % carrier.short_name()
+		objective.text = "DEAD LOW TIDE • %s\n%s\n[M] World map" % [region, goal]
 		if vehicle: objective.text += "\n%s • %d km/h • %d/4 aboard" % [vehicle.kind.capitalize(),roundi(absf(vehicle.net_speed)*3.6),4-Array(vehicle.seats).count(-1)]
 		if lvl.local_waypoint!=Vector3.INF: objective.text += "\nWaypoint: %d m" % roundi(me.global_position.distance_to(lvl.local_waypoint))
 		return

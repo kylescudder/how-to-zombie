@@ -19,6 +19,9 @@ const WEAPONS := {
 	"smg": {"name": "SMG", "slot": "primary", "kind": "gun", "tier": 1, "dmg": 20.0, "pellets": 1, "rof": 0.065, "auto": true, "mag": 50, "reserve": 650, "spread": 2.4, "reload": 2.1, "pierce": 1, "sound": "smg"},
 	"pump_shotgun": {"name": "Pump Shotgun", "slot": "primary", "kind": "gun", "tier": 1, "dmg": 25.0, "pellets": 10, "rof": 0.85, "auto": false, "mag": 8, "reserve": 56, "spread": 5.5, "reload": 2.6, "pierce": 1, "sound": "shotgun"},
 	"rifle": {"name": "Assault Rifle", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 33.0, "pellets": 1, "rof": 0.0875, "auto": true, "mag": 50, "reserve": 360, "spread": 1.5, "reload": 2.3, "pierce": 2, "sound": "rifle"},
+	## The Megamart's reduced-to-clear assault rifle: huge damage for pennies, but it misfires and
+	## passes its use-by date 5 minutes after you pick it up (the timer keeps running in your bag).
+	"reduced_rifle": {"name": "Reduced Rifle", "slot": "primary", "kind": "gun", "tier": 3, "dmg": 130.0, "pellets": 1, "rof": 0.075, "auto": true, "mag": 60, "reserve": 300, "spread": 1.1, "reload": 2.0, "pierce": 5, "sound": "rifle", "price": 27, "expires": 300.0, "misfire": 0.08, "base_model": "rifle"},
 	"auto_shotgun": {"name": "Auto Shotgun", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 23.0, "pellets": 11, "rof": 0.3, "auto": true, "mag": 10, "reserve": 90, "spread": 6.0, "reload": 3.0, "pierce": 1, "sound": "shotgun"},
 	"hunting_rifle": {"name": "Hunting Rifle", "slot": "primary", "kind": "gun", "tier": 2, "dmg": 90.0, "pellets": 1, "rof": 0.25, "auto": false, "mag": 15, "reserve": 150, "spread": 0.3, "reload": 3.0, "pierce": 5, "sound": "sniper"},
 	"pipe_bomb": {"name": "Pipe Bomb", "slot": "throwable", "kind": "throw"},
@@ -110,6 +113,7 @@ const GUN_PROFILES := {
 	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "zoom": 1.4},
 	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "zoom": 1.3},
 	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "zoom": 1.5},
+	"reduced_rifle": {"model": "AR-15 MARKDOWN", "caliber": "5.56×45 mm (best before: soon)", "recoil": 0.02, "recovery": 7.5, "range": 70.0, "zoom": 1.5},
 	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "zoom": 1.3},
 	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "zoom": 3.0},
 }

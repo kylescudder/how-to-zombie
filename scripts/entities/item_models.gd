@@ -45,6 +45,6 @@ static func muzzle(item: String) -> Vector3:
 		"smg": return Vector3(0, 0.067, -0.58)
 		"pump_shotgun": return Vector3(0, 0.067, -0.82)
 		"auto_shotgun": return Vector3(0, 0.067, -0.86)
-		"rifle": return Vector3(0, 0.067, -0.79)
+		"rifle", "reduced_rifle": return Vector3(0, 0.067, -0.79)
 		"hunting_rifle": return Vector3(0, 0.067, -0.9)
 	return Vector3(0, 0, -0.3)

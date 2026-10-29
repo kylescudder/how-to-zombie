@@ -24,6 +24,19 @@ func run(owner: Node) -> void:
 	level.director.set_process(false)
 	for i in level.all_infected(): i.queue_free()
 
+	# Every roadblock gap is clear for a survivor-sized capsule.
+	var probe := CapsuleShape3D.new()
+	probe.radius = 0.38
+	probe.height = 1.6
+	var blocked := 0
+	for r: Dictionary in level.markers.roadblocks:
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = probe
+		q.collision_mask = 1
+		q.transform = Transform3D(Basis.IDENTITY, r.gap + Vector3.UP * 1.0)
+		if not level.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
+			blocked += 1
+	test.check(blocked == 0, "every roadblock leaves a clear gap on foot (%d blocked of %d)" % [blocked, level.markers.roadblocks.size()])
 	# Roadblocks stop cars but people squeeze through the gap.
 	var rb: Dictionary = level.markers.roadblocks[level.markers.roadblocks.size() / 2]
 	var across: Vector3 = rb.axis
@@ -98,6 +111,50 @@ func run(owner: Node) -> void:
 		hud.talk(level, "marla")
 	test.check(not hud._talk_panel.visible, "conversation ends after the last line")
 
+	# The Megamart is indoors: a roof over the shrine, a way in from the street.
+	var space := level.get_world_3d().direct_space_state
+	var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(level.markers.idol, level.markers.idol + Vector3.UP * 30, 1))
+	test.check(not up.is_empty() and up.position.y < 12.0, "the idol's shrine is indoors (roof at %.1f m)" % (up.position.y if not up.is_empty() else -1.0))
+	var route := level.nav.path(OpenWorld.dock(0) + Vector3(-30, 0, 0), level.markers.idol - Vector3.UP * 2.6)
+	var walk := 0.0
+	for k in range(1, route.size()):
+		walk += route[k - 1].distance_to(route[k])
+	test.check(not route.is_empty(), "you can walk from the harbour into the Megamart")
+	var carry_time := walk / (Survivor.RUN * 0.88)
+	print("[BAREA] harbour <-> idol walking route %.0f m: %.0f s at the idol carrier's full running speed" % [walk, carry_time])
+
+	# The discounted rifle: cheap, powerful, misfires, and goes off after 5 minutes.
+	var deal: Pickup = null
+	for k: Pickup in level.get_pickups():
+		if k.item == "reduced_rifle":
+			deal = k
+	test.check(deal != null, "a reduced rifle is on the stand inside the Megamart")
+	test.check(deal != null and up.position.y > deal.global_position.y, "the deal is indoors too")
+	var w := Game.gun_stats(me.slot, "reduced_rifle")
+	var normal := Game.gun_stats(me.slot, "rifle")
+	test.check(float(w.dmg) >= float(normal.dmg) * 3.0 and int(w.price) < 100, "super powerful (%d dmg vs %d) and cheap (%d credits)" % [w.dmg, normal.dmg, w.price])
+	if deal:
+		var before := Game.credits(me.slot)
+		me.global_position = deal.global_position + Vector3(1.2, -0.7, 0)
+		await test.wait(0.2)
+		level.request_pickup.rpc_id(1, deal.name, me.slot)
+		test.check(await test.wait_for(func(): return me.weapon_id("primary") == "reduced_rifle", 2.0), "bought the reduced rifle")
+		test.check(Game.credits(me.slot) == before - int(w.price), "it cost %d credits" % int(w.price))
+		test.check(absf(float(me.inv.primary.expire) - 300.0) < 2.0, "use-by timer: 5 minutes")
+		me.select("primary")
+		await test.wait(0.5)
+		var misfires := 0
+		for k in 200:
+			me.inv.primary.mag = 30
+			me._cooldown = 0.0
+			var shots := int(me.net_fire)
+			me._fire(Game.gun_stats(me.slot, "reduced_rifle"))
+			if me.net_fire == shots: misfires += 1
+		test.check(misfires > 3 and misfires < 40, "it randomly misfires (%d of 200 trigger pulls)" % misfires)
+		me.inv.primary.expire = 0.5
+		await test.wait(0.8)
+		test.check(me.weapon_id("primary") == "", "it falls apart when the 5 minutes are up")
+
 	# Take the idol: high alert.
 	me.global_position = level.markers.idol + Vector3(2.5, -2.3, 0)
 	for s: Survivor in level.get_survivors():
@@ -108,6 +165,18 @@ func run(owner: Node) -> void:
 	await test.wait(0.3)
 	test.check(level.barea_stage() == "alert" and level.director.city_alert, "taking the idol puts the city on high alert")
 	test.check(not level._idol.visible, "the idol is gone from its shrine")
+	test.check(me.carrying_idol(), "%s carries the idol" % me.short_name())
+	# Carrier goes down: the idol drops; a teammate can pick it up.
+	me.host_damage(500.0)
+	await test.wait(0.3)
+	test.check(int(Game.story.idol_carrier) == -1 and level._idol.visible, "the idol drops when its carrier goes down")
+	me.host_revive()
+	await test.wait(0.2)
+	me.global_position = level._idol.global_position + Vector3(1.0, -0.6, 0)
+	await test.wait(0.2)
+	level.request_idol.rpc_id(1, me.slot)
+	await test.wait(0.2)
+	test.check(me.carrying_idol() and not level._idol.visible, "picked the idol back up")
 	var peak := 0
 	var first_id := level._next_id
 	var t := 0.0
@@ -176,15 +245,43 @@ func shots(owner: Node) -> void:
 	me.aim(atan2(-through.x, -through.z), -0.05)
 	await test.wait(0.6)
 	await _snap(dir + "/04_roadblock.png")
-	# 5. The Megamart shrine and the idol
-	me.global_position = level.markers.idol + Vector3(9, -2.3, 0)
-	test.aim_at(me, level.markers.idol)
+	# 5. Walking into the Megamart, 6. the idol up close
+	var door: Vector3 = level.markers.idol + Vector3(36.0, -2.3, 0)
+	me.global_position = door
+	test.aim_at(me, level.markers.idol + Vector3(0, -1.0, 0))
 	await test.wait(0.6)
 	await _snap(dir + "/05_megamart.png")
-	me.global_position = level.markers.idol + Vector3(2.6, -2.3, 0.4)
+	me.global_position = level.markers.idol + Vector3(3.0, -2.3, 0.6)
 	test.aim_at(me, level.markers.idol)
 	await test.wait(0.6)
 	await _snap(dir + "/06_idol.png")
+	# The reduced rifle on its stand, then in hand
+	var deal: Pickup = null
+	for k: Pickup in level.get_pickups():
+		if k.item == "reduced_rifle": deal = k
+	if deal:
+		me.global_position = deal.global_position + Vector3(1.6, -0.7, 0.6)
+		test.aim_at(me, deal.global_position)
+		await test.wait(0.5)
+		await _snap(dir + "/10_deal_stand.png")
+		level.request_pickup.rpc_id(1, deal.name, me.slot)
+		await test.wait(0.4)
+		me.select("primary")
+		me.aim(PI * 0.5, 0.0)
+		await test.wait(1.2)
+		await _snap(dir + "/11_reduced_rifle.png")
+	# A teammate carrying the idol on their back
+	var bot: Survivor = level.get_survivors().filter(func(x): return x.bot)[0]
+	bot.set_physics_process(false)
+	bot.global_position = door + Vector3(-6, 0, 0)
+	bot.rotation.y = PI * 0.5
+	Game.story.idol_carrier = bot.slot
+	me.global_position = bot.global_position + Vector3(-3.2, 0, 1.2)
+	test.aim_at(me, bot.global_position + Vector3.UP * 1.3)
+	await test.wait(0.6)
+	await _snap(dir + "/12_carrier.png")
+	Game.story.idol_carrier = -1
+	bot.set_physics_process(true)
 	# 7. Talking to Dev at the petrol station
 	var dev := level.npc("dev")
 	me.global_position = dev.global_position + dev.global_transform.basis.z * 2.2 + Vector3.UP * 0.3

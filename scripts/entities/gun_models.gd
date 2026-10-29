@@ -15,6 +15,15 @@ const BRASS := Color(0.66, 0.43, 0.14)
 
 
 static func make(id: String, upgrades := {}) -> Node3D:
+	if id == "reduced_rifle":
+		# The ordinary assault rifle with a reduced sticker slapped on both sides of the receiver.
+		var gun := make("rifle", upgrades)
+		for side: float in [1.0, -1.0]:
+			var sticker := YellowSticker.make(0.13, 0.05)
+			sticker.position = Vector3(0.0315 * side, 0.03, -0.13)
+			sticker.rotation.y = PI * 0.5 * side
+			gun.add_child(sticker)
+		return gun
 	var key := id + str(upgrades.hash())
 	if not _templates.has(key):
 		var gun := _assemble(id, upgrades)

@@ -68,6 +68,8 @@ var _vm_support: Node3D
 var action_t := 0.0
 var action_target := ""
 var spread := 0.0
+var misfire_t := 0.0
+var _idol_art: Node3D
 var _cooldown := 0.0
 var _shove_cd := 0.0
 var _swing := 0.0
@@ -448,6 +450,8 @@ func _local_move(delta: float) -> void:
 		speed = WALK_SPEED
 	if total_hp() < 40.0:
 		speed *= LIMP
+	if carrying_idol():
+		speed *= 0.88  # it's a big idol
 	if biled > 0.0:
 		biled -= delta
 	if action_t > 0.0 or not able():
@@ -535,6 +539,8 @@ func _animate_frame(delta: float) -> void:
 		prompt = "WASD drive • Space brake • E exit when stopped" if transport.seats[0]==slot else "Riding with squad • E exit when stopped"
 		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	misfire_t = maxf(misfire_t - delta, 0.0)
+	_tick_expiry(delta)
 	_shove_cd = maxf(_shove_cd - delta, 0.0)
 	_swing = maxf(_swing - delta * 4.0, 0.0)
 	_recoil = maxf(_recoil - delta * float(current_weapon().get("recovery", 7.0)), 0.0)
@@ -677,8 +683,40 @@ func _finish_reload() -> void:
 	_sync_inv()
 
 
+## Discounted stock: counts down in your bag whether you're holding it or not.
+func _tick_expiry(delta: float) -> void:
+	var p: Dictionary = inv.primary
+	if not p.has("expire"):
+		return
+	p.expire = float(p.expire) - delta
+	if p.expire > 0.0:
+		return
+	var nm: String = DB.weapon(p.id).name
+	inv.primary = {}
+	if cur == "primary":
+		cur = _best_slot()
+	reload_t = 0.0
+	_sync_inv()
+	Sfx.play("empty", global_position, 2.0)
+	if is_me():
+		level().toast_local("Your %s passed its use-by date and fell apart." % nm, Color(1.0, 0.8, 0.2))
+
+
+func carrying_idol() -> bool:
+	return int(Game.story.get("idol_carrier", -1)) == slot
+
+
 func _fire(w: Dictionary) -> void:
 	var si: Dictionary = inv[cur]
+	# Reduced to clear for a reason: now and then it just... doesn't.
+	if float(w.get("misfire", 0.0)) > 0.0 and _rng.randf() < float(w.misfire):
+		si.mag = int(si.mag) - 1
+		_cooldown = 0.45
+		misfire_t = 0.6
+		Sfx.play("empty", global_position + Vector3.UP * 1.5, 2.0)
+		add_shake(0.08)
+		_sync_inv()
+		return
 	_shot_age = 0.0
 	si.mag = int(si.mag) - 1
 	_cooldown = float(w.rof)
@@ -1033,6 +1071,8 @@ func receive_item(id: String, extra: Dictionary) -> void:
 				dropped = inv.primary.id
 				dropped_extra = inv.primary.duplicate()
 			inv.primary = {"id": id, "mag": int(extra.get("mag", w.mag)), "reserve": int(extra.get("reserve", w.reserve))}
+			if w.has("expires"):
+				inv.primary.expire = float(extra.get("expire", w.expires))
 			cur = "primary"
 		"secondary":
 			var old := String(inv.secondary.get("id", ""))
@@ -1272,6 +1312,15 @@ func _animate_body(delta: float) -> void:
 	body_model.animate(delta, minf(hs, 6.0), _swing, pose, net_reload, net_action_t, exp(-_shot_age * 20.0))
 	var transport := level().vehicle_for_slot(slot)
 	body_model.visible = not is_me() and (transport==null or transport.kind=="boat")
+	var carrying := carrying_idol() and not dead
+	if carrying and _idol_art == null and body_model.torso:
+		_idol_art = YellowSticker.make(0.7, 0.18)
+		body_model.torso.add_child(_idol_art)
+		_idol_art.position = Vector3(0, 0.45, -0.32)
+		_idol_art.rotation.y = PI
+	elif not carrying and _idol_art:
+		_idol_art.queue_free()
+		_idol_art = null
 	body_model.position.y = -0.45 if transport else 0.0
 	var upgrades := Game.gun_upgrades(slot, net_weapon)
 	var key := (net_weapon + str(upgrades.hash())) if not dead else ""

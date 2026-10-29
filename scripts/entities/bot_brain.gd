@@ -300,8 +300,8 @@ func _wanted_pickup(lvl: Level) -> Pickup:
 	var bd := 9.0
 	for p: Pickup in lvl.get_pickups():
 		var d := p.global_position.distance_to(s.global_position)
-		if d >= bd or not _wants(p.item):
-			continue
+		if d >= bd or not _wants(p.item) or p.extra.has("price"):
+			continue  # bots don't spend the team's credits
 		# Only things we can actually walk to (not through a shut door).
 		var route := lvl.nav.path(s.global_position, p.global_position)
 		if route.is_empty() or route.size() > 16:

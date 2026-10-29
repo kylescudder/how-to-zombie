@@ -401,37 +401,117 @@ func _plaza(b: Vector2i) -> void:
 	ow.markers.items.append(c + Vector3(-9, 0.1, -9))
 
 
+## The Price Slasher Megamart: a proper indoor store. Doors on the east (street) side, aisles of
+## shelving, checkouts, a "reduced to clear" stand with the discounted rifle, and the idol's
+## shrine at the very back under the strip lights.
 func _megamart(b: Vector2i) -> void:
 	var c := block_center(b)
 	_tile("forecourt", Color(0.38, 0.38, 0.4), c + Vector3(0, 0.07, 0), Vector3(LOT, 0.02, LOT))
 	var col := Color(0.97, 0.88, 0.25)
-	# Back hall on the west side, wings north and south: the car park opens east onto the street.
-	ow._solid(Vector3(16, 13, LOT), col, c + Vector3(-16, 6.5, 0))
-	ow._solid(Vector3(24, 9, 8), col.darkened(0.08), c + Vector3(4, 4.5, -20))
-	ow._solid(Vector3(24, 9, 8), col.darkened(0.08), c + Vector3(4, 4.5, 20))
-	Build.box(root, Vector3(16.6, 1.6, LOT + 0.6), Color(0.85, 0.15, 0.12), c + Vector3(-16, 13.2, 0))
-	_tile("shopglass", Color(0.25, 0.45, 0.55), c + Vector3(-7.9, 2.5, 0), Vector3(0.2, 4.5, 30), 0.0)
-	_sign("PRICE SLASHER MEGAMART", c + Vector3(-7.6, 10.5, 0), PI * 0.5, 300, Color(0.85, 0.12, 0.1))
+	var w := 44.0      # footprint
+	var h := 8.0       # wall height
+	var t := 0.6       # wall thickness
+	var door := 8.0
+	var hw := w * 0.5
+	# Walls: west, north, south solid; east split around the doors with glass shopfronts.
+	_wall(Vector3(t, h, w), col, c + Vector3(-hw, h * 0.5, 0))
+	_wall(Vector3(w, h, t), col, c + Vector3(0, h * 0.5, -hw))
+	_wall(Vector3(w, h, t), col, c + Vector3(0, h * 0.5, hw))
+	var side := (w - door) * 0.5
+	for sgn: float in [-1.0, 1.0]:
+		var z := sgn * (door * 0.5 + side * 0.5)
+		_wall(Vector3(t, h, side), col, c + Vector3(hw, h * 0.5, z))
+		_tile("shopglass", Color(0.25, 0.45, 0.55), c + Vector3(hw + 0.32, 2.2, z), Vector3(0.1, 3.6, side - 2.0))
+	Build.box(root, Vector3(t + 0.2, h - 3.6, door), col, c + Vector3(hw, 3.6 + (h - 3.6) * 0.5, 0))
+	# Roof, with a red trim band and the sign over the doors.
+	Build.solid_box(root, Vector3(w + 1.0, 0.6, w + 1.0), Color(0.55, 0.52, 0.48), c + Vector3(0, h + 0.3, 0))
+	for sgn: float in [-1.0, 1.0]:
+		Build.box(root, Vector3(w + 1.2, 1.4, 0.4), Color(0.85, 0.15, 0.12), c + Vector3(0, h - 0.3, sgn * (hw + 0.4)))
+		Build.box(root, Vector3(0.4, 1.4, w + 1.2), Color(0.85, 0.15, 0.12), c + Vector3(sgn * (hw + 0.4), h - 0.3, 0))
+	Build.box(root, Vector3(w - t, 0.1, w - t), Color(0.78, 0.78, 0.76), c + Vector3(0, h - 0.05, 0))
+	_sign("PRICE SLASHER MEGAMART", c + Vector3(hw + 0.7, 6.0, 0), PI * 0.5, 280, Color(0.85, 0.12, 0.1))
+	_sign("ENTRANCE", c + Vector3(hw + 0.5, 4.1, 0), PI * 0.5, 120, Color(1, 1, 1))
 	# A giant Yellow Sticker billboard on the roof: you can see it across the city.
-	var board := YellowSticker.make(16.0)
-	board.position = c + Vector3(-16, 24.0, 0)
+	var board := YellowSticker.make(16.0, 0.6)
+	board.position = c + Vector3(-6, h + 13.0, 0)
 	board.rotation.y = PI * 0.5
 	root.add_child(board)
-	Build.box(root, Vector3(0.6, 9.0, 0.6), Color(0.4, 0.4, 0.42), c + Vector3(-16, 17.5, -4))
-	Build.box(root, Vector3(0.6, 9.0, 0.6), Color(0.4, 0.4, 0.42), c + Vector3(-16, 17.5, 4))
-	# The shrine: a pedestal ringed by shopping trolleys like standing stones.
-	var shrine := c + Vector3(4, 0, 0)
+	for z: float in [-4.0, 4.0]:
+		Build.box(root, Vector3(0.6, 9.0, 0.6), Color(0.4, 0.4, 0.42), c + Vector3(-6, h + 4.5, z))
+	# Inside: tiled floor, strip lights, warm lamps.
+	_tile("store_floor", Color(0.86, 0.85, 0.8), c + Vector3(0, 0.09, 0), Vector3(w - t, 0.02, w - t))
+	for x: float in [-14.0, -4.0, 6.0, 16.0]:
+		for z: float in [-14.0, 0.0, 14.0]:
+			_tile("strip", Color(1.0, 0.98, 0.9), c + Vector3(x, h - 0.15, z), Vector3(5.0, 0.1, 0.5), 0.0, 3.0)
+	for p: Vector3 in [Vector3(-14, 6.5, -10), Vector3(-14, 6.5, 10), Vector3(6, 6.5, -10), Vector3(6, 6.5, 10)]:
+		var l := OmniLight3D.new()
+		l.position = c + p
+		l.light_color = Color(1.0, 0.96, 0.85)
+		l.light_energy = 1.6
+		l.omni_range = 18.0
+		l.shadow_enabled = false
+		root.add_child(l)
+	# Aisles of shelving either side of the main aisle that runs from the doors to the shrine.
+	var products := [Color(0.9, 0.3, 0.25), Color(0.3, 0.6, 0.9), Color(0.95, 0.8, 0.25), Color(0.4, 0.75, 0.4), Color(0.95, 0.55, 0.2), Color(0.8, 0.4, 0.75)]
+	for sgn: float in [-1.0, 1.0]:
+		for row in 3:
+			var z := sgn * (6.0 + row * 5.0)
+			_shelf(c + Vector3(-1.0, 0, z), 18.0, products)
+	# Checkouts by the doors.
+	for k in 3:
+		var co := c + Vector3(hw - 7.0, 0, -12.0 + k * 4.0 + (8.0 if k > 0 else 0.0))
+		Build.solid_box(root, Vector3(3.0, 1.0, 1.0), Color(0.3, 0.3, 0.34), co + Vector3.UP * 0.5)
+		Build.box(root, Vector3(0.6, 0.5, 0.4), Color(0.12, 0.12, 0.14), co + Vector3(0.8, 1.25, 0))
+		_tile("lane_light", Color(1.0, 0.85, 0.2), co + Vector3(1.4, 2.2, 0), Vector3(0.3, 0.4, 0.3), 0.0, 2.5)
+	# The "reduced to clear" stand with the discounted rifle on it.
+	var stand := c + Vector3(hw - 8.0, 0, 9.0)
+	Build.solid_box(root, Vector3(2.4, 0.95, 1.2), Color(0.95, 0.85, 0.2), stand + Vector3.UP * 0.475)
+	_sign("REDUCED TO CLEAR", stand + Vector3(0, 3.4, 0), PI * 0.5, 50, Color(0.85, 0.1, 0.1))
+	var tag := YellowSticker.make(0.9, 0.08)
+	tag.position = stand + Vector3(0.0, 1.55, -0.4)
+	tag.rotation.y = PI * 0.5
+	root.add_child(tag)
+	ow.markers["deal_gun"] = stand + Vector3(0, 1.0, 0.1)
+	# The shrine at the back: a pedestal ringed by shopping trolleys like standing stones.
+	var shrine := c + Vector3(-15.0, 0, 0)
 	Build.solid_cyl(root, 1.4, 1.1, Color(0.85, 0.82, 0.75), shrine + Vector3.UP * 0.55, 16)
 	Build.cyl(root, 1.6, 1.6, 0.15, Color(0.95, 0.75, 0.2), shrine + Vector3.UP * 1.12, Vector3.ZERO, 16)
 	for k in 10:
 		var a := k * TAU / 10.0
-		_trolley(shrine + Vector3(cos(a) * 5.0, 0, sin(a) * 5.0), -a + PI * 0.5)
+		_trolley(shrine + Vector3(cos(a) * 4.5, 0, sin(a) * 4.5), -a + PI * 0.5)
 	for k in 16:
 		var a := k * TAU / 16.0
-		_tile("candle", Color(1.0, 0.8, 0.4), shrine + Vector3(cos(a) * 3.0, 0.15, sin(a) * 3.0), Vector3(0.15, 0.3, 0.15), 0.0, 3.0)
+		_tile("candle", Color(1.0, 0.8, 0.4), shrine + Vector3(cos(a) * 2.8, 0.25, sin(a) * 2.8), Vector3(0.15, 0.3, 0.15), 0.0, 3.0)
 	ow.markers.idol = shrine + Vector3.UP * 2.6
 	for k in 3:
-		_parked(c + Vector3(18, 0, -12 + k * 12), 0.0, k == 1)
+		_parked(c + Vector3(hw + 4.0, 0, -14 + k * 14), 0.0, k == 1)
+
+
+## Solid wall that also blocks the nav grid (tight margin, so the doorway stays open).
+func _wall(size: Vector3, col: Color, pos: Vector3) -> void:
+	Build.solid_box(root, size, col, pos)
+	_block_nav(pos, size, 0.6)
+
+
+func _block_nav(pos: Vector3, size: Vector3, margin: float) -> void:
+	var a := ow.grid.cell_of(pos - size * 0.5 - Vector3(margin, 0, margin))
+	var b := ow.grid.cell_of(pos + size * 0.5 + Vector3(margin, 0, margin))
+	for z in range(a.y, b.y + 1):
+		for x in range(a.x, b.x + 1):
+			ow.grid.set_cell(Vector2i(x, z), NavGrid.Cell.PROP)
+
+
+func _shelf(p: Vector3, length: float, products: Array) -> void:
+	Build.solid_box(root, Vector3(length, 2.4, 1.2), Color(0.8, 0.8, 0.82), p + Vector3.UP * 1.2)
+	_block_nav(p, Vector3(length, 0, 1.2), 0.2)
+	for level_y: float in [0.45, 1.25, 2.05]:
+		var x := -length * 0.5 + 0.5
+		while x < length * 0.5 - 0.4:
+			var col: Color = products[rng.randi() % products.size()]
+			var ph := rng.randf_range(0.35, 0.6)
+			for sgn: float in [-1.0, 1.0]:
+				_tile("product%d" % products.find(col), col, p + Vector3(x, level_y + ph * 0.5, sgn * 0.65), Vector3(0.6, ph, 0.12))
+			x += rng.randf_range(0.7, 1.0)
 
 
 func _trolley(p: Vector3, yaw: float) -> void:
@@ -479,6 +559,8 @@ func _street_life() -> void:
 	for bb: Vector2i in blocks:
 		var c := block_center(bb)
 		for k in 5:
+			if k == 2:
+				continue  # mid-street is where a roadblock may go; never park in its gap
 			var z := -PITCH * 0.5 + 10.0 + k * 10.0
 			if rng.randf() < 0.32:
 				_parked(c + Vector3(PITCH * 0.5 - 5.5, 0, z), 0.0, rng.randf() < 0.1)

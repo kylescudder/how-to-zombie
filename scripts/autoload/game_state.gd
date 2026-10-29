@@ -21,7 +21,7 @@ var stats: Array = []
 var arsenal: Array = []  # Host-owned credits and gun-specific upgrades, per survivor slot.
 var finale_stage := -1  # -1 = not started
 ## Island stories (see Story). Barea City: arrive -> hunt -> alert -> escaped.
-var story := {"barea": "arrive"}
+var story := {"barea": "arrive", "idol_carrier": -1, "idol_drop": Vector3.INF}
 
 var _dirty := false
 
@@ -46,7 +46,7 @@ func reset(start_chapter := 0) -> void:
 	phase = "playing"
 	finale_stage = -1
 	carry = [{}, {}, {}, {}]
-	story = {"barea": "arrive"}
+	story = {"barea": "arrive", "idol_carrier": -1, "idol_drop": Vector3.INF}
 	arsenal = []
 	for i in 4:
 		arsenal.append({"credits": 500, "guns": {}})
@@ -156,6 +156,8 @@ func credits(slot: int) -> int:
 
 # Called only after Level validates the requesting peer, equipped gun and bench distance.
 func buy_upgrade(slot: int, id: String, kind: String) -> bool:
+	if DB.weapon(id).has("expires"):
+		return false  # reduced stock: no upgrades
 	if not Net.is_host() or not DB.GUN_PROFILES.has(id) or not DB.UPGRADES.has(kind) or slot < 0 or slot >= arsenal.size():
 		return false
 	var upgrades := gun_upgrades(slot, id).duplicate()

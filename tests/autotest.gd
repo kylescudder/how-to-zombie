@@ -14,27 +14,27 @@ func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	match test_name:
 		"world_net_host", "world_net_client":
-			await preload("res://tests/world_network.gd").new().run(self,test_name=="world_net_host")
+			await _suite("res://tests/world_network.gd").new().run(self,test_name=="world_net_host")
 		"world":
-			await preload("res://tests/world_verify.gd").new().run(self)
+			await _suite("res://tests/world_verify.gd").new().run(self)
 		"barea_shots":
-			await preload("res://tests/barea_verify.gd").new().shots(self)
+			await _suite("res://tests/barea_verify.gd").new().shots(self)
 		"barea":
-			await preload("res://tests/barea_verify.gd").new().run(self)
+			await _suite("res://tests/barea_verify.gd").new().run(self)
 		"world_horde":
-			await preload("res://tests/world_horde.gd").new().run(self)
+			await _suite("res://tests/world_horde.gd").new().run(self)
 		"settings":
-			await preload("res://tests/settings_verify.gd").new().run(self)
+			await _suite("res://tests/settings_verify.gd").new().run(self)
 		"art_hitbox":
 			await _art_hitbox()
 		"art_models":
-			var art := preload("res://tests/art_capture.gd").new()
+			var art: Node = _suite("res://tests/art_capture.gd").new()
 			add_child(art)
 			await art.run(self)
 		"solo":
 			await _solo()
 		"animations":
-			var capture := preload("res://tests/animation_capture.gd").new()
+			var capture: Node = _suite("res://tests/animation_capture.gd").new()
 			add_child(capture)
 			await capture.run(self)
 		"animation_verify":
@@ -59,6 +59,16 @@ func _ready() -> void:
 			await _shot(ProjectSettings.globalize_path("res://screenshots/00_menu.png"))
 	print("[TEST] %s: %s" % [test_name, "PASS" if _fails == 0 else "FAIL (%d)" % _fails])
 	get_tree().quit(1 if _fails else 0)
+
+
+## Loads a test suite at run time, so a broken suite fails the run instead of hanging it.
+func _suite(path: String) -> Object:
+	var script := load(path) as GDScript
+	if script == null or not script.can_instantiate():
+		print("[TEST] could not load %s" % path)
+		get_tree().quit(2)
+		return null
+	return script
 
 
 func check(cond: bool, what: String) -> void:
@@ -586,6 +596,11 @@ func _screens() -> void:
 
 
 func _shot(path: String) -> void:
+	# Keep Godot from importing every screenshot as a project asset.
+	var ignore := ProjectSettings.globalize_path("res://screenshots/.gdignore")
+	if not FileAccess.file_exists(ignore):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots"))
+		FileAccess.open(ignore, FileAccess.WRITE)
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("[TEST] screenshot ", path)

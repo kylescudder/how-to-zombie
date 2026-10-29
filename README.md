@@ -16,7 +16,7 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 | | |
 |---|---|
 | ![Barea City skyline](docs/barea_01_skyline.jpg) | ![Roadblock](docs/barea_04_roadblock.jpg) |
-| ![The Yellow Sticker idol](docs/barea_06_idol.jpg) | ![Talking to Dev](docs/barea_07_npc.jpg) |
+| ![The Yellow Sticker idol](docs/barea_06_idol.jpg) | ![The Reduced Rifle](docs/barea_11_reduced_rifle.jpg) |
 
 One 3 km map with five islands: **Barea City**, **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland.
 
@@ -27,8 +27,10 @@ You land in Barea City, a metropolis about 900 × 770 m: skyscrapers downtown, m
 - **Roadblocks.** The army closed most streets. Every roadblock leaves a gap you can squeeze through on foot, but no car fits, so you can't drive across town. The streets become corridors and hordes funnel through the same gaps you do.
 - **Car alarms.** Cars with a blinking red light are alarmed. Shoot one or drive into one and a horde comes running.
 - **Survivors.** Five people are holed up around town: Captain Marla at the harbour, Dev at a petrol station, Sgt. Okafor at the police station, Bex at the fire station, and Old Reg in the plaza. Walk up and press **E** to talk; each tells you part of the story. Talking to any of them puts the idol on your map.
-- **The idol.** The Yellow Sticker idol (a reduced label: *was £1.40p, NOW £0.27p*) sits on a shrine of shopping trolleys in the Megamart car park, under a giant billboard of itself. Press **E** to take it.
-- **High alert.** The moment it moves, sirens start and the whole city comes for you: hordes every few seconds and specials on top, nonstop, until everyone still alive is on a boat out at sea. Then you've escaped Barea City.
+- **The Megamart.** Walk in through the front doors: aisles of shelving, checkouts, and right at the back the Yellow Sticker idol (a chunky reduced label: *was £1.40p, NOW £0.27p*) on a shrine of shopping trolleys. A giant billboard of it sits on the roof.
+- **The Reduced Rifle.** On the "Reduced to Clear" stand by the tills: the normal assault rifle with a yellow sticker on the side, for 27 credits. Huge damage (130 vs 33), but it randomly misfires and passes its use-by date 5 minutes after you buy it, then falls apart. The countdown shows under the gun in your weapon list. No gunsmith upgrades.
+- **The idol.** Press **E** to take it. Whoever takes it carries it on their back, a little slower than everyone else. If the carrier goes down, the idol drops where they fell and someone has to pick it up again.
+- **High alert.** The moment it moves, sirens start and the whole city comes for you: hordes every few seconds and specials on top, nonstop. You escape Barea City when everyone still alive, including whoever has the idol, is on the same boat out at sea.
 
 ### Getting around
 
@@ -180,7 +182,7 @@ There are no imported art or audio assets. Models combine authored cross-section
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
-tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: roadblocks, alarms, NPCs, idol, high alert, escape
+tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: roadblocks, alarms, NPCs, Megamart, Reduced Rifle, carrying the idol, alert, escape
 tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
 tools/godot --headless -- --solo --test=guns       # shop interaction, wallet, upgrades, actual damage, ADS, reload, carryover
 tools/godot -- --solo --test=gun_screens            # detailed gun and gunsmith screenshots in screenshots/guns/
