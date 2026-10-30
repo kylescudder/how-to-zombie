@@ -363,6 +363,7 @@ func _sync_survivors() -> void:
 			cur.queue_free()
 		_gen += 1
 		var data := {"kind": "survivor", "name": "S%d_%d" % [slot, _gen], "slot": slot, "peer": want_peer, "bot": want_peer == 0, "pos": pos, "yaw": yaw, "state": st}
+		if want_peer!=0: data.appearance=Net.players[want_peer].get("appearance",{})
 		var s := spawner.spawn(data) as Survivor
 		if st.get("dead", false) or st.get("incapped", false):
 			s.dead = bool(st.get("dead", false))
@@ -1094,6 +1095,7 @@ func _story_tick(delta: float) -> void:
 	if vehicle_for_slot(carrier.slot) != boat:
 		return
 	Game.story.barea = "escaped"
+	Wardrobe.reward_escape()
 	Game.mark_dirty()
 	director.city_alert = false
 	Game.show_banner.rpc("ESCAPED BAREA CITY", "The Yellow Sticker idol is yours. Next stop: the other islands.")

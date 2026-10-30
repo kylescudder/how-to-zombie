@@ -12,7 +12,21 @@ var _level_counter := 0
 
 
 func _ready() -> void:
-	if "--test=settings" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--test="):
+			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots/test-profiles"))
+			Wardrobe.storage_path="res://screenshots/test-profiles/%s.cfg"%argument.trim_prefix("--test=").replace("/","_")
+			Wardrobe.xp=0
+			Wardrobe.equipped=CosmeticCatalog.defaults()
+	if "--test=wardrobe" in OS.get_cmdline_user_args() or "--test=menu_hideout" in OS.get_cmdline_user_args() or "--test=city_pacing" in OS.get_cmdline_user_args() or "--test=settings" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
+	if "--test=wardrobe_net_host" in OS.get_cmdline_user_args():
+		Wardrobe.xp=4000
+		Wardrobe.equipped.hair=2
+		Wardrobe.equipped.jackets=1
+	if "--test=wardrobe_net_client" in OS.get_cmdline_user_args():
+		Wardrobe.xp=4000
+		Wardrobe.equipped.hair=6
+		Wardrobe.equipped.outfits=2
 	world = Node.new()
 	world.name = "World"
 	add_child(world)

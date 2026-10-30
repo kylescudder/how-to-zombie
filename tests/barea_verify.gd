@@ -233,14 +233,14 @@ func run(owner: Node) -> void:
 	var peak := 0
 	var first_id := level._next_id
 	var t := 0.0
-	while t < 20.0:
+	while t < 75.0:
 		await test.get_tree().process_frame
 		t += test.get_process_delta_time()
 		peak = maxi(peak, level.count_commons())
 		if me.incapped: me.host_revive()
 		me.hp = 100.0
 	var sent := level._next_id - first_id
-	test.check(sent >= 35, "nonstop hordes while on alert (%d infected sent in 20 s, %d at once)" % [sent, peak])
+	test.check(sent >= 8 and peak <= DB.MAX_COMMONS, "escape pressure resumes after injury recovery and stays capped (%d sent in 75 s, peak %d)" % [sent, peak])
 
 	test.check(level.npc("marla_ferry").visible, "Marla has moved to the old ferry terminal")
 	# The harbour boats won't do: Marla's at the ferry terminal.

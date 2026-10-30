@@ -97,6 +97,7 @@ var _aim_latched := false
 var _crouch_latched := false
 var in_crouch := false
 var in_walk := false
+var appearance: Dictionary = {}
 var in_aim := false
 var aim_blend := 0.0
 var in_fire := false
@@ -110,6 +111,7 @@ var in_slot := ""
 
 
 func setup(d: Dictionary) -> void:
+	appearance=d.get("appearance",{})
 	slot = int(d.slot)
 	bot = bool(d.get("bot", false))
 	peer_id = 1 if bot else int(d.peer)
@@ -182,7 +184,8 @@ func _ready() -> void:
 
 	body_model = CharacterModel.new()
 	add_child(body_model)
-	body_model.setup_survivor(slot)
+	if not appearance.is_empty(): body_model.setup_custom(appearance)
+	else: body_model.setup_survivor(slot)
 
 	head = Node3D.new()
 	head.position.y = 1.62
@@ -1410,13 +1413,18 @@ func _make_view_hand(left: bool) -> Node3D:
 	var hand := Node3D.new()
 	hand.name = "SupportHand" if left else "GripHand"
 	viewmodel.add_child(hand)
-	var skin: Color = DB.SURVIVORS[slot].skin
-	var shirt: Color = DB.SURVIVORS[slot].shirt
+	var skin: Color = CosmeticCatalog.SKINS[appearance.get("skin",0)] if not appearance.is_empty() else DB.SURVIVORS[slot].skin
+	var shirt: Color = CharacterAppearance.sleeve_colour(appearance) if not appearance.is_empty() else DB.SURVIVORS[slot].shirt
 	Build.box(hand, Vector3(0.065, 0.065, 0.10), skin)
 	for i in 4:
 		Build.box(hand, Vector3(0.014, 0.048, 0.038), skin.darkened(0.08), Vector3(-0.025 + i * 0.017, -0.035, -0.035), Vector3(-20, 0, 0))
 	Build.box(hand, Vector3(0.025, 0.04, 0.06), skin, Vector3(-0.04 if left else 0.04, 0.005, -0.01), Vector3(0, 0, 25))
 	Build.box(hand, Vector3(0.082, 0.085, 0.19), shirt, Vector3(0, -0.035, 0.13), Vector3(-12, 0, 0))
+	if left and int(appearance.get("watches",0))>0:
+		var watch: int=appearance.watches
+		Build.box(hand,Vector3(0.088,0.026,0.055),CharacterAppearance.SHOES[watch],Vector3(0,0.018,0.065))
+		Build.box(hand,Vector3(0.039,0.012,0.039),Color("b99c55") if watch==3 else Color("bac4c2"),Vector3(0,0.039,0.065))
+		Build.box(hand,Vector3(0.026,0.005,0.026),Color("344b43"),Vector3(0,0.047,0.065))
 	return hand
 
 

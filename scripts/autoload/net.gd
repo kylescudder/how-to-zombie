@@ -125,7 +125,7 @@ func _reset_peer() -> void:
 
 func _begin_host() -> void:
 	_connecting = false
-	players = {1: {"name": my_name(), "slot": 0}}
+	players = {1: {"name": my_name(), "slot": 0, "appearance": Wardrobe.equipped.duplicate()}}
 	players_changed.emit()
 	session_started.emit()
 
@@ -171,7 +171,7 @@ func _on_steam_join_requested(lobby_id: int) -> void:
 
 func _on_connected_to_server() -> void:
 	_connecting = false
-	_register.rpc_id(1, my_name())
+	_register.rpc_id(1, my_name(), Wardrobe.equipped, Wardrobe.xp)
 	session_started.emit()
 
 
@@ -198,7 +198,7 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 @rpc("any_peer", "reliable")
-func _register(pname: String) -> void:
+func _register(pname: String, look: Dictionary = {}, career_xp := 0) -> void:
 	if not is_host():
 		return
 	var id := multiplayer.get_remote_sender_id()
@@ -209,7 +209,7 @@ func _register(pname: String) -> void:
 	if slot >= DB.SURVIVORS.size():
 		_kick.rpc_id(id, "The game is full (4 survivors).")
 		return
-	players[id] = {"name": pname.substr(0, 24), "slot": slot}
+	players[id] = {"name": pname.substr(0, 24), "slot": slot, "appearance": CosmeticCatalog.normalise(look,clampi(career_xp,0,10000000))}
 	Game.on_peer_joined(id)
 	_sync_players.rpc(players)
 	Game.toast.rpc("%s joined as %s" % [players[id].name, DB.SURVIVORS[slot].name])

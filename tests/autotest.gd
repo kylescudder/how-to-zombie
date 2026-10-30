@@ -13,10 +13,22 @@ var _fails := 0
 func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	match test_name:
+		"wardrobe_net_host", "wardrobe_net_client":
+			await _suite("res://tests/wardrobe_network.gd").new().run(self,test_name=="wardrobe_net_host")
+		"wardrobe":
+			await _suite("res://tests/wardrobe_verify.gd").new().run(self)
+		"menu_hideout":
+			await _suite("res://tests/menu_hideout_verify.gd").new().run(self)
+		"weapon_lineup":
+			await _suite("res://tests/weapon_lineup.gd").new().run(self)
+		"city_pacing":
+			await _suite("res://tests/city_pacing_verify.gd").new().run(self)
 		"world_net_host", "world_net_client":
 			await _suite("res://tests/world_network.gd").new().run(self,test_name=="world_net_host")
 		"world":
 			await _suite("res://tests/world_verify.gd").new().run(self)
+		"clean_shots":
+			await _suite("res://tests/clean_shots.gd").new().run(self)
 		"perf":
 			await _suite("res://tests/perf_probe.gd").new().run(self)
 		"barea_shots":

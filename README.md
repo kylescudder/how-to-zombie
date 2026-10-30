@@ -33,9 +33,13 @@ Barea is a metropolis about 1.7 × 1.5 km (559 city blocks): downtown towers, re
 2. **Police HQ (north-east, ~0.9 km).** Take the master keys from the evidence lockup. That sets off the holding-cell alarm: hold out for 60 seconds while the district piles in.
 3. **Substation 4 (north-west industrial estate, ~0.9 km).** The keys open the gate. Throw the main breaker, then hold out for 90 seconds while the grid spins up.
 4. **The Megamart (south, ~1.5 km).** The shutters roll up. Inside are aisles of shelving, checkouts, and right at the back the Yellow Sticker idol (a chunky reduced label: *was £1.40p, NOW £0.27p*) on a shrine of shopping trolleys.
-5. **Escape (west shore, ~1.1 km).** Taking the idol puts the whole city on high alert: sirens and nonstop hordes. The harbour's overrun, so Marla moves to the **old ferry terminal on the far shore**. Only her ferry counts. Get everyone still alive, including whoever carries the idol, aboard and out to sea.
+5. **Escape (west shore, ~1.1 km).** Taking the idol puts the whole city on high alert: sirens and faster encounter cycles with brief recovery windows. The harbour's overrun, so Marla moves to the **old ferry terminal on the far shore**. Only her ferry counts. Get everyone still alive, including whoever carries the idol, aboard and out to sea.
 
-Hold-outs, hordes and roadblocks are where the time goes: nonstop running alone would be about 14 minutes plus 2.5 minutes of hold-outs.
+Hold-outs, hordes and roadblocks are where the time goes: nonstop running alone would be about 14 minutes plus 2.5 minutes of hold-outs. The 45–50 minute estimate still needs a human squad playtest.
+
+126 filler blocks are now open neighbourhood markets, community gardens, evacuation aid stations and service yards. Each has a street entrance, cover and a rear service building; a subset contains supplies. Existing landmarks and roadblock gaps remain accessible.
+
+Open-world encounters use build-up, surge and recovery phases. Team health, recent damage, incapacitation, nearby alerted enemies and bosses govern new waves. Escape uses shorter cycles; its wave scheduler does not stack with normal travel pacing. Living plus queued commons are limited to 36. Hold-out clocks continue during injuries while reinforcement waves shrink. Existing enemies remain dangerous during recovery. See [pacing details](docs/CITY_PACING.md).
 
 - **Roadblocks.** The army closed most streets. Every roadblock leaves a gap you can squeeze through on foot, but no car fits, so you can't drive across town. The streets become corridors and hordes funnel through the same gaps you do.
 - **Car alarms.** Cars with a blinking red light are alarmed. Shoot one or drive into one and a horde comes running.
@@ -151,7 +155,7 @@ Versions are pinned in `tools/versions.env` (Godot and GodotSteam) and `flake.ni
 ## Playing with friends on Steam
 
 1. Have the Steam client running and logged in.
-2. Click **Host Steam Game**. This creates a friends-only lobby.
+2. Click **Host Game → Host Steam game**. This creates a friends-only lobby.
 3. Friends can **Join Game** from your Steam profile or friends list, or you can invite them with **Pause → Invite Steam friends** (the Steam overlay invite dialog). Accepting an invite launches the game with `+connect_lobby` and joins automatically.
 
 Friends who join take over a bot, keeping its health and gear. Up to four people can play; when someone leaves, a bot takes over again.
@@ -192,6 +196,7 @@ There are no imported art or audio assets. Models combine authored cross-section
 
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
+tools/godot --headless --fixed-fps 60 -- --solo --test=city_pacing    # street access, 45-minute simulated pacing and queue limits
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
 tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: all five acts, route length, roadblocks, alarms, Reduced Rifle, carrying the idol, ferry escape
 tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
@@ -230,3 +235,13 @@ screenshots/animations/.venv/bin/python tools/encode_animation_gifs.py
 The low-frame-rate check covers input presses across multiple physics ticks, cosmetic magazine removal, ammo conservation, reload cancellation, inspection interruption and pump cycling. The ENet host/client test also checks teammate reload replication. Animation capture stages isolated actors and uses a separate camera for third-person close-ups; reloads, first aid and reviving exercise the real gameplay completion paths.
 
 The first cartoon art slice and its shape/material rules are documented in [Art direction](docs/ART_DIRECTION.md). Run `tools/godot --fixed-fps 20 -- --solo --test=art_models` for muted model turntables, GLB exports, and in-game evidence in `screenshots/art-pass/`.
+
+### Living title screen
+
+The title offers **Host Game, Join Game, Settings, Quit, Credits and Customise**. Host Game contains difficulty, solo-with-bots, Steam and LAN hosting. Join Game contains Steam lobby ID and LAN address entry; Esc closes either sheet. Customise saves your survivor name and opens crosshair controls. Credits shows the engine, Steam integration and procedural art/sound acknowledgements. The title's separate 3D hideout has clickable survivors, a message-cycling radio and Colin the zombie, plus bobbing boats/buoys and a flickering fire. The scene interactions have no introductory prompts; discovered dialogue appears briefly, then disappears. Its rendering and animation stop during gameplay and resume on leaving a session. **Settings** opens the existing settings screen.
+
+`godot --path . -- --test=menu_hideout` verifies diorama ray clicks, friends/invalid address/settings flows, solo launch/return and background suspension; it saves native screenshots under `screenshots/menu-hideout/` with game audio muted.
+
+### Character & wardrobe
+
+**Customise → Character & wardrobe** opens the 3D character editor. Eight choices each cover the face, hair and skin, plus jewellery/accessories, T-shirts, trousers, shoes, jackets and full outfits. Facial choices are free; clothing unlocks with persistent wardrobe XP earned from kills, revives and escapes. Preview locked items, rotate/zoom the model, and equip an owned look. Appearances replicate to your co-op squad. See [customisation and unlock rules](docs/CHARACTER_CUSTOMISATION.md).

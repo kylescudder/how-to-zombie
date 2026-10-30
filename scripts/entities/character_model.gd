@@ -22,6 +22,10 @@ var _lie := 0.0
 var _skin := Color.WHITE
 
 
+func setup_custom(look: Dictionary) -> void:
+	CharacterAppearance.build(self,look)
+
+
 func setup_survivor(i: int) -> void:
 	var s: Dictionary = DB.SURVIVORS[i]
 	_body(s.skin, s.shirt, s.pants, Vector3(0.62, 0.7, 0.38), 1.0, 1.0)

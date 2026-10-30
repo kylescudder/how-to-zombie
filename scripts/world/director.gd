@@ -8,6 +8,11 @@ const WANDER_AHEAD_MIN := 30.0
 const WANDER_AHEAD_MAX := 90.0
 const WANDER_TARGET := 12
 
+var pacing := EncounterPacing.new()
+var recent_damage := 0.0
+var _last_health := -1.0
+var _last_living := 4
+var _special_clock := 18.0
 var level: Level
 var flow: NavGrid.Flow
 var lure_flow: NavGrid.Flow
@@ -76,12 +81,12 @@ func _process(delta: float) -> void:
 			return
 	relax_t = maxf(relax_t - delta, 0.0)
 	_wanderers(delta)
-	if city_alert:
-		_alert(delta)
 	if crescendo_t > 0.0:
 		_crescendo(delta)
 	elif finale_stage >= 0:
 		_finale(delta)
+	elif city_alert:
+		_alert(delta)
 	else:
 		_pacing(delta)
 	_cull()
@@ -127,6 +132,9 @@ func progress() -> float:
 
 func _pacing(delta: float) -> void:
 	if level.open_world:
+		_world_pacing(delta, false)
+		return
+	if level.open_world:
 		for survivor: Survivor in level.get_survivors():
 			if OpenWorld.land_index(survivor.global_position) == 1 and not tank_alive and tank_at != -2:
 				tank_at = -2
@@ -149,20 +157,55 @@ func _pacing(delta: float) -> void:
 
 ## High alert: the whole city converges on whoever's still on Barea, wave after wave.
 func _alert(delta: float) -> void:
-	var on_island := level.get_survivors().any(func(s): return not s.dead and OpenWorld.land_index(s.global_position) == 0)
-	if not on_island:
-		return
-	_alert_mob -= delta
-	if _alert_mob <= 0.0:
-		_alert_mob = _rng.randf_range(4.0, 6.0)
-		spawn_mob(int(_rng.randi_range(12, 18) * Game.diff().horde), false)
-	_alert_special -= delta
-	if _alert_special <= 0.0:
-		_alert_special = _rng.randf_range(12.0, 18.0)
+	_world_pacing(delta, true)
+
+
+func _world_pacing(delta: float, escape: bool) -> void:
+	var team := level.get_survivors().filter(func(s): return not s.dead)
+	if team.is_empty(): return
+	var health := 0.0
+	var downed := 0
+	for survivor: Survivor in team:
+		health += minf(survivor.total_hp()/100.0,1.0)
+		if survivor.incapped or survivor.pinned_by != "": downed += 1
+	health /= team.size()
+	recent_damage = maxf(0,recent_damage-delta*0.025)
+	if team.size()<_last_living: recent_damage=maxf(recent_damage,0.3)
+	_last_living=team.size()
+	if _last_health>=0: recent_damage += maxf(0,_last_health-health)
+	_last_health=health
+	var threats := 0
+	for infected: Infected in level.all_infected():
+		if infected.is_dead() or not infected.alert: continue
+		for survivor: Survivor in team:
+			if infected.global_position.distance_to(survivor.global_position)<65:
+				threats+=1
+				break
+	var decision := pacing.tick(delta,health,downed,recent_damage,threats,tank_alive,escape)
+	if relax_t>0 and pacing.phase!="recover":
+		pacing.recover(relax_t)
+		decision="recover"
+	if decision=="recover":
+		pending.clear()
+		_special_clock=20
+	if pacing.phase=="recover": return
+	if decision=="wave":
+		spawn_mob(int((18 if escape else 14)*Game.diff().horde),true)
+	_special_clock-=delta
+	if _special_clock<=0 and pacing.phase=="surge" and threats<18:
+		_special_clock=maxf(12,_special_interval())
 		spawn_special()
+	# Boss pressure consumes the encounter rather than adding a second schedule.
+	if pacing.phase=="surge" and not tank_alive and tank_at!=-2:
+		for survivor: Survivor in team:
+			if OpenWorld.land_index(survivor.global_position)==1:
+				spawn_tank()
+				if tank_alive: tank_at=-2
+				break
 
 
 func _wanderers(delta: float) -> void:
+	if level.open_world and (pacing.phase=="recover" or crescendo_t>0 or city_alert): return
 	wander_t -= delta
 	if wander_t > 0.0:
 		return
@@ -173,7 +216,8 @@ func _wanderers(delta: float) -> void:
 		if inf.type == "common" and not inf.alert:
 			count += 1
 	var commons := level.count_commons()
-	var want := mini(WANDER_TARGET - count, DB.MAX_COMMONS - commons)
+	var queued := pending.filter(func(e): return e.type=="common").size()
+	var want := mini(WANDER_TARGET - count - queued, DB.MAX_COMMONS - commons - queued)
 	for i in mini(want, 4):
 		var p := find_spawn(WANDER_AHEAD_MIN, WANDER_AHEAD_MAX, lead)
 		if p != Vector3.INF:
@@ -240,12 +284,16 @@ func _seen(p: Vector3) -> bool:
 func _spawn_pending() -> void:
 	for i in mini(pending.size(), 3):
 		var e: Dictionary = pending.pop_front()
-		if e.type == "common" and level.count_commons() >= DB.MAX_COMMONS + (14 if city_alert else 0):
+		if e.type == "common" and level.count_commons() >= DB.MAX_COMMONS:
 			continue
 		level.spawn_infected(e.type, e.pos, e.horde)
 
 
 func spawn_mob(n: int, music: bool) -> void:
+	if level.open_world:
+		var queued := pending.filter(func(e): return e.type=="common").size()
+		n = mini(n,maxi(0, DB.MAX_COMMONS-level.count_commons()-queued))
+		if n<=0: return
 	var spots: Array = []
 	for i in 2:
 		var p := find_spawn(28.0, 60.0)
@@ -312,6 +360,7 @@ func on_tank_died() -> void:
 		if inf.is_tank() and not inf.is_dead():
 			tank_alive = true
 	relax_t = 20.0
+	if level.open_world: pacing.recover(35)
 
 
 func on_witch_startled() -> void:
@@ -340,12 +389,18 @@ func start_crescendo(duration: float) -> void:
 func _crescendo(delta: float) -> void:
 	crescendo_t -= delta
 	crescendo_wave -= delta
-	if crescendo_wave <= 0.0:
+	if crescendo_wave <= 0.0 and level.open_world and _team_struggling():
+		crescendo_wave = 8.0
+		if level.count_commons()<6: spawn_mob(4,false)
+	elif crescendo_wave <= 0.0:
 		crescendo_wave = 11.0
 		spawn_mob(int(_rng.randi_range(10, 14) * Game.diff().horde), false)
 		if _rng.randf() < 0.5:
 			spawn_special()
 	if crescendo_t <= 0.0:
+		if level.open_world:
+			pending.clear()
+			pacing.recover(35)
 		level.crescendo_done()
 		relax_t = 15.0
 		mob_t = _mob_interval()
@@ -410,3 +465,12 @@ func _finale(delta: float) -> void:
 	if next:
 		finale_stage += 1
 		_enter_stage()
+
+
+func _team_struggling() -> bool:
+	var team := level.get_survivors().filter(func(s): return not s.dead)
+	var health := 0.0
+	for survivor: Survivor in team:
+		if survivor.incapped or survivor.pinned_by!="": return true
+		health+=minf(survivor.total_hp(),100)
+	return team.is_empty() or health/maxi(team.size(),1)<38

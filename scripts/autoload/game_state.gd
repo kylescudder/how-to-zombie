@@ -10,6 +10,7 @@ signal banner(title: String, subtitle: String)
 const SAVE_PATH := "user://save.json"
 
 var open_world := true
+var _wardrobe_victory := false
 var chapter := 0
 var difficulty := 1
 ## "playing", "complete" (safe room reached), "failed" (team wiped), "victory" (rescued)
@@ -37,11 +38,15 @@ func _process(_delta: float) -> void:
 
 
 func mark_dirty() -> void:
+	if Net.is_host() and phase=="victory" and not _wardrobe_victory:
+		_wardrobe_victory=true
+		Wardrobe.reward_escape()
 	_dirty = true
 	state_changed.emit()
 
 
 func reset(start_chapter := 0) -> void:
+	_wardrobe_victory=false
 	chapter = start_chapter
 	phase = "playing"
 	finale_stage = -1
@@ -113,6 +118,7 @@ func add_stat(slot: int, key: String, amount := 1) -> void:
 	if not Net.is_host() or slot < 0 or slot >= stats.size():
 		return
 	stats[slot][key] = int(stats[slot].get(key, 0)) + amount
+	Wardrobe.reward_stat(slot,key,amount)
 	if key in ["kills", "specials"]:
 		arsenal[slot].credits += amount * (15 if key == "kills" else 75)
 	mark_dirty()

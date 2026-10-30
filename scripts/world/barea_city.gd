@@ -36,6 +36,7 @@ static func build(world: OpenWorld, island_index: int) -> BareaCity:
 
 
 func _generate() -> void:
+	ow.markers["street_pockets"] = []
 	ow.markers["npcs"] = []
 	ow.markers["idol"] = Vector3.INF
 	ow.markers["city_blocks"] = []
@@ -177,6 +178,10 @@ func _ground() -> void:
 
 func _buildings(b: Vector2i) -> void:
 	var c := block_center(b)
+	var pocket := StreetPockets.kind(b, _district(c))
+	if pocket >= 0:
+		StreetPockets.build(self,b,pocket)
+		return
 	var dist := Vector2(c.x - _downtown.x, c.z - _downtown.z).length()
 	if dist < 230.0 and rng.randf() < 0.85:
 		_skyscraper(c, lerpf(120.0, 48.0, dist / 230.0) * rng.randf_range(0.75, 1.15))
