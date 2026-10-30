@@ -2,6 +2,8 @@ class_name Build
 ## Tiny helpers for making chunky low-poly geometry out of primitives.
 
 static var _mats := {}
+## Identical primitives share one mesh; the city would otherwise upload ~50,000 separate ones.
+static var _shapes := {}
 
 
 static func mat(color: Color, rough: float = 0.85, emission: float = 0.0) -> StandardMaterial3D:
@@ -32,27 +34,38 @@ static func mesh(parent: Node3D, m: Mesh, color: Color, pos := Vector3.ZERO, rot
 
 
 static func box(parent: Node3D, size: Vector3, color: Color, pos := Vector3.ZERO, rot_deg := Vector3.ZERO, emission := 0.0) -> MeshInstance3D:
-	var b := BoxMesh.new()
-	b.size = size
+	var b: BoxMesh = _shapes.get(size)
+	if not b:
+		b = BoxMesh.new()
+		b.size = size
+		_shapes[size] = b
 	return mesh(parent, b, color, pos, rot_deg, emission)
 
 
 static func cyl(parent: Node3D, top: float, bottom: float, height: float, color: Color, pos := Vector3.ZERO, rot_deg := Vector3.ZERO, segments := 10) -> MeshInstance3D:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = height
-	c.radial_segments = segments
-	c.rings = 1
+	var key := Vector4(top, bottom, height, segments)
+	var c: CylinderMesh = _shapes.get(key)
+	if not c:
+		c = CylinderMesh.new()
+		c.top_radius = top
+		c.bottom_radius = bottom
+		c.height = height
+		c.radial_segments = segments
+		c.rings = 1
+		_shapes[key] = c
 	return mesh(parent, c, color, pos, rot_deg)
 
 
 static func sphere(parent: Node3D, radius: float, color: Color, pos := Vector3.ZERO, scale := Vector3.ONE, segments := 10) -> MeshInstance3D:
-	var s := SphereMesh.new()
-	s.radius = radius
-	s.height = radius * 2.0
-	s.radial_segments = segments
-	s.rings = max(segments / 2, 4)
+	var key := Vector2(radius, segments)
+	var s: SphereMesh = _shapes.get(key)
+	if not s:
+		s = SphereMesh.new()
+		s.radius = radius
+		s.height = radius * 2.0
+		s.radial_segments = segments
+		s.rings = max(segments / 2, 4)
+		_shapes[key] = s
 	var mi := mesh(parent, s, color, pos)
 	mi.scale = scale
 	return mi

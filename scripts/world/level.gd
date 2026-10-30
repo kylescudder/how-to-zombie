@@ -44,11 +44,16 @@ func setup(d: Dictionary) -> void:
 func _ready() -> void:
 	_rng.randomize()
 	add_to_group("level")
+	LoadingScreen.report(0.02, 0)
 	_build_environment()
+	# Hidden while it builds: visible instances cost ~7 s of renderer time on the city's 50,000 meshes.
 	var geo := Node3D.new()
 	geo.name = "Geometry"
+	geo.visible = false
 	add_child(geo)
 	var gen: Variant = OpenWorld.build(geo) if open_world else MapGen.build(geo, chapter)
+	geo.visible = true
+	LoadingScreen.report(0.82, 3)
 	nav = gen.grid
 	markers = gen.markers
 	for n in geo.find_children("*", "Area3D", true, false):
@@ -84,7 +89,9 @@ func _ready() -> void:
 
 	if Net.is_host():
 		Net.players_changed.connect(_sync_survivors)
+		LoadingScreen.report(0.88, 4)
 		_sync_survivors()
+		LoadingScreen.report(0.92, 3)
 		_place_items()
 		if not open_world and Game.chapter_data().get("witch", false):
 			director.place_witch()

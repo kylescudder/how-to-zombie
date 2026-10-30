@@ -207,6 +207,8 @@ tools/godot --headless -- --solo --linear --test=solo       # every mechanic: gu
 tools/godot --headless -- --solo --linear --test=campaign   # all three chapters: safe rooms, gate crescendo, finale and rescue
 tools/godot --headless -- --solo --linear --test=soak       # 40 s of the Director at full tilt with bots; reports frame rate
 tools/godot --headless -- --test=settings          # settings screen and saved preferences
+tools/godot -- --solo --test=loading                # loading screen, load time, first-seconds stalls; screenshots in screenshots/loading/ (needs a window)
+tools/godot -- --test=loading_click                 # real mouse click on Start solo: the card must be on screen when the build begins (needs a window)
 
 # Two-process multiplayer. Run these in real time: --fixed-fps lets the host's waits
 # finish before the client has even started.

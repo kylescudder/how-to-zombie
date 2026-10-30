@@ -181,9 +181,9 @@ func _eye(pos: Vector3, size: Vector3, pupil: Color, tilt := 0.0) -> void:
 func _face_survivor() -> void:
 	_eye(Vector3(-0.122,0.335,0.218),Vector3(0.17,0.20,0.13),Color(0.09,0.15,0.16),-0.08)
 	_eye(Vector3(0.122,0.335,0.218),Vector3(0.17,0.20,0.13),Color(0.09,0.15,0.16),0.08)
-	ArtShapes.oval(head,Vector3(0.17,0.16,0.25),_skin.lightened(0.07),Vector3(0,0.23,0.31),Vector3(-8,0,0))
-	for x: float in [-0.045,0.045]:
-		ArtShapes.oval(head,Vector3(0.024,0.016,0.013),Color(0.28,0.13,0.10),Vector3(x,0.185,0.41))
+	var nose := ArtShapes.oval(head,Vector3(0.17,0.16,0.25),_skin.lightened(0.07),Vector3(0,0.23,0.31),Vector3(-8,0,0))
+	nose.name = "Nose"
+	ArtShapes.nostrils(nose,Vector3(0.024,0.016,0.013),Color(0.28,0.13,0.10))
 	ArtShapes.oval(head,Vector3(0.19,0.054,0.045),Color(0.25,0.10,0.08),Vector3(0,0.085,0.256),Vector3(0,0,-8))
 	ArtShapes.oval(head,Vector3(0.10,0.024,0.015),Color(0.92,0.84,0.68),Vector3(0.01,0.10,0.280),Vector3(0,0,-8))
 	for side: float in [-1,1]:

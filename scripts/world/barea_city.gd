@@ -62,6 +62,7 @@ func _generate() -> void:
 	_assign_landmarks()
 	_ground()
 	for b: Vector2i in blocks:
+		LoadingScreen.report(0.16 + 0.14 * ow.markers.city_blocks.size() / blocks.size(), 1)
 		ow.markers.city_blocks.append(block_center(b))
 		match String(blocks[b]):
 			"petrol": _petrol(b)
@@ -592,7 +593,10 @@ func _parked(p: Vector3, yaw: float, alarm: bool, police := false) -> void:
 
 func _street_life() -> void:
 	# Cars parked along the kerbs of every street next to a block, streetlights at corners.
+	var done := 0
 	for bb: Vector2i in blocks:
+		done += 1
+		LoadingScreen.report(0.3 + 0.3 * done / blocks.size(), 1)
 		var c := block_center(bb)
 		for k in 5:
 			if k == 2:
@@ -618,7 +622,10 @@ func _street_life() -> void:
 ## any car, wide enough to squeeze through on foot (and for the horde to funnel through).
 func _roadblocks() -> void:
 	var dock := OpenWorld.dock(index)
+	var done := 0
 	for bb: Vector2i in blocks:
+		done += 1
+		LoadingScreen.report(0.6 + 0.06 * done / blocks.size(), 1)
 		var c := block_center(bb)
 		# Street to the east of this block (runs north-south) and to the south (runs east-west).
 		for dir in 2:

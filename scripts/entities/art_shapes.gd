@@ -2,22 +2,40 @@ class_name ArtShapes
 extends RefCounted
 ## Authored cross-section meshes and curved forms for the cartoon art direction.
 
+static var _ovals := {}
+static var _links := {}
+
 static func oval(parent: Node3D, size: Vector3, color: Color, pos := Vector3.ZERO, rot := Vector3.ZERO, segments := 20) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = segments
-	mesh.rings = 12
+	var mesh: SphereMesh = _ovals.get(segments)
+	if not mesh:
+		mesh = SphereMesh.new()
+		mesh.radius = 0.5
+		mesh.height = 1.0
+		mesh.radial_segments = segments
+		mesh.rings = 12
+		_ovals[segments] = mesh
 	var mi := Build.mesh(parent, mesh, color, pos, rot)
 	mi.scale = size
 	return mi
 
+## Seats a pair of nostrils on the underside of an oval nose, so they follow its shape and tilt.
+static func nostrils(nose: MeshInstance3D, size: Vector3, color: Color) -> void:
+	for side: float in [-1,1]:
+		var dir := Vector3(side*0.5,-0.55,0.67).normalized()
+		var nostril := oval(nose,size/nose.scale,color,dir*0.48,Vector3.ZERO,12)
+		nostril.name = "Nostril%d" % side
+
+
 static func link(parent: Node3D, a: Vector3, b: Vector3, radius: float, color: Color) -> MeshInstance3D:
-	var mesh := CapsuleMesh.new()
-	mesh.radius = radius
-	mesh.height = a.distance_to(b) + radius * 2
-	mesh.radial_segments = 12
-	mesh.rings = 5
+	var key := Vector2(radius, a.distance_to(b))
+	var mesh: CapsuleMesh = _links.get(key)
+	if not mesh:
+		mesh = CapsuleMesh.new()
+		mesh.radius = radius
+		mesh.height = a.distance_to(b) + radius * 2
+		mesh.radial_segments = 12
+		mesh.rings = 5
+		_links[key] = mesh
 	var mi := Build.mesh(parent, mesh, color, (a + b) * 0.5)
 	if a.distance_to(b) > 0.001:
 		mi.quaternion = Quaternion(Vector3.UP, (b - a).normalized())

@@ -8,6 +8,7 @@ var world: Node
 var level_spawner: MultiplayerSpawner
 var hud: HUD
 var menu: MainMenu
+var loading: LoadingScreen
 var _level_counter := 0
 
 
@@ -18,7 +19,7 @@ func _ready() -> void:
 			Wardrobe.storage_path="res://screenshots/test-profiles/%s.cfg"%argument.trim_prefix("--test=").replace("/","_")
 			Wardrobe.xp=0
 			Wardrobe.equipped=CosmeticCatalog.defaults()
-	if "--test=wardrobe" in OS.get_cmdline_user_args() or "--test=menu_hideout" in OS.get_cmdline_user_args() or "--test=city_pacing" in OS.get_cmdline_user_args() or "--test=settings" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
+	if "--test=loading" in OS.get_cmdline_user_args() or "--test=loading_click" in OS.get_cmdline_user_args() or "--test=noses" in OS.get_cmdline_user_args() or "--test=wardrobe" in OS.get_cmdline_user_args() or "--test=menu_hideout" in OS.get_cmdline_user_args() or "--test=city_pacing" in OS.get_cmdline_user_args() or "--test=settings" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
 	if "--test=wardrobe_net_host" in OS.get_cmdline_user_args():
 		Wardrobe.xp=4000
 		Wardrobe.equipped.hair=2
@@ -41,6 +42,9 @@ func _ready() -> void:
 	menu = MainMenu.new()
 	add_child(menu)
 	menu.show_menu()
+	loading = LoadingScreen.new()
+	add_child(loading)
+	world.child_exiting_tree.connect(_on_level_leaving)
 
 	Net.session_started.connect(_on_session_started)
 	Net.session_ended.connect(_on_session_ended)
@@ -56,6 +60,7 @@ func _spawn_level(data: Dictionary) -> Node:
 
 
 func _on_session_started() -> void:
+	loading.begin()
 	menu.visible = false
 	hud.set_active(true)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -66,18 +71,29 @@ func _on_session_started() -> void:
 func _load_chapter(idx: int) -> void:
 	if not Net.is_host():
 		return
+	loading.begin()
 	for c in world.get_children():
 		c.queue_free()
 	_level_counter += 1
-	# Wait a frame so the old level (and its node names) are gone everywhere first.
+	# Wait a frame so the old level (and its node names) are gone everywhere first. The second
+	# wait lets the loading screen draw: a menu click lands before this frame's draw, and the
+	# level build then blocks until it is done.
+	await get_tree().process_frame
 	await get_tree().process_frame
 	level_spawner.spawn({"chapter": idx, "open_world": Game.open_world, "name": "Chapter%d_%d" % [idx, _level_counter]})
 
 
+## Clients only learn of a chapter change when the host's level despawns.
+func _on_level_leaving(_level: Node) -> void:
+	if hud.visible and not Net.is_host():
+		loading.begin()
+
+
 func _on_session_ended(reason: String) -> void:
+	hud.set_active(false)
+	loading.cancel()
 	for c in world.get_children():
 		c.queue_free()
-	hud.set_active(false)
 	menu.show_menu(reason)
 
 

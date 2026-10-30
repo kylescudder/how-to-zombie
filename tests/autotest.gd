@@ -13,6 +13,12 @@ var _fails := 0
 func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	match test_name:
+		"loading_click":
+			await _suite("res://tests/loading_click_verify.gd").new().run(self)
+		"loading":
+			await _suite("res://tests/loading_verify.gd").new().run(self)
+		"noses":
+			await _suite("res://tests/nose_verify.gd").new().run(self)
 		"wardrobe_net_host", "wardrobe_net_client":
 			await _suite("res://tests/wardrobe_network.gd").new().run(self,test_name=="wardrobe_net_host")
 		"wardrobe":

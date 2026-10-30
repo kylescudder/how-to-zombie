@@ -65,6 +65,7 @@ varying vec3 world;
 void vertex(){world=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;VERTEX.y+=sin(world.x*0.12+TIME)*cos(world.z*0.1+TIME*0.6)*0.08;}
 void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALBEDO=mix(vec3(0.04,0.32,0.42),vec3(0.18,0.61,0.65),wave*0.5+0.5);ROUGHNESS=0.35;METALLIC=0.15;}"""
 	sea.material_override = material
+	LoadingScreen.report(0.14, 0)
 	for index in ISLANDS.size():
 		_terrain(index)
 		if ISLANDS[index].kind == "city":
@@ -72,6 +73,7 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 		else:
 			_roads(index)
 			_settlement(index)
+		LoadingScreen.report(0.68 + index * 0.02, 2)
 		_harbour(index)
 		var base := camp(index)
 		var bench := MapGen.new()

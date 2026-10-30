@@ -56,7 +56,7 @@ static func _face(m: Node3D, look: Dictionary, skin: Color) -> void:
 	var sizes := [Vector3(0.17,0.15,0.21),Vector3(0.12,0.23,0.19),Vector3(0.23,0.15,0.22),Vector3(0.12,0.25,0.29),Vector3(0.16,0.12,0.25),Vector3(0.10,0.12,0.15),Vector3(0.23,0.20,0.23),Vector3(0.13,0.22,0.34)]
 	var nasal := ArtShapes.oval(m.head,sizes[nose],skin.lightened(0.05),Vector3(0,0.23,0.31),Vector3(-20 if nose==4 else (15 if nose==3 else -5),0,0))
 	nasal.name="Nose"
-	for side in [-1,1]: ArtShapes.oval(m.head,Vector3(0.023,0.015,0.014),skin.darkened(0.5),Vector3(side*sizes[nose].x*0.25,0.185,0.32+sizes[nose].z*0.46))
+	ArtShapes.nostrils(nasal,Vector3(0.023,0.015,0.014),skin.darkened(0.5))
 	var mouth: int=look.mouth
 	var lips := Node3D.new()
 	lips.name="MouthStyle"
