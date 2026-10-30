@@ -11,3 +11,5 @@ Open **Settings** from the title screen or Esc pause menu. Preferences save to G
 The action continues while menus are open, including solo. Settings block the local player's gameplay input. Controller hardware and platform-specific fullscreen behaviour still need manual testing on target devices.
 
 Verification: `tools/godot --headless -- --solo --test=settings`; native screenshots and mouse capture checks: `tools/godot -- --solo --test=settings`. Test captures mute the game Master bus and restore saved preferences. Evidence is under ignored `screenshots/settings/`.
+
+The settings UI now shares the field-kit theme with the title screen and character editor: olive controls, warm paper context notes and a live crosshair preview. All five tabs use the new styling, including when opened through Customise or the pause menu. Native regression evidence is recorded in `screenshots/field-settings/`.

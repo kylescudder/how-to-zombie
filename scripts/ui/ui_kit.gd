@@ -77,3 +77,48 @@ static func bar(color: Color, w := 300.0, h := 22.0) -> ProgressBar:
 	p.step = 0.001
 	p.add_theme_stylebox_override("fill", box(color, 8))
 	return p
+
+
+static func field_theme() -> Theme:
+	var theme := Theme.new()
+	var font := SystemFont.new()
+	font.font_names=PackedStringArray(["Avenir Next","DejaVu Sans","sans-serif"])
+	font.font_weight=600
+	theme.default_font=font
+	theme.default_font_size=20
+	for type in ["Button","OptionButton"]:
+		theme.set_stylebox("normal",type,UIKit.box(Color(0.20,0.28,0.26,0.95),4,1,Color(0.46,0.52,0.42)))
+		theme.set_stylebox("hover",type,UIKit.box(Color(0.32,0.40,0.32),4,1,Color(0.78,0.65,0.39)))
+		theme.set_stylebox("pressed",type,UIKit.box(Color(0.15,0.21,0.19),4,1,Color(0.91,0.87,0.76)))
+		theme.set_stylebox("focus",type,UIKit.box(Color(0,0,0,0),4,2,Color(0.78,0.65,0.39)))
+		theme.set_stylebox("disabled",type,UIKit.box(Color(0.18,0.23,0.22),4))
+		theme.set_color("font_color",type,Color(0.91,0.87,0.76))
+		theme.set_color("font_disabled_color",type,Color(0.48,0.53,0.49))
+	theme.set_stylebox("normal","LineEdit",UIKit.box(Color(0.12,0.19,0.18),4,1,Color(0.35,0.43,0.37)))
+	theme.set_color("font_color","LineEdit",Color(0.91,0.87,0.76))
+	theme.set_color("font_uneditable_color","LineEdit",Color(0.91,0.87,0.76))
+	theme.set_stylebox("panel","PopupMenu",UIKit.box(Color(0.15,0.21,0.19),4,1,Color(0.78,0.65,0.39)))
+	theme.set_color("font_color","PopupMenu",Color(0.91,0.87,0.76))
+	for type in ["Label","Button","CheckButton","OptionButton"]:
+		theme.set_constant("outline_size",type,0)
+		theme.set_color("font_color",type,Color(0.91,0.87,0.76))
+	for type in ["TabContainer","TabBar"]:
+		theme.set_stylebox("tab_selected",type,box(Color(0.28,0.36,0.29),4,1,Color(0.70,0.61,0.40)))
+		theme.set_stylebox("tab_unselected",type,box(Color(0.11,0.18,0.17),4))
+		theme.set_stylebox("tab_hovered",type,box(Color(0.22,0.30,0.25),4))
+		theme.set_color("font_selected_color",type,Color(0.94,0.89,0.75))
+		theme.set_color("font_unselected_color",type,Color(0.62,0.70,0.61))
+		theme.set_font_size("font_size",type,20)
+	theme.set_stylebox("panel","TabContainer",box(Color(0.09,0.15,0.14),5,1,Color(0.29,0.37,0.29)))
+	for type in ["HSlider","VSlider"]:
+		var track := box(Color(0.24,0.32,0.27),2)
+		track.content_margin_top=3
+		track.content_margin_bottom=3
+		theme.set_stylebox("slider",type,track)
+		var fill := track.duplicate()
+		fill.bg_color=Color(0.66,0.62,0.43)
+		theme.set_stylebox("grabber_area",type,fill)
+		theme.set_stylebox("grabber_area_highlight",type,fill)
+		theme.set_color("grabber_color",type,Color(0.90,0.83,0.63))
+	theme.set_stylebox("panel","PopupPanel",box(Color(0.12,0.19,0.17),5,1,Color(0.49,0.51,0.38)))
+	return theme

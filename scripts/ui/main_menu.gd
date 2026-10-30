@@ -87,26 +87,7 @@ func _ready() -> void:
 	_layout()
 
 func _theme() -> Theme:
-	var theme := Theme.new()
-	var font := SystemFont.new()
-	font.font_names=PackedStringArray(["Avenir Next","DejaVu Sans","sans-serif"])
-	font.font_weight=600
-	theme.default_font=font
-	theme.default_font_size=20
-	for type in ["Button","OptionButton"]:
-		theme.set_stylebox("normal",type,UIKit.box(Color(0.20,0.28,0.26,0.95),4,1,Color(0.46,0.52,0.42)))
-		theme.set_stylebox("hover",type,UIKit.box(Color(0.32,0.40,0.32),4,1,GOLD))
-		theme.set_stylebox("pressed",type,UIKit.box(INK,4,1,PAPER))
-		theme.set_stylebox("focus",type,UIKit.box(Color(0,0,0,0),4,2,GOLD))
-		theme.set_stylebox("disabled",type,UIKit.box(Color(0.18,0.23,0.22),4))
-		theme.set_color("font_color",type,PAPER)
-		theme.set_color("font_disabled_color",type,Color(0.48,0.53,0.49))
-	theme.set_stylebox("normal","LineEdit",UIKit.box(Color(0.12,0.19,0.18),4,1,Color(0.35,0.43,0.37)))
-	theme.set_color("font_color","LineEdit",PAPER)
-	theme.set_color("font_uneditable_color","LineEdit",PAPER)
-	theme.set_stylebox("panel","PopupMenu",UIKit.box(INK,4,1,GOLD))
-	theme.set_color("font_color","PopupMenu",PAPER)
-	return theme
+	return UIKit.field_theme()
 
 func _label(text: String, size: int, color: Color) -> Label:
 	var label := Label.new()

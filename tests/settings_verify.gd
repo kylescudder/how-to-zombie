@@ -12,6 +12,18 @@ func run(test: Node) -> void:
 	test.check(panel != null, "main menu Settings button opens shared screen")
 	await test.wait(0.1)
 	test.check(panel.tabs.get_tab_count() == 5, "five settings tabs open in actual game")
+	var button_style := panel.tabs.get_theme_stylebox("normal","Button") as StyleBoxFlat
+	test.check(button_style!=null and button_style.bg_color.g>=button_style.bg_color.r and button_style.bg_color.r<0.5,"settings uses the field-kit palette rather than legacy red")
+	panel.tabs.current_tab=2
+	test.check(panel._crosshair_preview.visible,"crosshair tab shows the live preview")
+	var colour := panel.tabs.get_child(2).find_children("*","ColorPickerButton",true,false)[0]
+	colour.color_changed.emit(Color(0.3,0.7,0.5))
+	Settings.load_settings()
+	test.check(Settings.crosshair_color.is_equal_approx(Color(0.3,0.7,0.5)),"crosshair picker saves the preview colour")
+	var markers := panel.tabs.get_child(2).find_children("*","CheckButton",true,false)[0]
+	markers.button_pressed=false
+	test.check(not Settings.hit_markers and markers.text=="Off","compact switch updates its value and state label")
+	panel.tabs.current_tab=0
 	var sliders := panel.find_children("*", "HSlider", true, false)
 	sliders[1].value = 0.65
 	Settings.load_settings()
