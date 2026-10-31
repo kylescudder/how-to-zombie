@@ -23,6 +23,7 @@ var net_hp := 1.0
 var net_link := ""        # survivor this special is pinning / tongue-ing / chasing (witch)
 var net_hit_dir := Vector3.ZERO
 var net_burning := false
+var net_death := -1       # which death clip is playing, from DeathClips.encode
 
 var model: CharacterModel
 var _rng := RandomNumberGenerator.new()
@@ -49,7 +50,7 @@ var _tongue: MeshInstance3D
 var _leap_vel := Vector3.ZERO
 var _retarget := 0.0
 var _anim_speed := 0.0
-var _fall := 0.0
+var _death_started := false
 
 
 func setup(d: Dictionary) -> void:
@@ -81,7 +82,7 @@ func _init() -> void:
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"
 	var cfg := SceneReplicationConfig.new()
-	for prop in ["net_pos", "net_yaw", "net_anim", "net_hp", "net_link", "net_hit_dir", "net_burning"]:
+	for prop in ["net_pos", "net_yaw", "net_anim", "net_hp", "net_link", "net_hit_dir", "net_burning", "net_death"]:
 		var path := NodePath(".:" + prop)
 		cfg.add_property(path)
 		cfg.property_set_spawn(path, true)
@@ -168,6 +169,11 @@ func _physics_process(delta: float) -> void:
 			_dead_t += delta
 			if _dead_t > 10.0:
 				queue_free()
+				return
+			if not is_on_floor():  # Killed mid-leap or on a ledge: the body still has to land.
+				velocity.y -= 16.0 * delta
+				move_and_slide()
+				net_pos = global_position
 		else:
 			_host_ai(delta)
 			net_pos = global_position
@@ -200,12 +206,10 @@ func _process(delta: float) -> void:
 		A.SPECIAL, A.THROW:
 			pose = "vomit"
 	if net_anim == A.DEAD:
-		# Topple over away from the killing blow.
-		_fall = minf(_fall + delta * 3.0, 1.0)
-		model.rotation.x = -PI * 0.5 * _fall * (1.0 if net_hit_dir.dot(global_transform.basis.z) < 0.0 else -1.0)
-		model.position.y = 0.2 * _fall
-		model.animate(delta, 0.0, 0.0, "dead")
-		model.rotation.x = -PI * 0.5 * _fall * (1.0 if net_hit_dir.dot(global_transform.basis.z) < 0.0 else -1.0)
+		if not _death_started and net_death >= 0:
+			_death_started = true
+			model.play_death(DeathClips.decode(net_death), DeathClips.WEIGHT.get(type, 1.0))
+		model.step_death(delta)
 		if _tongue:
 			_tongue.visible = false
 		return
@@ -800,6 +804,7 @@ func _die(dir: Vector3, attacker: int, headshot: bool, kind: String) -> void:
 	if _special in ["pin", "tongue"]:
 		_end_pin(lvl)
 	anim = A.DEAD
+	net_death = DeathClips.pick(type, kind, headshot, global_basis.inverse() * dir, _rng)
 	net_anim = A.DEAD
 	net_hit_dir = dir
 	net_link = ""

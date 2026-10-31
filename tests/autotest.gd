@@ -13,6 +13,14 @@ var _fails := 0
 func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	match test_name:
+		"deaths":
+			await _suite("res://tests/death_verify.gd").new().run(self)
+		"death_capture":
+			var deaths: Node = _suite("res://tests/death_capture.gd").new()
+			add_child(deaths)
+			await deaths.run(self)
+		"bots":
+			await _suite("res://tests/bot_verify.gd").new().run(self)
 		"loading_click":
 			await _suite("res://tests/loading_click_verify.gd").new().run(self)
 		"loading":

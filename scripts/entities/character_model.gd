@@ -12,6 +12,10 @@ var leg_l: Node3D
 var leg_r: Node3D
 var hand_r: Node3D  # Where held items attach.
 var mouth: Node3D   # Where tongues and vomit come from.
+var elbow_l: Node3D # Infected only: survivors keep single-piece limbs for their wardrobe.
+var elbow_r: Node3D
+var knee_l: Node3D
+var knee_r: Node3D
 var _phase := 0.0
 var _time := 0.0
 var _eyes: Array[Node3D] = []
@@ -20,6 +24,13 @@ var _swing := 0.0
 var _hip_h := 0.8
 var _lie := 0.0
 var _skin := Color.WHITE
+var _limb_colors := {}
+var _death: Dictionary
+var _death_t := 0.0
+var _death_rate := 1.0
+var _death_from: Array = []
+var _contacts: Array = []  # Core points the body lies on: [node, offset, radius].
+var _limb_ends := {}       # The same, per limb.
 
 
 func setup_custom(look: Dictionary) -> void:
@@ -101,6 +112,7 @@ func setup_infected(type: String, seed_v: int) -> void:
 			for k in 3:
 				ArtShapes.link(torso,Vector3(0.02+k*0.065,0.35,0.23),Vector3(0.04+k*0.065,0.27,0.24),0.018,shirts[seed_v%shirts.size()])
 			ArtShapes.oval(torso,Vector3(0.12,0.10,0.02),Color(0.47,0.15,0.12),Vector3(-0.16,0.43,0.19))
+	_add_bends()
 
 
 
@@ -150,6 +162,7 @@ func _limb(parent: Node3D, pivot: Vector3, size: Vector3, color: Color, skin: Co
 	parent.add_child(joint)
 	var r := size.x*0.49
 	var h := size.y
+	_limb_colors[joint] = [h, r, color if leg else skin]
 	ArtShapes.link(joint,Vector3(0,-r*0.4,0),Vector3(0,-h*0.43,0.01),r,color)
 	ArtShapes.link(joint,Vector3(0,-h*0.42,0.01),Vector3(0,-h*0.80,0.035),r*0.83,color if leg else skin)
 	ArtShapes.oval(joint,Vector3(size.x*1.05,0.07,size.z*1.03),color.lightened(0.08),Vector3(0,-h*0.5,0.015))
@@ -165,6 +178,46 @@ func _limb(parent: Node3D, pivot: Vector3, size: Vector3, color: Color, skin: Co
 		for i in 3:
 			ArtShapes.link(joint,Vector3(-r*0.5+i*r*0.5,-h*0.94,0.09),Vector3(-r*0.5+i*r*0.5,-h*1.01,0.08),0.021,skin.darkened(0.04))
 	return joint
+
+
+## Splits each limb at the middle, with a ball to cover the join. Nothing bends until the body dies.
+func _add_bends() -> void:
+	knee_l = _add_bend(leg_l)
+	knee_r = _add_bend(leg_r)
+	elbow_l = _add_bend(arm_l)
+	elbow_r = _add_bend(arm_r)
+	_contacts.clear()
+	for side: float in [-1, 1]:
+		_contacts.append([hips, Vector3(side * 0.16, 0, 0), 0.14])
+		_contacts.append([torso, Vector3(side * 0.2, 0.5, 0), 0.16])
+	_contacts.append([head, Vector3(0, 0.3, 0), 0.27])
+	_contacts.append([head, Vector3(0, 0.6, 0), 0.05])
+	for joint: Node3D in [leg_l, leg_r, arm_l, arm_r]:  # Wide bodies are wider than the points above.
+		_contacts.append([joint, Vector3.ZERO, 0.1])
+	_limb_ends.clear()
+	for bend: Node3D in [knee_l, knee_r, elbow_l, elbow_r]:
+		var drop: float = _limb_colors[bend.get_parent()][0] * 0.58
+		var ends: Array = [[bend, Vector3.ZERO, 0.11]]
+		if bend == knee_l or bend == knee_r:
+			ends.append_array([[bend, Vector3(0, -drop, -0.08), 0.0], [bend, Vector3(0, -drop, 0.2), 0.0]])
+		else:
+			ends.append([bend, Vector3(0, -drop, 0.04), 0.07])
+		_limb_ends[bend.get_parent()] = ends
+
+
+func _add_bend(limb: Node3D) -> Node3D:
+	var h: float = _limb_colors[limb][0]
+	var bend := Node3D.new()
+	bend.position = Vector3(0, -h * 0.42, 0.01)
+	var moved := limb.get_children().filter(func(child): return child is Node3D and child.position.y < bend.position.y)
+	limb.add_child(bend)
+	for child: Node3D in moved:
+		limb.remove_child(child)
+		bend.add_child(child)
+		child.position -= bend.position
+	var ball := float(_limb_colors[limb][1]) * 1.85
+	ArtShapes.oval(bend, Vector3.ONE * ball, _limb_colors[limb][2])
+	return bend
 
 
 func _eye(pos: Vector3, size: Vector3, pupil: Color, tilt := 0.0) -> void:
@@ -330,3 +383,109 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	_lie = lerpf(_lie, 1.0 if pose == "down" else 0.0, 1.0 - exp(-delta * 8.0))
 	rotation.x = -PI * 0.5 * _lie
 	position.y = 0.25 * _lie
+
+
+## Starts a clip from DeathClips.compiled, blending out of whatever the body was doing.
+func play_death(clip: Dictionary, rate := 1.0) -> void:
+	_death = clip
+	_death_t = 0.0
+	_death_rate = rate
+	_lie = 0.0
+	_death_from = [rotation, hips.rotation, torso.rotation, head.rotation, arm_l.rotation, arm_r.rotation,
+		leg_l.rotation, leg_r.rotation, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ONE]
+	_apply_death()
+
+
+## True while the clip still has work to do.
+func step_death(delta: float) -> bool:
+	if _death.is_empty() or _death_t >= float(_death.dur):
+		return false
+	_death_t += delta / _death_rate
+	_apply_death()
+	return true
+
+
+func _apply_death() -> void:
+	var keys: Array = _death["keys"]
+	var i := 0
+	while i < keys.size() - 1 and float(keys[i].t) <= _death_t:
+		i += 1
+	var start: float = keys[i - 1].t if i > 0 else 0.0
+	var from: Array = keys[i - 1].pose if i > 0 else _death_from
+	var to: Array = keys[i].pose
+	var span: float = maxf(float(keys[i].t) - start, 0.001)
+	var t := DeathClips.eased(keys[i].ease, clampf((_death_t - start) / span, 0.0, 1.0))
+	var pose: Array = []
+	for c in to.size():
+		pose.append((from[c] as Vector3).lerp(to[c], t))
+	rotation = pose[0]
+	hips.rotation = pose[1]
+	torso.rotation = pose[2]
+	head.rotation = pose[3]
+	arm_l.rotation = pose[4]
+	arm_r.rotation = pose[5]
+	leg_l.rotation = pose[6]
+	leg_r.rotation = pose[7]
+	elbow_l.rotation.x = -pose[8].x
+	elbow_r.rotation.x = -pose[9].x
+	knee_l.rotation.x = pose[10].x
+	knee_r.rotation.x = pose[11].x
+	var move: Vector3 = pose[12]
+	var swell: float = pose[13].x
+	torso.scale = Vector3(swell, 1.0 + (swell - 1.0) * 0.5, swell)
+	if _tail:
+		_tail.rotation = Vector3.ZERO
+	var shut := clampf(_death_t / float(_death.dur) * 1.4, 0.0, 1.0)
+	for eye in _eyes:
+		eye.scale.y = lerpf(1.0, 0.1, shut)
+	position = Vector3(move.x, 0.0, move.z)
+	position.y = _clearance() + move.y
+	for limb: Node3D in _limb_ends:
+		_rest_limb(limb)
+
+
+## How far to lift the model so its lowest part rests on the floor, whatever the pose.
+func _clearance() -> float:
+	return -_ground_gap() + position.y
+
+
+## Height of the model's lowest part above the floor. Standing and kneeling bodies are held up by
+## their legs; once the hips tip over the torso and head take the weight and limbs fall in around them.
+func _ground_gap() -> float:
+	var core := _lowest(_contacts)
+	var all := core
+	for limb: Node3D in _limb_ends:
+		all = minf(all, _lowest(_limb_ends[limb]))
+	var standing := smoothstep(0.3, 0.75, hips.global_basis.y.normalized().y)
+	return lerpf(core, all, standing) - (get_parent() as Node3D).global_position.y
+
+
+## World height of the lowest of these points.
+func _lowest(spots: Array) -> float:
+	var low := INF
+	var fatten := absf(global_basis.get_scale().y)
+	for spot: Array in spots:
+		low = minf(low, ((spot[0] as Node3D).global_transform * (spot[1] as Vector3)).y - float(spot[2]) * fatten)
+	return low
+
+
+## Swings a limb up from the shoulder or hip until it lies on the floor instead of through it.
+func _rest_limb(limb: Node3D) -> void:
+	var floor_y: float = (get_parent() as Node3D).global_position.y
+	var fatten := absf(global_basis.get_scale().y)
+	for spot: Array in _limb_ends[limb]:
+		var end: Vector3 = (spot[0] as Node3D).global_transform * (spot[1] as Vector3)
+		var rest := floor_y + float(spot[2]) * fatten
+		if end.y >= rest:
+			continue
+		var pivot := limb.global_position
+		var reach := end - pivot
+		var flat := Vector3(reach.x, 0.0, reach.z)
+		if flat.length() < 0.01:
+			flat = pivot - hips.global_position
+			flat.y = 0.0
+		var height := clampf(rest - pivot.y, -reach.length(), reach.length())
+		var want := flat.normalized() * sqrt(reach.length_squared() - height * height) + Vector3.UP * height
+		var axis := reach.cross(want)
+		if axis.length() > 0.00001:
+			limb.global_basis = Basis(axis.normalized(), reach.angle_to(want)) * limb.global_basis

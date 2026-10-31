@@ -207,6 +207,9 @@ tools/godot --headless -- --solo --linear --test=solo       # every mechanic: gu
 tools/godot --headless -- --solo --linear --test=campaign   # all three chapters: safe rooms, gate crescendo, finale and rescue
 tools/godot --headless -- --solo --linear --test=soak       # 40 s of the Director at full tilt with bots; reports frame rate
 tools/godot --headless -- --test=settings          # settings screen and saved preferences
+tools/godot --headless --fixed-fps 60 -- --solo --test=bots   # bots: leave stragglers to you, hold fire when blocked, keep their distance
+tools/godot --headless -- --solo --test=deaths   # every death clip: counts, floor contact, real kills
+tools/godot --fixed-fps 12 --resolution 1280x960 -- --solo --test=death_capture   # plays them all into screenshots/deaths/index.html (needs a window)
 tools/godot -- --solo --test=loading                # loading screen, load time, first-seconds stalls; screenshots in screenshots/loading/ (needs a window)
 tools/godot -- --test=loading_click                 # real mouse click on Start solo: the card must be on screen when the build begins (needs a window)
 

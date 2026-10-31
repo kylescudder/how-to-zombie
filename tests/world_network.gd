@@ -51,6 +51,7 @@ func run(test: Node, host: bool) -> void:
 		test.check(me.collision_layer==2,"client restores on-foot collision after exit")
 		await test.wait(1)
 	await _story(test, level, host)
+	await _deaths(test, level, host)
 
 
 ## Barea's story over the network: the client talks and takes the idol; everyone sees it.
@@ -78,3 +79,19 @@ func _story(test: Node, level: Level, host: bool) -> void:
 		test.check(await test.wait_for(func(): return level.event_left() > 30.0, 5), "client sees the hold-out countdown (%d s)" % int(level.event_left()))
 		test.check(await test.wait_for(func(): return level.nav.walkable(level.markers.sub_gate.rect.position), 5), "substation gate opens for the client too")
 		await test.wait(1)
+
+
+## A client plays the same death the host rolled, and is told about it with no extra traffic.
+func _deaths(test: Node, level: Level, host: bool) -> void:
+	if host:
+		var zombie := level.spawn_infected("common", level.local_survivor().global_position + Vector3(6, 0, 0), false)
+		await test.wait(1.0)
+		zombie.take_hit(99999.0, false, Vector3.RIGHT, -1, "bullet")
+		await test.wait(3.0)
+	else:
+		var dead := func(): return level.all_infected().filter(func(i: Infected): return i.net_anim == Infected.A.DEAD)
+		test.check(await test.wait_for(func(): return not dead.call().is_empty(), 15), "client sees a kill")
+		var body: Infected = dead.call()[0]
+		test.check(body.net_death >= 0, "client received the death clip")
+		await test.wait(0.2)
+		test.check(body.model._death.get("id", "") == DeathClips.decode(body.net_death).id, "client plays the clip the host rolled")

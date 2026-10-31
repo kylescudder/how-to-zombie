@@ -2,6 +2,20 @@ class_name BotBrain
 extends RefCounted
 ## Drives a bot survivor on the host by filling in the same inputs a player would.
 ## Priorities: save pinned teammates > revive downed ones > heal > fight > follow the humans.
+## Bots back the player up rather than play for them: stragglers are left alone, and they hold
+## fire when a teammate is in the line of fire.
+
+const STRAGGLER_RANGE := 5.0  # a lone common is the player's until it gets this close to a bot
+const GUARD_RANGE := 3.5  # ...or this close to a human
+const PACK_SIZE := 4  # commons near a bot that count as a real fight
+const PACK_RANGE := 12.0
+const SPECIAL_RANGE := 22.0
+const BIG_THREAT_RANGE := 30.0
+const PERSONAL_SPACE := 3.5  # from humans
+const BOT_SPACE := 2.0  # from each other
+const FOLLOW_SLACK := 8.0  # idle anywhere inside this ring rather than shadowing the leader
+const FOLLOW_BACK := 5.5
+const FOLLOW_SIDE := 3.5
 
 var survivor: Survivor
 var _path := PackedVector3Array()
@@ -14,6 +28,11 @@ var _aim_err := Vector3.ZERO
 var _stuck_t := 0.0
 var _last_pos := Vector3.ZERO
 var _fire_hold := 0.0
+var _reaction := 0.0
+var _reacting_to: Infected
+var _burst := 0.0
+var _rest := 0.0
+var _settled := false
 var _rng := RandomNumberGenerator.new()
 
 
@@ -43,7 +62,8 @@ func think(delta: float) -> void:
 	if _think <= 0.0:
 		_think = 0.2
 		_threat = _pick_threat(lvl)
-		_aim_err = Vector3(_rng.randf_range(-0.15, 0.15), _rng.randf_range(-0.1, 0.25), _rng.randf_range(-0.15, 0.15))
+		_settled = _in_formation(lvl)
+		_aim_err = Vector3(_rng.randf_range(-0.3, 0.3), _rng.randf_range(-0.2, 0.35), _rng.randf_range(-0.3, 0.3))
 	if s.incapped:
 		s.in_use = false
 		if _threat:
@@ -104,6 +124,7 @@ func think(delta: float) -> void:
 
 	# 5. Move: follow the humans, grab supplies on the way, follow them into the safe room.
 	var goal := _follow_goal(lvl)
+	var roaming := false
 	if _threat == null or _threat.global_position.distance_to(s.global_position) > 8.0 or _threat.is_tank():
 		var item := _wanted_pickup(lvl) if quiet else null
 		if item:
@@ -114,31 +135,40 @@ func think(delta: float) -> void:
 				_move_to(goal, delta, true)
 				_unstick(lvl, delta)
 				return
-		if quiet and s.global_position.distance_to(goal) < 3.0:
+		if quiet and (_settled or s.global_position.distance_to(goal) < 3.0):
 			var ammo := _wanted_ammo(lvl)
 			if ammo != Vector3.INF:
 				goal = ammo
+				roaming = true
 				if s.global_position.distance_to(ammo) < 2.0:
 					s._refill_ammo()
+	if not roaming and not (_threat and _threat.is_tank()) and _make_room(lvl):
+		return
 	if _threat and _threat.is_tank():
 		# Back away from tanks while shooting.
 		var away := s.global_position - _threat.global_position
 		away.y = 0
 		goal = s.global_position + away.normalized() * 6.0
-	if s.global_position.distance_to(goal) > 2.5:
+		roaming = true
+	if s.global_position.distance_to(goal) > 2.5 and (roaming or not _settled):
 		_move_to(goal, delta, _threat == null)
 	_unstick(lvl, delta)
 
 
 func _pick_threat(lvl: Level) -> Infected:
 	var s := survivor
+	var infected: Array = lvl.all_infected()
+	var pack := 0
+	for inf: Infected in infected:
+		if inf.type == "common" and not inf.is_dead() and inf.global_position.distance_to(s.global_position) < PACK_RANGE:
+			pack += 1
 	var best: Infected
 	var best_score := INF
-	for inf: Infected in lvl.all_infected():
+	for inf: Infected in infected:
 		if inf.is_dead() or inf.type == "witch" and not inf.angry():
 			continue
 		var d := inf.global_position.distance_to(s.global_position)
-		if d > 30.0:
+		if not _worth_shooting(lvl, inf, d, pack):
 			continue
 		var score := d
 		if inf.type != "common":
@@ -149,6 +179,19 @@ func _pick_threat(lvl: Level) -> Infected:
 			best = inf
 			best_score = score
 	return best
+
+
+func _worth_shooting(lvl: Level, inf: Infected, d: float, pack: int) -> bool:
+	if inf.is_tank() or inf.type == "witch":
+		return d <= BIG_THREAT_RANGE
+	if inf.type != "common":
+		return d <= SPECIAL_RANGE
+	if d <= STRAGGLER_RANGE or (pack >= PACK_SIZE and d <= PACK_RANGE):
+		return true
+	for mate: Survivor in lvl.get_survivors():
+		if not mate.bot and not mate.dead and inf.global_position.distance_to(mate.global_position) <= GUARD_RANGE:
+			return d <= PACK_RANGE
+	return false
 
 
 func _visible(p: Vector3) -> bool:
@@ -170,12 +213,63 @@ func _engage(inf: Infected, delta: float, allow_move: bool) -> void:
 		return
 	if w.get("kind", "") != "gun":
 		return
+	var d := inf.global_position.distance_to(s.global_position)
+	if inf != _reacting_to:
+		_reacting_to = inf
+		_reaction = _rng.randf_range(0.15, 0.3) if d < 3.0 else _rng.randf_range(0.4, 0.9)
+	_reaction -= delta
+	if _reaction > 0.0 or not _trigger_discipline(d, delta):
+		_fire_hold = 0.0
+		return
+	if not _clear_shot(inf, w):
+		_fire_hold = 0.0
+		if allow_move:
+			# Side-step for an angle instead of waiting behind a teammate's back.
+			s.in_move = Vector2(1.0 if s.slot % 2 == 0 else -1.0, 0.0)
+		return
 	if err < 0.09:
 		_fire_hold += delta
 		s.in_fire = true
 		s.in_fire_pressed = _fire_hold > 0.0 and fmod(_fire_hold, 0.25) < delta * 1.5
 	else:
 		_fire_hold = 0.0
+
+
+## Short bursts with gaps, so bots add to a fight rather than finish it. Point-blank overrides it.
+func _trigger_discipline(d: float, delta: float) -> bool:
+	if d < 4.0:
+		return true
+	if _rest > 0.0:
+		_rest -= delta
+		if _rest <= 0.0:
+			_burst = _rng.randf_range(0.3, 0.6)
+		return false
+	_burst -= delta
+	if _burst <= 0.0:
+		_rest = _rng.randf_range(0.5, 1.1)
+	return true
+
+
+## False when a teammate stands between us and the target, allowing for the weapon's spread.
+## Anyone right beside the target doesn't count, or bots could never shoot a Hunter off a friend.
+func _clear_shot(inf: Infected, w: Dictionary) -> bool:
+	var s := survivor
+	var from := s.eye_position()
+	var to := inf.global_position + Vector3.UP * (1.25 * inf.size)
+	var line := to - from
+	var length := line.length()
+	var dir := line / length
+	var cone := tan(deg_to_rad(float(w.get("spread", 1.0))) * 0.5)
+	for mate: Survivor in s.level().get_survivors():
+		if mate == s or mate.dead:
+			continue
+		var offset := mate.global_position + Vector3.UP - from
+		var along := offset.dot(dir)
+		if along < 0.0 or along > length - 1.2:
+			continue
+		if (offset - dir * along).length() < 0.8 + along * cone:
+			return false
+	return true
 
 
 ## Turns toward p; returns the remaining angle error (radians).
@@ -263,14 +357,54 @@ func _follow_goal(lvl: Level) -> Vector3:
 	if lvl.rescue_ready and lvl.markers.rescue_zone.size.x > 0.0:
 		var rz: Rect2 = lvl.markers.rescue_zone
 		return Vector3(rz.get_center().x + (s.slot - 1.5), 0, rz.get_center().y)
-	# Spread out a little behind the leader.
-	var behind := -leader.global_transform.basis.z
+	# Spread out behind the leader: one on each flank, one trailing.
+	var place := s.slot % 3 - 1
+	var behind := leader.global_transform.basis.z
 	behind.y = 0
-	var side := leader.global_transform.basis.x * ((s.slot % 2) * 2.0 - 1.0) * 1.5
-	var g := leader.global_position - behind.normalized() * 3.0 + side
-	if not lvl.nav.walkable_at(g):
-		g = leader.global_position
-	return g
+	var side := leader.global_transform.basis.x * place * FOLLOW_SIDE
+	var g := leader.global_position + behind.normalized() * (FOLLOW_BACK + (2.0 if place == 0 else 0.0)) + side
+	if lvl.nav.walkable_at(g):
+		return g
+	var away := s.global_position - leader.global_position
+	away.y = 0
+	g = leader.global_position + away.normalized() * FOLLOW_BACK
+	return g if lvl.nav.walkable_at(g) else leader.global_position
+
+
+## Close enough to the leader to stand still. Stops bots trotting around you whenever you turn.
+func _in_formation(lvl: Level) -> bool:
+	var s := survivor
+	var leader := _leader(lvl)
+	if leader == null or lvl.in_end_room(leader.global_position) or lvl.rescue_ready:
+		return false
+	return s.global_position.distance_to(leader.global_position) < FOLLOW_SLACK and _visible(leader.eye_position())
+
+
+## Steps back from anyone crowding us, keeping our aim. Returns true while it has the legs.
+func _make_room(lvl: Level) -> bool:
+	var s := survivor
+	var push := Vector3.ZERO
+	for mate: Survivor in lvl.get_survivors():
+		if mate == s or mate.dead:
+			continue
+		var offset := s.global_position - mate.global_position
+		offset.y = 0
+		var room := BOT_SPACE if mate.bot else PERSONAL_SPACE
+		var gap := offset.length()
+		if gap < room:
+			# Dead-centre overlaps still need a direction.
+			var dir := offset / gap if gap > 0.05 else Vector3.RIGHT.rotated(Vector3.UP, s.slot * TAU / 4.0)
+			push += dir * (room - gap)
+	if push.length() < 0.05:
+		return false
+	var dir := push.normalized()
+	for turn: float in [0.0, 0.8, -0.8, 1.6, -1.6]:
+		var step := dir.rotated(Vector3.UP, turn)
+		if lvl.nav.walkable_at(s.global_position + step * 1.5):
+			var local := s.global_transform.basis.inverse() * step
+			s.in_move = Vector2(local.x, local.z).limit_length(1.0)
+			return true
+	return false
 
 
 func _choose_weapon() -> void:
@@ -360,7 +494,7 @@ func _unstick(lvl: Level, delta: float) -> void:
 		_stuck_t = 0.0
 		# Somewhere near the leader that's genuinely reachable from where they stand.
 		for k in 8:
-			var off := Vector3(2.0, 0, 0).rotated(Vector3.UP, k * TAU / 8.0)
+			var off := Vector3(PERSONAL_SPACE + 0.5, 0, 0).rotated(Vector3.UP, k * TAU / 8.0)
 			var spot := lvl.nav.nearest_walkable(leader.global_position + off, 2)
 			if spot.x < 0:
 				continue

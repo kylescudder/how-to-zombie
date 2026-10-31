@@ -5,6 +5,8 @@ extends Node3D
 ## pickups) and every host-side rule: damage, revives, items, doors, the Director, and
 ## deciding when the chapter is won or lost.
 
+## Bots hit for less, so the team stays the humans' to carry.
+const BOT_DAMAGE := 0.6
 const ITEM_TABLE := [
 	["pills", 26], ["medkit", 7], ["pipe_bomb", 12], ["molotov", 12], ["bile_jar", 6],
 	["bat", 4], ["axe", 3], ["machete", 3], ["pistol", 6], ["", 21],
@@ -592,8 +594,9 @@ func request_hit(inf_name: String, dmg: float, headshot: bool, pos: Vector3, dir
 	if inf == null:
 		return
 	if inf.is_dead(): return
-	inf.take_hit(dmg, headshot, dir, slot, "bullet")
 	var shooter := get_survivor_by_slot(slot)
+	if shooter and shooter.bot: dmg *= BOT_DAMAGE
+	inf.take_hit(dmg, headshot, dir, slot, "bullet")
 	if shooter and not shooter.bot: shooter.confirm_hit.rpc_id(shooter.peer_id)
 	_hit_feedback.rpc(pos, headshot, inf.is_dead())
 
@@ -610,11 +613,11 @@ func request_ff(target: String, dmg: float, slot: int) -> void:
 		return
 	var s := get_survivor(target)
 	var mult: float = Game.diff().ff
-	if s == null or mult <= 0.0 or s.slot == slot:
+	var shooter := get_survivor_by_slot(slot)
+	if s == null or mult <= 0.0 or s.slot == slot or (shooter and shooter.bot):
 		return
 	s.host_damage(dmg * mult, Vector3.ZERO, "ff")
 	Game.add_stat(slot, "ff", int(dmg * mult))
-	var shooter := get_survivor_by_slot(slot)
 	if shooter and shooter.bot == false:
 		_ff_warn.rpc("%s shot %s!" % [shooter.short_name(), s.short_name()])
 
