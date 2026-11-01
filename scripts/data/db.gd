@@ -69,21 +69,21 @@ const CHAPTERS := [
 		"segments": ["saferoom_start", "street", "alley", "street", "park", "alley", "street_alarm", "saferoom_end"],
 		"start_weapons": ["smg", "smg", "pump_shotgun", "pump_shotgun"],
 		"tank": true, "witch": true,
-		"sky": Color(0.24,0.50,0.62), "fog": Color(0.57,0.68,0.60),
+		"mood": "storm_dusk",
 	},
 	{
 		"name": "The Warehouse", "seed": 2202,
 		"segments": ["saferoom_start", "alley", "warehouse", "warehouse_gate", "yard", "warehouse", "saferoom_end"],
 		"start_weapons": ["rifle", "auto_shotgun", "hunting_rifle", "smg"],
 		"tank": true, "witch": true,
-		"sky": Color(0.06, 0.05, 0.09), "fog": Color(0.09, 0.08, 0.11),
+		"mood": "dead_night",
 	},
 	{
 		"name": "The Docks (Finale)", "seed": 3303,
 		"segments": ["saferoom_start", "street", "containers", "docks_finale"],
 		"start_weapons": ["rifle", "auto_shotgun", "rifle", "auto_shotgun"],
 		"tank": false, "witch": false, "finale": true,
-		"sky": Color(0.08, 0.06, 0.12), "fog": Color(0.1, 0.09, 0.14),
+		"mood": "drowned_night",
 	},
 ]
 

@@ -69,7 +69,7 @@ func _ready() -> void:
 		controls.add_child(button)
 	refresh_bindings()
 	var comfort := page("Comfort")
-	for pair in [["Camera shake", "camera_shake"], ["Head bob", "head_bob"], ["Weapon sway and bob", "weapon_sway"], ["Damage flash intensity", "hit_flashes"]]:
+	for pair in [["Camera shake", "camera_shake"], ["Head bob", "head_bob"], ["Weapon sway and bob", "weapon_sway"], ["Damage flash intensity", "hit_flashes"], ["Film grain and vignette", "film_grain"]]:
 		slider(comfort, pair[0], pair[1], 0, 1, 0.05)
 	comfort.add_child(_label("These adjust cosmetic motion. Weapon recoil, spread and reload timing stay consistent.", 17))
 	var cross := page("Crosshair")

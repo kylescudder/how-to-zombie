@@ -117,7 +117,7 @@ func _cx_clamp(v: int, half: int) -> int:
 	return clampi(v, half + 3, GRID_W - half - 4)
 
 
-func _light(pos: Vector3, color: Color, energy: float, rng_m: float) -> void:
+func _light(pos: Vector3, color: Color, energy: float, rng_m: float) -> OmniLight3D:
 	var l := OmniLight3D.new()
 	l.position = pos
 	l.light_color = color
@@ -127,6 +127,7 @@ func _light(pos: Vector3, color: Color, energy: float, rng_m: float) -> void:
 	l.shadow_enabled = false
 	root.add_child(l)
 	markers.lights += 1
+	return l
 
 
 func _street_lamp(pos: Vector3, facing: float) -> void:
@@ -136,8 +137,15 @@ func _street_lamp(pos: Vector3, facing: float) -> void:
 	root.add_child(n)
 	Build.cyl(n, 0.07, 0.1, 5.6, Color(0.2, 0.22, 0.24), Vector3(0, 2.8, 0))
 	Build.box(n, Vector3(0.1, 0.1, 1.4), Color(0.2, 0.22, 0.24), Vector3(0, 5.5, 0.6))
-	Build.box(n, Vector3(0.4, 0.12, 0.5), Color(1.0, 0.85, 0.6), Vector3(0, 5.4, 1.2), Vector3.ZERO, 3.0)
-	_light(pos + Vector3(0, 5.0, 0) + Basis(Vector3.UP, facing) * Vector3(0, 0, 1.2), Color(1.0, 0.78, 0.5), 2.2, 14.0)
+	var bulb := Build.box(n, Vector3(0.4, 0.12, 0.5), Color(1.0, 0.85, 0.6), Vector3(0, 5.4, 1.2), Vector3.ZERO, 3.0)
+	var l := _light(pos + Vector3(0, 5.0, 0) + Basis(Vector3.UP, facing) * Vector3(0, 0, 1.2), Color(1.0, 0.78, 0.5), 2.2, 14.0)
+	# About a third of the lamps are failing; Atmosphere stutters them. Hashed, not rolled, so the layout RNG is untouched.
+	if posmod(hash(pos.snapped(Vector3.ONE * 0.1)), 3) == 0:
+		bulb.material_override = bulb.material_override.duplicate()
+		l.add_to_group("flicker_lamp")
+		l.set_meta("energy", l.light_energy)
+		l.set_meta("bulb", bulb.material_override)
+		l.set_meta("phase", float(posmod(hash(pos), 700)) / 100.0)
 
 
 func _item_spot(x: float, z: float) -> void:
