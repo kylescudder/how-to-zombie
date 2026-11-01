@@ -194,7 +194,7 @@ func _on_peer_disconnected(id: int) -> void:
 		var n := player_name(id)
 		players.erase(id)
 		_sync_players.rpc(players)
-		Game.toast.rpc("%s left" % n)
+		Game.toast.rpc("%s left the game" % n, Color(1.0, 0.75, 0.4))
 
 
 @rpc("any_peer", "reliable")
@@ -209,10 +209,14 @@ func _register(pname: String, look: Dictionary = {}, career_xp := 0) -> void:
 	if slot >= DB.SURVIVORS.size():
 		_kick.rpc_id(id, "The game is full (4 survivors).")
 		return
-	players[id] = {"name": pname.substr(0, 24), "slot": slot, "appearance": CosmeticCatalog.normalise(look,clampi(career_xp,0,10000000))}
+	pname = pname.strip_edges().substr(0, 24)
+	if pname == "":
+		pname = "Survivor"
+	players[id] = {"name": pname, "slot": slot, "appearance": CosmeticCatalog.normalise(look,clampi(career_xp,0,10000000))}
 	Game.on_peer_joined(id)
 	_sync_players.rpc(players)
-	Game.toast.rpc("%s joined as %s" % [players[id].name, DB.SURVIVORS[slot].name])
+	# Announce the player by their own name (their Steam name in a Steam game), not the survivor they play.
+	Game.toast.rpc("%s joined the game" % pname, Color(0.55, 1.0, 0.55))
 
 
 @rpc("authority", "call_local", "reliable")

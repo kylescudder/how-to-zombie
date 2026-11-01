@@ -153,14 +153,11 @@ func is_me() -> bool:
 	return not bot and peer_id == multiplayer.get_unique_id()
 
 
-func display_name() -> String:
-	var n: String = DB.SURVIVORS[slot].name
-	if bot:
-		return n
-	return n if Net.player_name(peer_id) == "" else "%s (%s)" % [n, Net.player_name(peer_id)]
-
-
+## What teammates call this survivor: the player's own name (their Steam name in a Steam game),
+## or the character's name for a bot.
 func short_name() -> String:
+	if not bot and Net.players.has(peer_id):
+		return Net.player_name(peer_id)
 	return DB.SURVIVORS[slot].name
 
 
@@ -1344,7 +1341,7 @@ func _animate_body(delta: float) -> void:
 	if body_item:
 		body_item.visible = not net_action.begins_with("revive")
 	if name_label:
-		name_label.text = DB.SURVIVORS[slot].name + ("" if not incapped else "  [DOWN]")
+		name_label.text = short_name() + ("" if not incapped else "  [DOWN]")
 		name_label.modulate = Color(1.0, 0.35, 0.3) if incapped or pinned_by != "" else DB.SURVIVORS[slot].ui
 		name_label.visible = not dead and transport==null
 	if glow:
