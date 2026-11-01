@@ -10,6 +10,8 @@ const PITCH := 64.0
 const STREET := 16.0
 const LOT := PITCH - STREET  # 48 m buildable square per block
 const FACADES := [Color(0.62, 0.78, 0.8), Color(0.93, 0.86, 0.68), Color(0.78, 0.47, 0.36), Color(0.48, 0.55, 0.62), Color(0.86, 0.71, 0.33), Color(0.66, 0.73, 0.55), Color(0.9, 0.9, 0.86), Color(0.58, 0.45, 0.6)]
+const BRICK_FACADES := [2, 3, 5, 7]
+const SURFACE_KEYS := {"asphalt": "asphalt", "alley": "asphalt", "apron": "asphalt", "sidewalk": "paving", "forecourt": "paving", "plaza": "paving", "gravel": "sand", "crown": "concrete", "trim": "painted", "sill": "concrete", "band": "concrete", "plinth": "concrete", "parapet": "concrete", "jersey_base": "concrete", "jersey_top": "concrete", "roofbox": "metal", "watertank": "wood", "tankleg": "metal", "pole": "metal", "garage": "metal", "awning": "fabric", "store_floor": "tile", "zebra": "asphalt", "dash": "asphalt", "jersey_stripe": "painted"}
 const SHOPS := ["DONUT DEN", "BAREA BANK", "PIZZA PALACE", "LAUNDROMAT", "PAWN & GUNS", "PHARMACY", "NOODLE BAR", "VIDEO RENTAL", "HARDWARE", "BARBER"]
 const CAR_COLORS := [Color(0.85, 0.3, 0.25), Color(0.25, 0.5, 0.8), Color(0.95, 0.85, 0.4), Color(0.3, 0.65, 0.45), Color(0.9, 0.9, 0.88), Color(0.35, 0.35, 0.4), Color(0.95, 0.55, 0.2)]
 
@@ -127,8 +129,19 @@ func _assign_landmarks() -> void:
 
 func _add(key: String, mesh: Mesh, color: Color, t: Transform3D, emission := 0.0) -> void:
 	if not _mm.has(key):
+		Build.paint = _surface(key)
 		_mm[key] = {"mesh": mesh, "mat": Build.mat(color, 0.6, emission), "xforms": []}
+		Build.paint = ""
 	_mm[key].xforms.append(t)
+
+
+func _surface(key: String) -> String:
+	if key.begins_with("bld"):
+		return "brick" if key.to_int() in BRICK_FACADES else "plaster"
+	for prefix: String in SURFACE_KEYS:
+		if key.begins_with(prefix):
+			return SURFACE_KEYS[prefix]
+	return "none"
 
 
 func _flush() -> void:
@@ -283,7 +296,18 @@ func _windows(c: Vector3, size: Vector3, spacing: float, floor_h: float, start: 
 				var key := "win_lit" if rng.randf() < lit_chance else ("win_tower" if tower else "win")
 				var col := Color(1.0, 0.9, 0.6) if key == "win_lit" else (Color(0.42, 0.62, 0.72) if tower else Color(0.24, 0.32, 0.4))
 				_add(key, _quad, col, Transform3D(basis, p), 1.2 if key == "win_lit" else 0.0)
+				if not tower:
+					_window_trim(p - f * 0.06, f, spacing * 0.5, floor_h * 0.6)
+		if not tower:
+			_tile("band", Color(0.74, 0.72, 0.66), c + Vector3.UP * (y + floor_h * 0.5), Vector3(size.x + 0.14, 0.22, size.z + 0.14))
 		y += floor_h
+
+
+## A frame and a sill, which is most of what makes a hole in a wall read as a window.
+func _window_trim(wall: Vector3, face: Vector3, width: float, height: float) -> void:
+	var yaw := atan2(face.x, face.z)
+	_tile("trim", Color(0.8, 0.77, 0.69), wall, Vector3(width + 0.3, height + 0.3, 0.1), yaw)
+	_tile("sill", Color(0.62, 0.6, 0.56), wall + face * 0.1 + Vector3.DOWN * (height * 0.5 + 0.2), Vector3(width + 0.5, 0.12, 0.3), yaw)
 
 
 func _dumpster(p: Vector3) -> void:
