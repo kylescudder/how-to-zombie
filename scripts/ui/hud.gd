@@ -340,7 +340,7 @@ func _update_team(lvl: Level, me: Survivor) -> void:
 	mates.sort_custom(func(a, b): return a.slot < b.slot)
 	var key := ""
 	for s in mates:
-		key += "%s|%d|%d|%s|%s|%s|%s;" % [s.name, int(s.total_hp()), int(s.hp), s.incapped, s.dead, s.pinned_by, str(s.net_inv.hash())]
+		key += "%s|%s|%d|%d|%s|%s|%s|%s;" % [s.name, s.short_name(), int(s.total_hp()), int(s.hp), s.incapped, s.dead, s.pinned_by, str(s.net_inv.hash())]
 	if key == _team_key:
 		return
 	_team_key = key
@@ -517,12 +517,12 @@ func _refresh_scoreboard(lvl: Level) -> void:
 	for h in ["Survivor", "Kills", "Specials", "Headshots", "Revives", "Friendly fire", "Damage taken"]:
 		score_grid.add_child(UIKit.label(h, 16, Color(0.75, 0.75, 0.78)))
 	for slot in DB.SURVIVORS.size():
-		var who := "bot"
+		var label: String = "%s (bot)" % DB.SURVIVORS[slot].name
 		for id in Net.players:
 			if Net.slot_of(id) == slot:
-				who = Net.player_name(id)
+				label = "%s (%s)" % [Net.player_name(id), DB.SURVIVORS[slot].name]
 		var st: Dictionary = Game.stats[slot] if slot < Game.stats.size() else {}
-		score_grid.add_child(UIKit.label("%s (%s)" % [DB.SURVIVORS[slot].name, who], 18, DB.SURVIVORS[slot].ui))
+		score_grid.add_child(UIKit.label(label, 18, DB.SURVIVORS[slot].ui))
 		for k in ["kills", "specials", "headshots", "revives", "ff", "damage"]:
 			score_grid.add_child(UIKit.label(str(st.get(k, 0)), 18))
 
