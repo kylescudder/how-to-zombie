@@ -198,6 +198,7 @@ There are no imported models or audio. Models combine authored cross-section mes
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
 tools/godot --headless --fixed-fps 60 -- --solo --test=city_pacing    # street access, 45-minute simulated pacing and queue limits
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
+tools/godot --headless --fixed-fps 60 -- --solo --test=infected_motion # a pack of commons closes in on varied lines, paces and sides
 tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: all five acts, route length, roadblocks, alarms, Reduced Rifle, carrying the idol, ferry escape
 tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
 tools/godot -- --solo --test=perf                                     # frame times and draw calls around the city (needs a window)
