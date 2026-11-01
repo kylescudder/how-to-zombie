@@ -4,10 +4,16 @@ class_name Build
 static var _mats := {}
 ## Identical primitives share one mesh; the city would otherwise upload ~50,000 separate ones.
 static var _shapes := {}
+static var _surfaces := {}
+## How many metres one repeat of each texture in assets/textures covers.
+const SURFACES := {"brick": 3.2, "plaster": 5.0, "concrete": 7.0, "asphalt": 7.0, "paving": 6.0, "metal": 4.0, "wood": 2.2, "fabric": 1.0, "grass": 6.0, "sand": 8.0, "tile": 2.4, "painted": 1.4}
+## The surface for world geometry built from here on, or "none". Set it around static scenery only:
+## it maps in world space, which would swim across anything that moves.
+static var paint := ""
 
 
 static func mat(color: Color, rough: float = 0.85, emission: float = 0.0) -> StandardMaterial3D:
-	var key := "%s|%.2f|%.2f" % [color.to_html(), rough, emission]
+	var key := "%s|%.2f|%.2f|%s" % [color.to_html(), rough, emission, paint]
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
@@ -19,8 +25,23 @@ static func mat(color: Color, rough: float = 0.85, emission: float = 0.0) -> Sta
 		m.emission_enabled = true
 		m.emission = color
 		m.emission_energy_multiplier = emission
+	elif color.a >= 1.0 and paint != "none":
+		_texture(m, paint if paint != "" else "painted", paint != "")
 	_mats[key] = m
 	return m
+
+
+## Triplanar, so no mesh needs UVs: the detail is multiplied over the colour a surface already has.
+static func _texture(m: StandardMaterial3D, surface: String, world: bool) -> void:
+	if not _surfaces.has(surface):
+		_surfaces[surface] = [load("res://assets/textures/%s.png" % surface), load("res://assets/textures/%s_n.png" % surface)]
+	m.albedo_texture = _surfaces[surface][0]
+	m.normal_enabled = true
+	m.normal_texture = _surfaces[surface][1]
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = world
+	m.uv1_triplanar_sharpness = 12.0
+	m.uv1_scale = Vector3.ONE / float(SURFACES[surface])
 
 
 static func mesh(parent: Node3D, m: Mesh, color: Color, pos := Vector3.ZERO, rot_deg := Vector3.ZERO, emission := 0.0) -> MeshInstance3D:

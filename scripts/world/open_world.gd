@@ -110,7 +110,9 @@ func _terrain(index: int) -> void:
 	root.add_child(body)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
+	Build.paint = "grass"
 	mi.material_override = Build.mat(island.color)
+	Build.paint = "sand"
 	body.add_child(mi)
 	var shape := CollisionShape3D.new()
 	shape.shape = mesh.create_trimesh_shape()
@@ -119,6 +121,7 @@ func _terrain(index: int) -> void:
 	var sand := MeshInstance3D.new()
 	sand.mesh = mesh
 	sand.material_override = Build.mat(Color(0.75,0.67,0.44))
+	Build.paint = ""
 	sand.position = Vector3(island.center.x, -0.12, island.center.y)
 	var k := 1.0 + 12.0 / maxf(island.radius.x, island.radius.y)
 	sand.scale = Vector3(k,1,k)
@@ -131,6 +134,7 @@ func _roads(index: int) -> void:
 	var island: Dictionary = ISLANDS[index]
 	var center := Vector3(island.center.x,0.025,island.center.y)
 	var color := Color(0.25,0.30,0.29) if island.kind != "forest" else Color(0.51,0.43,0.31)
+	Build.paint = "asphalt" if island.kind != "forest" else "sand"
 	for axis in 2:
 		var size := Vector3(island.radius.x*1.6,0.035,13) if axis == 0 else Vector3(13,0.035,island.radius.y*1.5)
 		Build.box(root,size,color,center)
@@ -149,9 +153,12 @@ func _roads(index: int) -> void:
 			Build.box(root,Vector3(9,0.035,270),color,center+Vector3(lane,0,0))
 	# Dock approach follows a broad, clear east/west road.
 	Build.box(root,Vector3(island.radius.x,0.04,13),color,center+Vector3(island.radius.x*0.5,0,0))
+	Build.paint = ""
 
 func _solid(size: Vector3, color: Color, pos: Vector3) -> StaticBody3D:
+	Build.paint = "plaster"
 	var body := Build.solid_box(root,size,color,pos)
+	Build.paint = ""
 	var a := grid.cell_of(pos-size*0.5-Vector3(2,0,2))
 	var b := grid.cell_of(pos+size*0.5+Vector3(2,0,2))
 	for z in range(a.y,b.y+1):

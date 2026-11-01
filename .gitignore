@@ -15,3 +15,4 @@ screenshots/
 # direnv / nix
 .direnv/
 result
+!assets/textures/*.import

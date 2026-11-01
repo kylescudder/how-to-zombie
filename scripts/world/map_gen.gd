@@ -14,6 +14,7 @@ const SEG_LEN := {
 }
 
 const BRICK := [Color(0.62,0.39,0.27),Color(0.29,0.47,0.42),Color(0.73,0.57,0.36),Color(0.35,0.46,0.53),Color(0.64,0.42,0.32),Color(0.46,0.47,0.35)]
+const FLOOR_SURFACES := {"street": "asphalt", "alley": "asphalt", "yard": "asphalt", "containers": "asphalt", "docks": "concrete", "park": "grass", "pier": "wood", "warehouse": "concrete", "saferoom": "tile"}
 const CAR := [Color(0.6, 0.12, 0.1), Color(0.15, 0.25, 0.45), Color(0.75, 0.72, 0.65), Color(0.18, 0.18, 0.2), Color(0.25, 0.4, 0.3), Color(0.7, 0.55, 0.2)]
 const CONTAINER := [Color(0.6, 0.2, 0.15), Color(0.15, 0.3, 0.55), Color(0.2, 0.45, 0.3), Color(0.75, 0.45, 0.15), Color(0.4, 0.4, 0.42)]
 
@@ -602,7 +603,9 @@ func _build_floors() -> void:
 		var r: Rect2i = z.rect
 		var size := Vector3(r.size.x, 0.4, r.size.y)
 		var pos := _w(r.position.x + r.size.x * 0.5, r.position.y + r.size.y * 0.5, -0.2 + i * 0.002)
+		Build.paint = FLOOR_SURFACES.get(z.kind, "concrete")
 		Build.box(root, size, z.floor, pos)
+		Build.paint = ""
 		var cs := CollisionShape3D.new()
 		var bs := BoxShape3D.new()
 		bs.size = size
@@ -610,12 +613,16 @@ func _build_floors() -> void:
 		cs.position = pos
 		body.add_child(cs)
 		if z.ceil_h > 0.0:
+			Build.paint = "concrete"
 			Build.box(root, Vector3(r.size.x + 2, 0.4, r.size.y + 2), z.wall.darkened(0.35), pos + Vector3(0, z.ceil_h + 0.4, 0))
+			Build.paint = ""
 		i += 1
 	for r in _extra_floors:
 		var size := Vector3(r.size.x, 0.4, r.size.y)
 		var pos := _w(r.position.x + r.size.x * 0.5, r.position.y + r.size.y * 0.5, -0.2)
+		Build.paint = "concrete"
 		Build.box(root, size, Color(0.3, 0.28, 0.26), pos)
+		Build.paint = ""
 		var cs := CollisionShape3D.new()
 		var bs := BoxShape3D.new()
 		bs.size = size
@@ -690,9 +697,12 @@ func _wall_box(r: Rect2i, z: Dictionary) -> void:
 			col = BRICK[rng.randi() % BRICK.size()] if rng.randf() < 0.6 else z.wall
 		var size := Vector3(sub.size.x, h + 1.0, sub.size.y)
 		var pos := _w(sub.position.x + sub.size.x * 0.5, sub.position.y + sub.size.y * 0.5, (h - 1.0) * 0.5)
+		Build.paint = "brick" if col in BRICK else ("concrete" if z.kind in ["warehouse", "saferoom"] else "plaster")
 		Build.solid_box(root, size, col, pos)
 		if outdoor:
+			Build.paint = "concrete"
 			Build.box(root, Vector3(size.x + 0.3, 0.3, size.z + 0.3), col.darkened(0.3), pos + Vector3(0, h * 0.5 + 0.5, 0))
+		Build.paint = ""
 		if z.windows:
 			_windows_for(sub, h)
 		start += piece
