@@ -8,7 +8,7 @@ The visual reference is How to Fish: playful three-dimensional characters and sc
 - Bodies use tapering clothing, curved limbs, oversized hands and boots. Accessories break the silhouette. Preserve the existing animation pivots.
 - World props use simplified curves, uneven boards, striped fabric, warm painted surfaces and readable signage. Buildings can be rectangular; their details should feel designed rather than repeated placeholder boxes.
 - Guns use convincing proportions, identifiable construction, restrained steel highlights and distinct wood/polymer furniture. Moving mechanisms remain separate rigs.
-- Lighting preserves color and readability: warm directional light, cooler ambient fill, gentle atmospheric depth and contact shadows.
+- Lighting is moody but readable: a low warm sun or cold moon, cooler ambient fill, layered fog and contact shadows. Characters keep their colour blocks; the world around them carries the dread.
 
 ## First implemented slice
 
@@ -18,6 +18,16 @@ The visual reference is How to Fish: playful three-dimensional characters and sc
 - Bite Size Deli: reusable storefront kit, scalloped striped awning, boarded windows, chalkboard and potted tree. It appears on the first street of maps that contain a street. Parked cars now have curved silhouettes, and Main Street uses a brighter palette.
 
 The shared character construction applies rounded forms to the other survivors and infected. This is the first art slice, not a claim that every gun, special infected and environment prop has received an individual final art pass.
+
+## Atmosphere
+
+`scripts/world/atmosphere.gd` owns each level's sky, light, weather and ambience. Every chapter names a mood in `DB.CHAPTERS`:
+
+- **storm_dusk** (Main Street, the open world): burnt-orange horizon under a breaking storm, rain, lightning every 12–34 s.
+- **dead_night** (The Warehouse): close, cold night, dust hanging in torch beams, distant heat lightning.
+- **drowned_night** (The Docks): heavy rain and frequent lightning.
+
+The sky is a shader with drifting fbm clouds that light up from the strike direction. Fog layers distance fog, ground mist and (Medium and High quality) volumetric fog, so torches, muzzle flashes and lightning throw beams. Glow makes lit windows and lamps bleed. About a third of linear-campaign street lamps flicker, chosen by position hash so map layout seeds are untouched. Sound adds looped wind, rain and a low drone (Music bus), thunder timed to each strike's distance, occasional distant groans, screams, creaks and sirens, and reverb on the Effects and Voice buses. All of it is cosmetic and local to each peer. The HUD adds film grain, vignette and edge fringing, scaled by the **Film grain and vignette** comfort slider.
 
 ## Surfaces
 

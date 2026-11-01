@@ -17,6 +17,7 @@ var camera_shake := 1.0
 var head_bob := 1.0
 var weapon_sway := 1.0
 var hit_flashes := 1.0
+var film_grain := 1.0
 var crosshair_color := Color.WHITE
 var crosshair_size := 1.0
 var crosshair_opacity := 0.85
@@ -33,7 +34,7 @@ var graphics_quality := 2
 var bindings: Dictionary = {}
 var pending_display: Array = []
 var _applied_display: Array = []
-const PREFS := ["player_name", "mouse_sensitivity", "master_volume", "fov", "aim_sensitivity", "controller_sensitivity", "controller_deadzone", "invert_look", "toggle_aim", "toggle_crouch", "camera_shake", "head_bob", "weapon_sway", "hit_flashes", "crosshair_color", "crosshair_size", "crosshair_opacity", "hit_markers", "hit_marker_sound", "effects_volume", "music_volume", "voice_volume", "window_mode", "resolution", "vsync", "fps_cap", "graphics_quality", "bindings"]
+const PREFS := ["player_name", "mouse_sensitivity", "master_volume", "fov", "aim_sensitivity", "controller_sensitivity", "controller_deadzone", "invert_look", "toggle_aim", "toggle_crouch", "camera_shake", "head_bob", "weapon_sway", "hit_flashes", "film_grain", "crosshair_color", "crosshair_size", "crosshair_opacity", "hit_markers", "hit_marker_sound", "effects_volume", "music_volume", "voice_volume", "window_mode", "resolution", "vsync", "fps_cap", "graphics_quality", "bindings"]
 
 const ACTIONS := {
 	"move_forward": [KEY_W, KEY_UP],

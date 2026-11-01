@@ -109,45 +109,10 @@ func _ready() -> void:
 
 
 func _build_environment() -> void:
-	var ch: Dictionary = DB.CHAPTERS[chapter]
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sm := ProceduralSkyMaterial.new()
-	sm.sky_top_color = ch.sky
-	sm.sky_horizon_color = ch.fog.lightened(0.15)
-	sm.ground_bottom_color = Color(0.02, 0.02, 0.03)
-	sm.ground_horizon_color = ch.fog
-	sm.sun_angle_max = 2.0
-	sky.sky_material = sm
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.62,0.73,0.76)
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.9
-	env.fog_enabled = true
-	env.fog_light_color = ch.fog
-	env.fog_density = 0.00018 if open_world else 0.0035
-	env.fog_sky_affect = 0.6
-	env.glow_enabled = false
-	env.glow_intensity = 0.6
-	env.glow_bloom = 0.05
-	env.ssao_enabled = true
-	env.ssao_radius = 0.8
-	env.ssao_intensity = 1.1
-	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.08
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
-	var moon := DirectionalLight3D.new()
-	moon.rotation_degrees = Vector3(-50, 35, 0)
-	moon.light_color = Color(1.0,0.83,0.62)
-	moon.light_energy = 0.85
-	moon.shadow_enabled = true
-	moon.directional_shadow_max_distance = 60.0
-	add_child(moon)
+	var atmosphere := Atmosphere.new()
+	atmosphere.name = "Atmosphere"
+	atmosphere.setup(DB.CHAPTERS[chapter].mood, open_world)
+	add_child(atmosphere)
 
 
 func _build_gate() -> void:
