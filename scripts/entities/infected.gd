@@ -1,7 +1,8 @@
 class_name Infected
 extends CharacterBody3D
 ## Every infected: commons, the four specials, the Tank and the Witch. The host runs the AI
-## (flow fields for pathing, one shared by the whole horde); clients just interpolate.
+## (flow fields for pathing, one shared by the whole horde); clients just interpolate. Each one
+## bends that shared path into its own line with an InfectedGait, so a horde doesn't arrive in file.
 
 enum A { IDLE, RUN, ATTACK, STAGGER, CROUCH, LEAP, PIN, SPECIAL, SIT, DEAD, THROW, WANDER }
 
@@ -27,7 +28,10 @@ var net_death := -1       # which death clip is playing, from DeathClips.encode
 
 var model: CharacterModel
 var _rng := RandomNumberGenerator.new()
-var _speed_mul := 1.0
+var gait: InfectedGait
+var _gait_t := 0.0
+var _pace_t := 0.0
+var _pace_mul := 1.0
 var _attack_cd := 0.0
 var _swing := 0.0
 var _stagger_t := 0.0
@@ -66,7 +70,7 @@ func setup(d: Dictionary) -> void:
 	horde = bool(d.get("horde", false))
 	alert = horde or type not in ["common", "witch"]
 	_rng.seed = hash(d.name)
-	_speed_mul = _rng.randf_range(0.9, 1.1) if type == "common" else 1.0
+	gait = InfectedGait.roll(type, _rng.seed)
 	rotation.y = _rng.randf() * TAU
 	net_yaw = rotation.y
 	if type == "witch":
@@ -107,6 +111,7 @@ func _ready() -> void:
 	model = CharacterModel.new()
 	add_child(model)
 	model.setup_infected(type, _rng.seed)
+	model.gait = gait
 	if type != "tank":
 		model.scale = Vector3.ONE * size
 	_sound_t = _rng.randf_range(1.0, 6.0)
@@ -303,6 +308,7 @@ func _host_ai(delta: float) -> void:
 	_attack_cd = maxf(_attack_cd - delta, 0.0)
 	_ability_cd = maxf(_ability_cd - delta, 0.0)
 	_state_t += delta
+	_gait_t += delta
 	if _burn_t > 0.0:
 		_burn_t -= delta
 		net_burning = _burn_t > 0.0
@@ -336,8 +342,11 @@ func _host_ai(delta: float) -> void:
 		"witch":
 			_ai_witch(delta, lvl)
 	if _special != "pin" and _special != "leap":
-		_separate(lvl, delta)
+		# Separation nudges this frame's move only, so it can't pile up against a slow-turning gait.
+		var push := _separation(lvl)
+		velocity += push
 		move_and_slide()
+		velocity -= push
 	if global_position.y < -10.0:
 		take_hit(9999.0, false, Vector3.ZERO, -1, "fall")
 
@@ -371,30 +380,98 @@ func _retarget_now(lvl: Level, delta: float) -> Survivor:
 
 
 func _chase(lvl: Level, to: Vector3, speed: float, delta: float, close := 4.0) -> void:
-	var dir := Vector3.ZERO
 	var flat := to - global_position
 	flat.y = 0
-	if flat.length() < close or (flat.length() < 12.0 and lvl.nav.clear_line(global_position, to)):
+	var dist := flat.length()
+	var direct := dist < close or (dist < 12.0 and lvl.nav.clear_line(global_position, to))
+	var dir := Vector3.ZERO
+	if direct:
 		dir = flat.normalized()
 	else:
-		dir = lvl.director.flow.dir_at(global_position)
+		dir = _flow_dir(lvl, lvl.director.flow)
 		if dir == Vector3.ZERO:
 			dir = flat.normalized()
-	_move(dir, speed, delta)
+	_move(_steer(lvl, dir, to, dist, direct), speed * gait.speed * _pace(delta, dist, direct), delta)
+
+
+## The flow field only points at one of 8 neighbouring cells; looking a step ahead as well rounds
+## off its corners and staircases.
+func _flow_dir(lvl: Level, f: NavGrid.Flow) -> Vector3:
+	var here := f.dir_at(global_position)
+	if here == Vector3.ZERO:
+		return here
+	var ahead := f.dir_at(global_position + here * 1.5)
+	if ahead == Vector3.ZERO or here.dot(ahead) < 0.0:
+		return here
+	var smooth := (here + ahead * 0.7).normalized()
+	return smooth if lvl.nav.walkable_at(global_position + smooth * 0.8) else here
+
+
+## Bends a heading into this infected's own line: curling in from its flank side and swaying as it
+## runs. Both fade out at arm's length so the last step is straight at the target, and anything that
+## would walk it into a wall falls back to the plain heading. Close in, if the way is already
+## crowded it works round the side instead of queueing, so a horde surrounds rather than files in.
+func _steer(lvl: Level, dir: Vector3, to: Vector3, dist: float, direct: bool) -> Vector3:
+	if dir == Vector3.ZERO:
+		return dir
+	var far := clampf((dist - 1.5) / 6.0, 0.0, 1.0)
+	var bent := dir.rotated(Vector3.UP, gait.flank * far * (1.0 if direct else 0.4))
+	if direct and dist < 6.0 and dist > 1.0 and _front_blocked(lvl, to, dist):
+		var wrap := dir.rotated(Vector3.UP, (1.0 if gait.flank >= 0.0 else -1.0) * 1.3)
+		if lvl.nav.walkable_at(global_position + wrap):
+			return wrap
+	var sway := sin(_gait_t * gait.weave_hz * TAU + gait.phase) * gait.weave * far
+	bent = (bent + Vector3(bent.z, 0.0, -bent.x) * sway).normalized()
+	return bent if lvl.nav.walkable_at(global_position + bent) else dir
+
+
+## True if another infected already stands between us and the target, close to it.
+func _front_blocked(lvl: Level, to: Vector3, dist: float) -> bool:
+	var mine := global_position - to
+	mine.y = 0
+	mine = mine.normalized()
+	for o: Infected in lvl.all_infected():
+		if o == self or o.anim == A.DEAD:
+			continue
+		var theirs: Vector3 = o.global_position - to
+		theirs.y = 0
+		var l := theirs.length()
+		if l < dist - 0.4 and l < 2.2 and mine.dot(theirs / maxf(l, 0.001)) > 0.8:
+			return true
+	return false
+
+
+## Speed rhythm on top of the gait: the odd stumble or surge, and a lunge for the last few metres.
+func _pace(delta: float, dist: float, direct: bool) -> float:
+	_pace_t -= delta
+	if _pace_t <= 0.0:
+		_pace_mul = 1.0
+		_pace_t = _rng.randf_range(0.6, 1.4)
+		var r := _rng.randf()
+		var stumble := gait.stumble * _pace_t
+		if r < stumble:
+			_pace_mul = _rng.randf_range(0.3, 0.55)
+			_pace_t = _rng.randf_range(0.35, 0.7)
+		elif r < stumble + gait.surge * _pace_t:
+			_pace_mul = _rng.randf_range(1.15, 1.3)
+			_pace_t = _rng.randf_range(0.5, 1.0)
+	if direct and dist < 4.0:
+		return maxf(_pace_mul, gait.lunge)
+	return _pace_mul
 
 
 func _move(dir: Vector3, speed: float, delta: float) -> void:
-	velocity.x = move_toward(velocity.x, dir.x * speed, 30.0 * delta)
-	velocity.z = move_toward(velocity.z, dir.z * speed, 30.0 * delta)
+	velocity.x = move_toward(velocity.x, dir.x * speed, gait.accel * delta)
+	velocity.z = move_toward(velocity.z, dir.z * speed, gait.accel * delta)
 	if dir.length() > 0.1:
-		_face(global_position + dir, delta)
+		_face(global_position + dir, delta, gait.turn)
 
 
-func _face(p: Vector3, delta: float) -> void:
+func _face(p: Vector3, delta: float, rate := 10.0) -> void:
 	var to := p - global_position
 	if Vector2(to.x, to.z).length() < 0.01:
 		return
-	rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), clampf(delta * 10.0, 0.0, 1.0))
+	rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), clampf(delta * rate, 0.0, 1.0))
 
 
 func _stop(delta: float) -> void:
@@ -403,7 +480,7 @@ func _stop(delta: float) -> void:
 
 
 ## Keeps the horde from collapsing into one blob.
-func _separate(lvl: Level, _delta: float) -> void:
+func _separation(lvl: Level) -> Vector3:
 	var push := Vector3.ZERO
 	var me := global_position
 	for o: Infected in lvl.all_infected():
@@ -415,8 +492,7 @@ func _separate(lvl: Level, _delta: float) -> void:
 		var r := 0.75 * (size + o.size) * 0.5 * (1.8 if o.type == "tank" or type == "tank" else 1.0)
 		if l < r and l > 0.001:
 			push += d / l * (r - l)
-	velocity.x += push.x * 6.0
-	velocity.z += push.z * 6.0
+	return Vector3(push.x, 0.0, push.z) * 6.0
 
 
 func _melee_target(lvl: Level, s: Survivor, delta: float, reach: float, dmg: float, cd: float) -> bool:
@@ -442,8 +518,10 @@ func _ai_common(delta: float, lvl: Level) -> void:
 		var flat := lure - global_position
 		flat.y = 0
 		if flat.length() > 1.5:
-			var dir := lvl.director.lure_flow.dir_at(global_position)
-			_move(dir if dir != Vector3.ZERO else flat.normalized(), float(data.speed) * _speed_mul, delta)
+			var dir := _flow_dir(lvl, lvl.director.lure_flow)
+			if dir == Vector3.ZERO:
+				dir = flat.normalized()
+			_move(_steer(lvl, dir, lure, flat.length(), false), float(data.speed) * gait.speed * _pace(delta, flat.length(), false), delta)
 		else:
 			_stop(delta)
 		return
@@ -461,7 +539,7 @@ func _ai_common(delta: float, lvl: Level) -> void:
 	if _melee_target(lvl, s, delta, 1.25, dmg, 1.1):
 		return
 	anim = A.RUN
-	_chase(lvl, s.global_position, float(data.speed) * _speed_mul, delta)
+	_chase(lvl, s.global_position, float(data.speed), delta)
 
 
 func _wander(delta: float, lvl: Level) -> void:
@@ -470,10 +548,13 @@ func _wander(delta: float, lvl: Level) -> void:
 	if _wander_t <= 0.0:
 		_wander_t = _rng.randf_range(2.0, 5.0)
 		_wander_dir = Vector3.ZERO if _rng.randf() < 0.5 else Vector3.FORWARD.rotated(Vector3.UP, _rng.randf() * TAU)
+	elif _wander_dir != Vector3.ZERO:
+		# Meander instead of walking a ruler line.
+		_wander_dir = _wander_dir.rotated(Vector3.UP, sin(_gait_t * 0.7 + gait.phase) * delta * 0.8)
 	var ahead := global_position + _wander_dir * 1.2
 	if _wander_dir != Vector3.ZERO and not lvl.nav.walkable_at(ahead):
-		_wander_dir = -_wander_dir
-	_move(_wander_dir, 0.8, delta)
+		_wander_dir = _wander_dir.rotated(Vector3.UP, (1.0 if gait.flank >= 0.0 else -1.0) * _rng.randf_range(PI * 0.5, PI))
+	_move(_wander_dir, 0.8 * gait.cadence, delta)
 	# Notice survivors who get close, shine a light on us, or that we can see from nearby.
 	for s: Survivor in lvl.get_survivors():
 		if s.dead:

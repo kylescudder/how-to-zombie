@@ -1,7 +1,7 @@
 extends Node
 ## Scripted end-to-end tests. Run headless:
 ##   tools/godot --headless -- --solo --linear --test=solo     (also: campaign, soak)
-##   tools/godot --headless --fixed-fps 60 -- --solo --test=world   (also: world_horde)
+##   tools/godot --headless --fixed-fps 60 -- --solo --test=world   (also: world_horde, infected_motion)
 ##   tools/godot --headless -- --host --linear --test=net_host   &   tools/godot --headless -- --join=127.0.0.1 --linear --test=net_client
 ##   Network tests must run in real time (no --fixed-fps), or the host gives up before the client connects.
 ##   tools/godot -- --solo --test=screens        (needs a window; writes screenshots/)
@@ -51,6 +51,8 @@ func _ready() -> void:
 			await _suite("res://tests/barea_verify.gd").new().run(self)
 		"world_horde":
 			await _suite("res://tests/world_horde.gd").new().run(self)
+		"infected_motion":
+			await _suite("res://tests/infected_motion.gd").new().run(self)
 		"settings":
 			await _suite("res://tests/settings_verify.gd").new().run(self)
 		"art_hitbox":

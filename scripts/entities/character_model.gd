@@ -16,6 +16,7 @@ var elbow_l: Node3D # Infected only: survivors keep single-piece limbs for their
 var elbow_r: Node3D
 var knee_l: Node3D
 var knee_r: Node3D
+var gait: InfectedGait  # Infected only: stride, limp and posture.
 var _phase := 0.0
 var _time := 0.0
 var _eyes: Array[Node3D] = []
@@ -303,20 +304,21 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	if leg_l == null or pose == "dead":
 		return
 	_time += delta
-	_phase += delta * (2.0 + speed * 2.2)
+	_phase += delta * (2.0 + speed * 2.2) * (gait.cadence if gait else 1.0)
 	var alive := pose not in ["dead", "down"]
 	var breath := sin(_time * (2.0 if kind == "survivor" else 2.8)) if alive else 0.0
 	var idle := 1.0 - clampf(speed / 2.0, 0, 1)
 	var amp := clampf(speed / 4.0, 0.0, 1.0) * 0.8
 	var s := sin(_phase)
 	var k := 1.0 - exp(-delta * 12.0)
+	var limp := gait.limp if gait and alive else 0.0
 	leg_l.rotation = Vector3(s * amp, 0, 0)
-	leg_r.rotation = Vector3(-s * amp, 0, 0)
+	leg_r.rotation = Vector3(-s * amp * (1.0 - limp * 0.6), 0, limp * 0.12)
 	_swing = lerpf(_swing, attack, 1.0 - exp(-delta * 20.0))
 	var crouch := pose in ["crouch", "pounce", "sit", "revive"]
 	var hip_goal := _hip_h * (0.55 if crouch else 1.0)
 	hips.position.y = lerpf(hips.position.y, hip_goal + absf(cos(_phase)) * amp * 0.035 + breath * 0.008, k)
-	hips.rotation = Vector3(0, sin(_phase) * amp * 0.045, sin(_time * 0.9) * 0.025 * idle if alive else 0.0)
+	hips.rotation = Vector3(0, sin(_phase) * amp * 0.045, (sin(_time * 0.9) * 0.025 * idle if alive else 0.0) + maxf(0.0, -s) * amp * limp * 0.22)
 	torso.scale = Vector3(1.0 + breath * 0.007, 1.0 + breath * 0.008, 1.0 + breath * 0.016)
 	torso.rotation.y = sin(_phase) * amp * -0.055
 	head.rotation = Vector3(breath * 0.018, sin(_time * 0.65) * 0.12 * idle, sin(_time * 0.85) * 0.025 * idle) if alive else Vector3.ZERO
@@ -363,11 +365,11 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 		lean = 0.6 + sin(_time * 3.5) * 0.07
 		head.rotation.x = 0.5 + sin(_time * 6.0) * 0.06
 	else:
-		var reach := -1.3 + sin(_phase * 1.3) * 0.35 * amp
+		var reach := -1.3 - (gait.reach * 0.4 if gait else 0.0) + sin(_phase * 1.3) * 0.35 * amp
 		arm_l.rotation.x = reach - _swing * 0.9 - sin(_swing * PI) * 1.2 + breath * idle * 0.06
 		arm_r.rotation.x = reach - cos(_phase * 1.1) * 0.3 * amp - _swing * 0.9 - sin(_swing * PI) * 1.2 - breath * idle * 0.06
-		head.rotation.z += sin(_phase * 0.5) * 0.10
-		lean = 0.25 + amp * 0.2 + _swing * 0.3 + breath * 0.025
+		head.rotation.z += sin(_phase * 0.5) * 0.10 + limp * 0.12
+		lean = 0.25 + amp * 0.2 + _swing * 0.3 + breath * 0.025 + (gait.hunch if gait else 0.0)
 		if kind == "tank":
 			lean = 0.4 + _swing * 0.4 + breath * 0.04
 			arm_l.rotation.z = 0.13 + breath * 0.035
