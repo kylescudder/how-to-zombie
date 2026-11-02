@@ -255,3 +255,18 @@ The title offers **Host Game, Join Game, Settings, Quit, Credits and Customise**
 ### Character & wardrobe
 
 **Customise → Character & wardrobe** opens the 3D character editor. Eight choices each cover the face, hair and skin, plus jewellery/accessories, T-shirts, trousers, shoes, jackets and full outfits. Facial choices are free; clothing unlocks with persistent wardrobe XP earned from kills, revives and escapes. Preview locked items, rotate/zoom the model, and equip an owned look. Appearances replicate to your co-op squad. See [customisation and unlock rules](docs/CHARACTER_CUSTOMISATION.md).
+
+### Pull request checks
+
+GitHub Actions runs a clean headless Godot import and the settings, guns, solo
+mechanics and campaign suites on every pull request and pushes to main. The engine
+version comes from `tools/versions.env`. Each job has a 15-minute timeout and
+uploads diagnostic logs, including on failure. Script/runtime errors and missing
+PASS summaries fail the check even when Godot exits successfully.
+
+Run the same check locally with `tools/ci-check.sh settings` (or `guns`, `solo`,
+`campaign`); set `GODOT` to override the binary. Logs are in `.tools/ci/`.
+These checks cover import/script validation and gameplay; they do not produce
+exported release builds or verify Steam, rendering or multiplayer.
+To enforce merging only after checks pass, configure the four `Godot / …` checks
+as required in the repository's branch rules after their first Actions run.
