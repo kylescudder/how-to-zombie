@@ -19,6 +19,7 @@ func run(owner: Node) -> void:
 		var ray := PhysicsRayQueryParameters3D.create(base+Vector3.UP*5,base-Vector3.UP*5,1)
 		test.check(not level.get_world_3d().direct_space_state.intersect_ray(ray).is_empty(),"region %d has real collidable terrain" % index)
 	test.check(level.nav.path(OpenWorld.camp(0),OpenWorld.camp(1)).is_empty(),"AI cannot walk across the sea")
+	_coast()
 	var me := level.local_survivor()
 	if "--capture-only" in OS.get_cmdline_user_args():
 		await capture(me)
@@ -82,6 +83,31 @@ func run(owner: Node) -> void:
 	car._speed=0
 	me.global_position=OpenWorld.camp(0)+Vector3.UP*0.1
 	if DisplayServer.get_name()!="headless": await capture(me)
+
+## Real collision heights on each kind of shore, and the nav grid kept off raised ground.
+func _coast() -> void:
+	var kinds := {}
+	var ok := {"beach": true, "cliff": true, "port": true, "wall": true}
+	for c: Dictionary in level.markers.coast:
+		kinds[c.kind] = true
+		var at := func(o: float) -> float: return _ground(c.pos + c.dir * o)
+		match c.kind:
+			"beach": ok.beach = ok.beach and at.call(15.0) < 0.0 and at.call(15.0) > -0.6 and at.call(30.0) > -0.8
+			"cliff": ok.cliff = ok.cliff and at.call(15.0) > 8.0 and not level.nav.walkable_at(c.pos - c.dir * 6.0)
+			"port": ok.port = ok.port and absf(at.call(30.0)) < 0.1 and at.call(60.0) < -3.0
+			"wall": ok.wall = ok.wall and absf(at.call(1.5)) < 0.1 and at.call(6.0) < -2.0
+	test.check(kinds.size() == 4, "the coasts include beaches, ports, cliffs and sea walls (%s)" % ", ".join(kinds.keys()))
+	test.check(ok.beach, "beaches shelve gently: dry sand 30 m out")
+	test.check(ok.cliff, "cliffs rise over 8 m and stay off the AI's grid")
+	test.check(ok.port, "port quays are level, with deep water alongside")
+	test.check(ok.wall, "sea walls drop straight into the water")
+
+
+func _ground(p: Vector3) -> float:
+	var ray := PhysicsRayQueryParameters3D.create(Vector3(p.x, 80, p.z), Vector3(p.x, -40, p.z), 1)
+	var hit := level.get_world_3d().direct_space_state.intersect_ray(ray)
+	return hit.position.y if not hit.is_empty() else -99.0
+
 
 func drive_to(vehicle: TeamVehicle, slot: int, goal: Vector3) -> void:
 	var elapsed := 0.0

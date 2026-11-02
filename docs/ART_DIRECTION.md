@@ -19,6 +19,14 @@ The visual reference is How to Fish: playful three-dimensional characters and sc
 
 The shared character construction applies rounded forms to the other survivors and infected. This is the first art slice, not a claim that every gun, special infected and environment prop has received an individual final art pass.
 
+## Barea's city blocks
+
+Ordinary blocks draw from a per-district mix (`BareaCity.MIXES`), built by `CityKits`. Neighbourhoods get terraced rows and detached houses with pitched roofs, doors and chimneys, courtyard flats, two- or three-building frontages with taller corners, parks and car parks. Downtown gets towers (some on podiums, topped with spires, helipads or masts) and multi-storey garages. The industrial estate gets warehouses with sawtooth or barrel roofs, loading bays and container yards. Flat roofs have a coloured membrane inside a parapet rim instead of a grey lid. Colour variants share one batch through per-instance tints (`BareaCity.TINTED`), so variety costs few draw calls. Solid volumes stay inside the 48 m lot; the street grid, roadblocks, landmarks and street pockets are unchanged. `--test=barea` checks the style mix, and `--test=barea_shots` writes one `17_style_*.png` per style.
+
+## Coasts
+
+`Coast` replaces the old uniform beach ring. Each island's shore is laid out in `Coast.LAYOUTS` as stretches of beach, port, cliff or sea wall, with angle 0 at the harbour. Neighbouring stretches blend over about 0.07 rad. Unlisted shore keeps the plain shelf, which is how harbours and Barea's ferry pier stay reachable by boat. Ground height is a per-kind profile across the shoreline, so the terrain mesh, its collision and `Coast.height_at` agree. The interior stays at y = 0. Raised ground is kept off the nav grid, and the cliffs' inland rock step is too steep to climb. Dressing goes through the shared `Batch`, except the ice cream vans and fuel tanks. Seagulls (`scripts/entities/seagull.gd`) are local-only scenery: they scatter from survivors and infected, circle, then land again, and they stop animating away from the camera. `--test=world` checks real collision heights for each kind; `--test=barea_shots` writes `18_coast_*.png`, `19_on_the_beach.png` and `20_island_*.png`.
+
 ## Atmosphere
 
 `scripts/world/atmosphere.gd` owns each level's sky, light, weather and ambience. Every chapter names a mood in `DB.CHAPTERS`:

@@ -16,6 +16,13 @@ func run(owner: Node) -> void:
 	var xs := blocks.map(func(b): return b.x)
 	var zs := blocks.map(func(b): return b.z)
 	test.check(xs.max() - xs.min() > 1500.0 and zs.max() - zs.min() > 1300.0, "city spans %.0f x %.0f m" % [xs.max() - xs.min(), zs.max() - zs.min()])
+	var styles: Dictionary = level.markers.block_styles
+	var biggest := 0
+	var styled := 0
+	for k: String in styles:
+		biggest = maxi(biggest, styles[k].size())
+		styled += styles[k].size()
+	test.check(styles.size() >= 10 and biggest < styled * 0.3, "the city mixes %d block styles; the commonest is %d of %d blocks" % [styles.size(), biggest, styled])
 	test.check(level.markers.roadblocks.size() >= 150, "army roadblocks across the streets (%d)" % level.markers.roadblocks.size())
 	test.check(level.markers.alarm_cars.size() >= 60, "alarmed cars parked around town (%d)" % level.markers.alarm_cars.size())
 	test.check(level.npcs.size() == Story.NPCS.size(), "%d survivors to talk to" % level.npcs.size())
@@ -315,6 +322,40 @@ func shots(owner: Node) -> void:
 		test.aim_at(me, target + Vector3.UP * 1.0)
 		await test.wait(0.7)
 		await _snap(dir + "/%s.png" % shot[0])
+	# 2c. One of each block style, from a three-quarter view
+	cam.current = true
+	for style: String in level.markers.block_styles:
+		var bc: Vector3 = level.markers.block_styles[style][0]
+		cam.global_position = bc + Vector3(46, 38 if style != "tower" else 110, 46)
+		cam.look_at(bc + Vector3.UP * (4 if style != "tower" else 40), Vector3.UP)
+		await _snap(dir + "/17_style_%s.png" % style)
+	# 2d. Barea's coast: one view of each kind of shore from just offshore
+	var shot_kinds: Array[String] = []
+	for c: Dictionary in level.markers.coast:
+		if c.island != 0 or c.kind in shot_kinds:
+			continue
+		shot_kinds.append(c.kind)
+		var along := Vector3(c.dir.z, 0, -c.dir.x)
+		cam.global_position = c.pos + c.dir * 110.0 + along * 60.0 + Vector3.UP * (45.0 if c.kind != "cliff" else 60.0)
+		cam.look_at(c.pos + c.dir * 20.0 + Vector3.UP * 6.0, Vector3.UP)
+		await _snap(dir + "/18_coast_%s.png" % c.kind)
+	# The other islands' coasts, from the air
+	for i in range(1, OpenWorld.ISLANDS.size()):
+		var isl: Dictionary = OpenWorld.ISLANDS[i]
+		var ic := Vector3(isl.center.x, 0, isl.center.y)
+		cam.global_position = ic + Vector3(isl.radius.x * 0.9, isl.radius.x * 1.1, isl.radius.y * 1.9)
+		cam.look_at(ic, Vector3.UP)
+		await _snap(dir + "/20_island_%d.png" % i)
+	cam.current = false
+	me.camera.current = true
+	# On the beach itself, looking along the sand
+	for c: Dictionary in level.markers.coast:
+		if c.island == 0 and c.kind == "beach":
+			var along := Vector3(c.dir.z, 0, -c.dir.x)
+			me.global_position = c.pos + c.dir * 6.0 + Vector3.UP * 0.4
+			test.aim_at(me, c.pos + c.dir * 12.0 + along * 40.0 + Vector3.UP * 1.0)
+			await test.wait(0.8)
+			await _snap(dir + "/19_on_the_beach.png")
 	# 3. Street level on the avenue
 	var avenue := OpenWorld.camp(0) + Vector3(-300, 0.3, 0)
 	me.global_position = avenue

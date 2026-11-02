@@ -20,6 +20,8 @@ Built with **Godot 4.7** and **GodotSteam** (Steam lobbies, invites and P2P netw
 
 One 5.2 km map with five islands: **Barea City**, **Rustwater Works** (industry), **Pinefall Reserve** (forest), **Sunfield County** (farmland) and **Last Light** (lighthouse). Every island has a camp with a gunsmith; camps are safe, and the Director wakes up once the team heads inland.
 
+The coasts vary: proper beaches with parasols, loungers, beach huts, lifeguard towers, ice cream vans and seagulls that scatter when you get close; working ports with gantry cranes, container stacks, a shipbuilding hall and a moored freighter (Barea's shipyard sits beside its industrial estate); cliffs up to about 40 m with sea stacks; and promenades along sea walls. The interiors stay flat for combat, and harbours and the ferry pier are kept clear for boats.
+
 ### Barea City: the Yellow Sticker idol
 
 | | |
@@ -27,7 +29,7 @@ One 5.2 km map with five islands: **Barea City**, **Rustwater Works** (industry)
 | ![Barea from the air](docs/barea_02_aerial.jpg) | ![Substation 4](docs/barea_14_substation.jpg) |
 | ![The shuttered Megamart](docs/barea_15_megamart_shutter.jpg) | ![World map, Act 3](docs/barea_09_map.jpg) |
 
-Barea is a metropolis about 1.7 × 1.5 km (559 city blocks): downtown towers, residential mid-rises and alleys, a north-west industrial estate, petrol stations, Barea Mart convenience stores, Barea Police, Fire Station 7, a plaza and the **Price Slasher Megamart**. The story is a five-act run of roughly 45–50 minutes across about 4.4 km of the city. Each act is in a different district, and the world map (**M**) marks the current objective.
+Barea is a metropolis about 1.7 × 1.5 km (559 city blocks): downtown towers, some on podiums, topped with spires, helipads or masts; terraced streets, detached homes, courtyard flats and mixed shopping frontages in the neighbourhoods; parks, car parks and multi-storey garages; a north-west industrial estate of sawtooth- and barrel-roofed warehouses and container yards; petrol stations, Barea Mart convenience stores, Barea Police, Fire Station 7, a plaza and the **Price Slasher Megamart**. The story is a five-act run of roughly 45–50 minutes across about 4.4 km of the city. Each act is in a different district, and the world map (**M**) marks the current objective.
 
 1. **The harbour.** Land and talk to Captain Marla. The idol is in the Megamart, but the Megamart is shuttered with no power. The substation that feeds it is padlocked, and Sgt. Okafor at Police HQ has the keys.
 2. **Police HQ (north-east, ~0.9 km).** Take the master keys from the evidence lockup. That sets off the holding-cell alarm: hold out for 60 seconds while the district piles in.
@@ -196,13 +198,13 @@ There are no imported models or audio. Models combine authored cross-section mes
 ## Tests
 
 ```bash
-tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
+tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, coast heights, 10 vehicles, driving, boats, docking
 tools/godot --headless --fixed-fps 60 -- --solo --test=handling       # weight: car grip, slides, springs, impacts; footstep bob, momentum and landings (screenshots with a window)
 tools/godot --headless --fixed-fps 60 -- --solo --test=city_pacing    # street access, 45-minute simulated pacing and queue limits
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
 tools/godot --headless --fixed-fps 60 -- --solo --test=infected_motion # a pack of commons closes in on varied lines, paces and sides
-tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: all five acts, route length, roadblocks, alarms, Reduced Rifle, carrying the idol, ferry escape
-tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/ (needs a window)
+tools/godot --headless --fixed-fps 60 -- --solo --test=barea          # Barea City: all five acts, route length, block-style mix, roadblocks, alarms, Reduced Rifle, carrying the idol, ferry escape
+tools/godot -- --solo --test=barea_shots                              # Barea screenshots in screenshots/barea/, one per block style (needs a window)
 tools/godot -- --solo --test=perf                                     # frame times and draw calls around the city (needs a window)
 tools/godot --headless -- --solo --test=guns       # shop interaction, wallet, upgrades, actual damage, ADS, reload, carryover
 tools/godot -- --solo --test=gun_screens            # detailed gun and gunsmith screenshots in screenshots/guns/

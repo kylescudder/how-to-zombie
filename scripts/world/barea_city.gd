@@ -11,8 +11,16 @@ const STREET := 16.0
 const LOT := PITCH - STREET  # 48 m buildable square per block
 const FACADES := [Color(0.62, 0.78, 0.8), Color(0.93, 0.86, 0.68), Color(0.78, 0.47, 0.36), Color(0.48, 0.55, 0.62), Color(0.86, 0.71, 0.33), Color(0.66, 0.73, 0.55), Color(0.9, 0.9, 0.86), Color(0.58, 0.45, 0.6)]
 const BRICK_FACADES := [2, 3, 5, 7]
-const SURFACE_KEYS := {"asphalt": "asphalt", "alley": "asphalt", "apron": "asphalt", "sidewalk": "paving", "forecourt": "paving", "plaza": "paving", "gravel": "sand", "crown": "concrete", "trim": "painted", "sill": "concrete", "band": "concrete", "plinth": "concrete", "parapet": "concrete", "jersey_base": "concrete", "jersey_top": "concrete", "roofbox": "metal", "watertank": "wood", "tankleg": "metal", "pole": "metal", "garage": "metal", "awning": "fabric", "store_floor": "tile", "zebra": "asphalt", "dash": "asphalt", "jersey_stripe": "painted"}
+const SURFACE_KEYS := {"asphalt": "asphalt", "alley": "asphalt", "apron": "asphalt", "sidewalk": "paving", "forecourt": "paving", "plaza": "paving", "gravel": "sand", "crown": "concrete", "trim": "painted", "sill": "concrete", "band": "concrete", "plinth": "concrete", "parapet": "concrete", "jersey_base": "concrete", "jersey_top": "concrete", "roofbox": "metal", "watertank": "wood", "tankleg": "metal", "pole": "metal", "garage": "metal", "awning": "fabric", "store_floor": "tile", "zebra": "asphalt", "dash": "asphalt", "jersey_stripe": "painted", "membrane": "concrete", "brickhouse": "brick", "house": "plaster", "dado": "painted", "leaf": "none", "gable": "wood", "chimney": "brick", "lawn": "grass", "parkpath": "sand", "drive": "paving", "step": "concrete", "deck": "concrete", "lot_tarmac": "asphalt", "yard": "concrete", "sawtooth": "metal", "barrel": "metal", "shutter": "metal", "container": "metal"}
 const SHOPS := ["DONUT DEN", "BAREA BANK", "PIZZA PALACE", "LAUNDROMAT", "PAWN & GUNS", "PHARMACY", "NOODLE BAR", "VIDEO RENTAL", "HARDWARE", "BARBER"]
+## Batches whose instances each carry their own colour, so variety doesn't cost draw calls.
+const TINTED := ["brickhouse", "house", "gable", "door", "membrane", "container", "dado", "leaf", "awning", "crown", "spire"]
+## Block types per district and their shares (each list sums to 1).
+const MIXES := {
+	"industrial": [["warehouse", 0.5], ["containers", 0.2], ["workshop", 0.3]],
+	"downtown": [["mixed", 0.3], ["courtyard", 0.2], ["twin", 0.18], ["midrise", 0.12], ["garage", 0.12], ["park", 0.08]],
+	"residential": [["terrace", 0.22], ["detached", 0.16], ["courtyard", 0.14], ["mixed", 0.16], ["twin", 0.12], ["midrise", 0.08], ["park", 0.06], ["carpark", 0.06]],
+}
 const CAR_COLORS := [Color(0.85, 0.3, 0.25), Color(0.25, 0.5, 0.8), Color(0.95, 0.85, 0.4), Color(0.3, 0.65, 0.45), Color(0.9, 0.9, 0.88), Color(0.35, 0.35, 0.4), Color(0.95, 0.55, 0.2)]
 
 var ow: OpenWorld
@@ -21,7 +29,7 @@ var index := 0
 var center := Vector3.ZERO
 var rng := RandomNumberGenerator.new()
 var blocks := {}  # Vector2i -> kind
-var _mm := {}     # batched meshes: key -> {"mesh", "mat", "xforms"}
+var batch := Batch.new()
 var _downtown := Vector3.ZERO
 
 
@@ -43,6 +51,7 @@ func _generate() -> void:
 	ow.markers["idol"] = Vector3.INF
 	ow.markers["city_blocks"] = []
 	ow.markers["roadblocks"] = []
+	ow.markers["block_styles"] = {}  # style -> block centres
 	var dock := OpenWorld.dock(index)
 	_terminal = ferry_terminal(index)
 	ow.markers["ferry_terminal"] = _terminal
@@ -128,11 +137,7 @@ func _assign_landmarks() -> void:
 # --- Batched geometry ------------------------------------------------------------------
 
 func _add(key: String, mesh: Mesh, color: Color, t: Transform3D, emission := 0.0) -> void:
-	if not _mm.has(key):
-		Build.paint = _surface(key)
-		_mm[key] = {"mesh": mesh, "mat": Build.mat(color, 0.6, emission), "xforms": []}
-		Build.paint = ""
-	_mm[key].xforms.append(t)
+	batch.add(key, mesh, color, t, emission, _surface(key), key in TINTED)
 
 
 func _surface(key: String) -> String:
@@ -145,29 +150,26 @@ func _surface(key: String) -> String:
 
 
 func _flush() -> void:
-	for key: String in _mm:
-		var e: Dictionary = _mm[key]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = e.mesh
-		mm.instance_count = e.xforms.size()
-		for i in e.xforms.size():
-			mm.set_instance_transform(i, e.xforms[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.name = "MM_" + key
-		mmi.multimesh = mm
-		mmi.material_override = e.mat
-		if key.begins_with("win") or key.begins_with("dash"):
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		root.add_child(mmi)
+	batch.no_shadow = ["win", "dash"]
+	batch.flush(root)
 
 
-var _unit_box := BoxMesh.new()
-var _quad := QuadMesh.new()
+var _unit_box := Batch.box
+var _quad := Batch.quad
+var _prism := Batch.prism
+var _ramp := Batch.ramp
+var _ball := Batch.ball
+var _post := Batch.post
+var _cone := Batch.cone
 
 
 func _tile(key: String, color: Color, pos: Vector3, size: Vector3, yaw := 0.0, emission := 0.0) -> void:
-	_add(key, _unit_box, color, Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(size), pos), emission)
+	_shape(key, _unit_box, color, pos, size, yaw, emission)
+
+
+## Any unit-sized mesh, scaled and turned into place in its batch.
+func _shape(key: String, mesh: Mesh, color: Color, pos: Vector3, size: Vector3, yaw := 0.0, emission := 0.0) -> void:
+	_add(key, mesh, color, Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(size), pos), emission)
 
 
 # --- Ground ----------------------------------------------------------------------------
@@ -192,67 +194,122 @@ func _ground() -> void:
 
 func _buildings(b: Vector2i) -> void:
 	var c := block_center(b)
-	var pocket := StreetPockets.kind(b, _district(c))
+	var district := _district(c)
+	var pocket := StreetPockets.kind(b, district)
 	if pocket >= 0:
 		StreetPockets.build(self,b,pocket)
 		return
 	var dist := Vector2(c.x - _downtown.x, c.z - _downtown.z).length()
+	var style := "tower"
 	if dist < 230.0 and rng.randf() < 0.85:
 		_skyscraper(c, lerpf(120.0, 48.0, dist / 230.0) * rng.randf_range(0.75, 1.15))
-		return
-	if rng.randf() < 0.35:
-		# Two buildings with an alley between them.
-		var along_x := rng.randf() < 0.5
-		var w := (LOT - 6.0) * 0.5
+	else:
+		# Each district draws from its own mix of block types, so neighbourhoods read differently.
+		var roll := rng.randf()
+		style = "midrise"
+		for entry: Array in MIXES.get(district, MIXES.residential):
+			roll -= entry[1]
+			if roll < 0.0:
+				style = entry[0]
+				break
+		_style(style, c)
+	if not ow.markers.block_styles.has(style):
+		ow.markers.block_styles[style] = []
+	ow.markers.block_styles[style].append(c)
+
+
+func _style(style: String, c: Vector3) -> void:
+	match style:
+		"terrace": CityKits.terrace(self, c)
+		"detached": CityKits.detached(self, c)
+		"courtyard": CityKits.courtyard(self, c, _district(c) == "downtown")
+		"mixed": CityKits.mixed(self, c)
+		"twin": _twin(c)
+		"park": CityKits.park(self, c)
+		"carpark": CityKits.surface_carpark(self, c)
+		"garage": CityKits.parking_garage(self, c)
+		"warehouse": CityKits.warehouse(self, c)
+		"containers": CityKits.container_yard(self, c)
+		"workshop": _midrise(c, Vector3(LOT, 0, LOT), rng.randf_range(10.0, 14.0))
+		_: _midrise(c, Vector3(LOT, 0, LOT), rng.randf_range(18.0, 40.0) if _district(c) == "downtown" else rng.randf_range(12.0, 30.0))
+
+
+## Two buildings with a bollarded alley between them.
+func _twin(c: Vector3) -> void:
+	var along_x := rng.randf() < 0.5
+	var w := (LOT - 6.0) * 0.5
+	for side: float in [-1.0, 1.0]:
+		var off := Vector3(side * (w * 0.5 + 3.0), 0, 0) if along_x else Vector3(0, 0, side * (w * 0.5 + 3.0))
+		var size := Vector3(w, 0, LOT) if along_x else Vector3(LOT, 0, w)
+		_midrise(c + off, size, rng.randf_range(10.0, 26.0), c)
+	var alley := c + Vector3(0, 0.06, 0)
+	_tile("alley", Color(0.33, 0.31, 0.3), alley, Vector3(6.0 if along_x else LOT, 0.02, LOT if along_x else 6.0))
+	ow.markers.items.append(alley + Vector3(0, 0.1, 0))
+	_dumpster(alley + (Vector3(1.4, 0, 8) if along_x else Vector3(8, 0, 1.4)))
+	# Bollards at both ends: on foot only.
+	var run := Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)
+	var across := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
+	for end: float in [-1.0, 1.0]:
 		for side: float in [-1.0, 1.0]:
-			var off := Vector3(side * (w * 0.5 + 3.0), 0, 0) if along_x else Vector3(0, 0, side * (w * 0.5 + 3.0))
-			var size := Vector3(w, 0, LOT) if along_x else Vector3(LOT, 0, w)
-			_midrise(c + off, size, rng.randf_range(10.0, 26.0))
-		var alley := c + Vector3(0, 0.06, 0)
-		_tile("alley", Color(0.33, 0.31, 0.3), alley, Vector3(6.0 if along_x else LOT, 0.02, LOT if along_x else 6.0))
-		ow.markers.items.append(alley + Vector3(0, 0.1, 0))
-		_dumpster(alley + (Vector3(1.4, 0, 8) if along_x else Vector3(8, 0, 1.4)))
-		# Bollards at both ends: on foot only.
-		var run := Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)
-		var across := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
-		for end: float in [-1.0, 1.0]:
-			for side: float in [-1.0, 1.0]:
-				_barrier(c + run * end * (LOT * 0.5 - 0.5) + across * side * 2.05, across, 2.3)
-		return
-	_midrise(c, Vector3(LOT, 0, LOT), rng.randf_range(12.0, 34.0))
+			_barrier(c + run * end * (LOT * 0.5 - 0.5) + across * side * 2.05, across, 2.3)
 
 
 func _skyscraper(c: Vector3, h: float) -> void:
 	var ci := rng.randi() % FACADES.size()
 	var col: Color = FACADES[ci]
 	var base := LOT - 2.0
-	_mass(ci, Vector3(base, h, base), c + Vector3.UP * h * 0.5, true)
-	_windows(c, Vector3(base, h, base), 4.0, 4.0, 4.0, true)
-	var top := c + Vector3.UP * h
+	var floor_y := 0.0
+	if rng.randf() < 0.35:
+		# A podium filling the lot in a contrasting colour, the tower rising off it.
+		var pi := (ci + 1 + rng.randi() % (FACADES.size() - 1)) % FACADES.size()
+		var ph := rng.randf_range(9.0, 14.0)
+		_mass(pi, Vector3(base, ph, base), c + Vector3.UP * ph * 0.5, true)
+		_windows(c, Vector3(base, ph, base), 5.0, 3.6, 4.5, false)
+		CityKits.flat_roof(self, c, Vector3(base, 0, base), ph)
+		_tile("lobby", Color(0.15, 0.2, 0.26), c + Vector3.UP * 2.25, Vector3(base + 0.2, 4.5, base + 0.2))
+		floor_y = ph
+		base *= rng.randf_range(0.6, 0.75)
+		h = maxf(h - ph, 30.0)
+	var foot := c + Vector3.UP * floor_y
+	_mass(ci, Vector3(base, h, base), foot + Vector3.UP * h * 0.5, floor_y == 0.0)
+	_windows(foot, Vector3(base, h, base), 4.0, 4.0, 4.0 if floor_y == 0.0 else 0.0, true)
+	var top := foot + Vector3.UP * h
 	# Setback tiers and a crown
 	var tier := base
-	for t in rng.randi_range(1, 2):
+	for t in rng.randi_range(0, 2):
 		tier *= rng.randf_range(0.6, 0.78)
 		var th := rng.randf_range(8.0, 22.0)
 		_mass(ci, Vector3(tier, th, tier), top + Vector3.UP * th * 0.5, false)
 		_windows(top, Vector3(tier, th, tier), 4.0, 4.0, 0.0, true)
 		top += Vector3.UP * th
 	_tile("crown", col.darkened(0.25), top + Vector3.UP * 0.6, Vector3(tier + 1.0, 1.2, tier + 1.0))
-	if rng.randf() < 0.6:
+	var cap := rng.randf()
+	if cap < 0.45:
 		_tile("antenna", Color(0.75, 0.75, 0.78), top + Vector3.UP * 7.0, Vector3(0.5, 14.0, 0.5))
 		_tile("beacon", Color(1.0, 0.2, 0.15), top + Vector3.UP * 14.3, Vector3(0.9, 0.9, 0.9), 0.0, 3.0)
-	# Lobby: a dark glass band at street level
-	_tile("lobby", Color(0.15, 0.2, 0.26), c + Vector3.UP * 2.25, Vector3(base + 0.2, 4.5, base + 0.2))
+	elif cap < 0.65 and tier > 14.0:
+		# Helipad
+		_shape("helipad", _post, Color(0.25, 0.27, 0.3), top + Vector3.UP * 1.35, Vector3(tier * 0.8, 0.3, tier * 0.8))
+		_tile("heli_h", Color(0.95, 0.85, 0.2), top + Vector3.UP * 1.52, Vector3(0.6, 0.04, 4.0))
+		_tile("heli_h", Color(0.95, 0.85, 0.2), top + Vector3(1.5, 1.52, 0), Vector3(0.6, 0.04, 4.0))
+		_tile("heli_h", Color(0.95, 0.85, 0.2), top + Vector3(-1.5, 1.52, 0), Vector3(0.6, 0.04, 4.0))
+	elif cap < 0.85:
+		# Spire
+		_shape("spire", _cone, col.lightened(0.2), top + Vector3.UP * 10.2, Vector3(tier * 0.45, 18.0, tier * 0.45))
+	if floor_y == 0.0:
+		# Lobby: a dark glass band at street level
+		_tile("lobby", Color(0.15, 0.2, 0.26), c + Vector3.UP * 2.25, Vector3(base + 0.2, 4.5, base + 0.2))
 
 
-func _midrise(c: Vector3, size: Vector3, h: float) -> void:
+## lot_c: centre of the whole block, so the shopfront faces a street rather than a neighbour.
+func _midrise(c: Vector3, size: Vector3, h: float, lot_c := Vector3.INF) -> void:
 	var ci := rng.randi() % FACADES.size()
 	if _district(c) == "industrial":
 		ci = [3, 6, 2][rng.randi() % 3]
 		h = minf(h, 14.0)
 	_mass(ci, Vector3(size.x, h, size.z), c + Vector3.UP * h * 0.5, true)
 	_windows(c, Vector3(size.x, h, size.z), 5.0, 3.6, 4.5, false)
-	_tile("parapet", Color(0.4, 0.38, 0.36), c + Vector3.UP * (h + 0.4), Vector3(size.x + 0.8, 0.8, size.z + 0.8))
+	CityKits.flat_roof(self, c, size, h)
 	# Rooftop clutter
 	for k in rng.randi_range(1, 3):
 		_tile("roofbox", Color(0.6, 0.62, 0.64), c + Vector3(rng.randf_range(-size.x, size.x) * 0.3, h + 0.8, rng.randf_range(-size.z, size.z) * 0.3), Vector3(2.5, 1.6, 2.0))
@@ -264,12 +321,16 @@ func _midrise(c: Vector3, size: Vector3, h: float) -> void:
 	if _district(c) == "industrial":
 		return  # warehouses: no shopfronts
 	# Shopfront with awning and sign on one street-facing side
-	var face: Vector3 = [Vector3(0, 0, 1), Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(-1, 0, 0)][rng.randi() % 4]
+	var faces: Array = [Vector3(0, 0, 1), Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(-1, 0, 0)]
+	if lot_c != Vector3.INF:
+		faces = faces.filter(func(f: Vector3) -> bool: return f.dot(c - lot_c) > 0.5 or (f.dot(c - lot_c) > -0.5 and absf(f.dot(size)) > LOT - 1.0))
+	var face: Vector3 = faces[rng.randi() % faces.size()]
 	var half := (size.z if face.z != 0 else size.x) * 0.5
 	var width := (size.x if face.z != 0 else size.z) * 0.8
 	var front := c + face * (half + 0.05)
 	var yaw := atan2(face.x, face.z)
-	var awning: Color = [Color(0.85, 0.25, 0.2), Color(0.2, 0.55, 0.45), Color(0.95, 0.75, 0.2), Color(0.25, 0.4, 0.7)][rng.randi() % 4]
+	var ai := rng.randi() % 4
+	var awning: Color = [Color(0.85, 0.25, 0.2), Color(0.2, 0.55, 0.45), Color(0.95, 0.75, 0.2), Color(0.25, 0.4, 0.7)][ai]
 	_tile("shopglass", Color(0.2, 0.35, 0.45), front + Vector3.UP * 1.7, Vector3(width, 3.0, 0.2), yaw)
 	_tile("awning", awning, front + face * 1.0 + Vector3.UP * 3.6, Vector3(width, 0.25, 2.2), yaw)
 	var sign := Build.label(root, SHOPS[rng.randi() % SHOPS.size()], front + face * 0.15 + Vector3.UP * 4.6, 160, Color(1, 0.96, 0.85))
@@ -756,9 +817,17 @@ func _district(c: Vector3) -> String:
 ## A building volume: drawn in one batched mesh per facade colour, with a collision-only body
 ## (and a nav block) when it touches the street. Keeps a city this size cheap to draw.
 func _mass(ci: int, size: Vector3, pos: Vector3, collide: bool) -> void:
-	_tile("bld%d" % ci, FACADES[ci], pos, size)
-	if not collide:
-		return
+	_volume("bld%d" % ci, FACADES[ci], size, pos, collide)
+
+
+func _volume(key: String, color: Color, size: Vector3, pos: Vector3, collide: bool) -> void:
+	_tile(key, color, pos, size)
+	if collide:
+		_solid(size, pos)
+
+
+## Invisible collision plus a nav block, for volumes drawn in the batches.
+func _solid(size: Vector3, pos: Vector3, margin := 2.0) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
 	body.collision_layer = 1
@@ -768,7 +837,7 @@ func _mass(ci: int, size: Vector3, pos: Vector3, collide: bool) -> void:
 	bs.size = size
 	cs.shape = bs
 	body.add_child(cs)
-	_block_nav(pos, size, 2.0)
+	_block_nav(pos, size, margin)
 
 
 ## Small props pop out with distance so hundreds of parked cars don't cost a frame.
