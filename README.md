@@ -52,6 +52,7 @@ Open-world encounters use build-up, surge and recovery phases. Team health, rece
 ### Getting around
 
 - **Vehicles.** Five cars and five boats, shared by the team. Press **E** next to one to board (the first in drives; up to four aboard, nearby bots climb in too). **WASD** drive, **Space** brake, **E** to get out once stopped. Cars stay on land; boats carry the squad between island piers.
+- **Handling.** Cars build speed through the gears, lean on their springs (squat, dive, body roll) and carry a little slip through fast corners. Brake while steering to throw the tail out. Walls scrape you along or stop you with a jolt. Boats drift wide and ride up onto the plane. The chase camera trails behind and pulls back with speed.
 - **World map** (**M**): islands, Barea's city blocks, camps, vehicles, teammates, survivors to talk to (**!**) and the idol once you know where it is. Click to set a personal waypoint.
 
 To play the original chapter-based campaign instead, launch with `--linear` (see below).
@@ -88,7 +89,7 @@ Each chapter starts and ends in a **safe room**. Get everyone inside and shut th
 |---|---|
 | ![Gunsmith with installed optic and match ammunition](docs/08_gunsmith.jpg) | ![AR-style rifle with precision optic](docs/09_rifle.jpg) |
 
-Every safe room has a physical **Gunsmith** bench. Look at it and press **E** to inspect all seven gun configurations, compare stats, and upgrade a gun you carry. Hold right mouse / LT to aim down sights; **V / R3** shoves. Guns have individual damage, fire rate, capacity, reload, spread, recoil, recovery, full-damage range, and aim magnification. Damage falls off beyond a gun's effective range, with a 25% floor. Moving and jumping widen grouping; crouching and aiming tighten it.
+Every safe room has a physical **Gunsmith** bench. Look at it and press **E** to inspect all seven gun configurations, compare stats, and upgrade a gun you carry. Hold right mouse / LT to aim down sights; **V / R3** shoves. Guns have individual damage, fire rate, capacity, reload, spread, recoil, recovery, full-damage range, bullet velocity, and aim magnification. Bullets fall along an arc, so slower guns need holding over at distance, and damage falls off beyond a gun's effective range, with a 25% floor. Moving and jumping widen grouping; crouching and aiming tighten it.
 
 The semi-real platforms are the M9 Service (and akimbo pair), MP5 Compact, M590 Breacher, AR-15 Patrol, M4 Tactical and M14 Scout. These are original procedural models with bevelled receivers, 32-sided barrels, ejection ports, moving actions, triggers, sights, rails, grip texture and mixed metal/polymer/wood materials. Optics and magazine extensions appear in first and third person. Fixed geometry is combined by material and gun models are cached.
 
@@ -198,6 +199,7 @@ There are no imported models or audio. Models combine authored cross-section mes
 
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, coast heights, 10 vehicles, driving, boats, docking
+tools/godot --headless --fixed-fps 60 -- --solo --test=handling       # weight: car grip, slides, springs, impacts; footstep bob, momentum and landings (screenshots with a window)
 tools/godot --headless --fixed-fps 60 -- --solo --test=city_pacing    # street access, 45-minute simulated pacing and queue limits
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
 tools/godot --headless --fixed-fps 60 -- --solo --test=infected_motion # a pack of commons closes in on varied lines, paces and sides

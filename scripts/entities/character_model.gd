@@ -17,7 +17,11 @@ var elbow_r: Node3D
 var knee_l: Node3D
 var knee_r: Node3D
 var gait: InfectedGait  # Infected only: stride, limp and posture.
+var look := ""          # Infected only: the ZombieCatalog model it wears.
 var _phase := 0.0
+## Which way the body is travelling, relative to where it faces: x right, y forwards (unit length).
+## Legs swing along it, so strafing side-steps and backing up back-pedals instead of moonwalking.
+var move_dir := Vector2(0, 1)
 var _time := 0.0
 var _eyes: Array[Node3D] = []
 var _tail: Node3D
@@ -53,68 +57,57 @@ func setup_npc(skin: Color, shirt: Color, pants: Color, hair: String, hair_color
 	_survivor_hair(hair, hair_color)
 
 
-func setup_infected(type: String, seed_v: int) -> void:
+## Dresses the rig in a ZombieCatalog look: the one named, or one picked from the spawn seed so every peer agrees.
+func setup_infected(type: String, seed_v: int, id := "") -> void:
 	kind = type
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_v
-	var pale := Color(0.55, 0.6, 0.5).lerp(Color(0.62, 0.58, 0.55), rng.randf())
-	match type:
-		"boomer":
-			_body(Color(0.62, 0.62, 0.4), Color(0.55, 0.5, 0.35), Color(0.3, 0.28, 0.25), Vector3(1.1, 0.8, 0.8), 1.0, 1.0)
-			Build.sphere(torso, 0.62, Color(0.66, 0.65, 0.42), Vector3(0, 0.3, 0.22), Vector3(1.0, 0.95, 0.9))
-			for k in 7:
-				var a := rng.randf() * TAU
-				Build.sphere(torso, rng.randf_range(0.08, 0.16), Color(0.75, 0.55, 0.4), Vector3(cos(a) * 0.5, 0.3 + rng.randf_range(-0.3, 0.3), 0.35 + sin(a) * 0.2))
-			_face_infected(Color(0.9, 0.85, 0.3))
-		"hunter":
-			_body(pale, Color(0.18, 0.2, 0.24), Color(0.15, 0.15, 0.18), Vector3(0.58, 0.7, 0.36), 1.0, 1.0)
-			_face_infected(Color(1.0, 0.25, 0.15))
-			ArtShapes.oval(head, Vector3(0.70, 0.68, 0.64), Color(0.15, 0.17, 0.2), Vector3(0, 0.29, -0.03))  # hood
-			ArtShapes.oval(head, Vector3(0.48, 0.37, 0.08), Color(0.05, 0.05, 0.06), Vector3(0, 0.25, 0.28))
-			for hand in [arm_l, arm_r]:
-				for k in 3:
-					Build.box(hand, Vector3(0.03, 0.18, 0.03), Color(0.85, 0.85, 0.75), Vector3(-0.06 + k * 0.06, -0.85, 0.06))
-		"smoker":
-			_body(Color(0.5, 0.45, 0.4), Color(0.4, 0.35, 0.3), Color(0.25, 0.22, 0.2), Vector3(0.5, 0.85, 0.32), 1.25, 1.2)
-			_face_infected(Color(1.0, 0.3, 0.2))
-			for k in 6:
-				Build.sphere(head, rng.randf_range(0.06, 0.12), Color(0.55, 0.25, 0.2), Vector3(rng.randf_range(-0.25, 0.25), rng.randf_range(0.1, 0.45), 0.24))
-			for k in 4:
-				Build.sphere(torso, rng.randf_range(0.06, 0.11), Color(0.55, 0.25, 0.2), Vector3(rng.randf_range(-0.25, 0.25), rng.randf_range(0.1, 0.6), 0.18))
-		"spitter":
-			_body(Color(0.55, 0.6, 0.35), Color(0.3, 0.35, 0.2), Color(0.2, 0.22, 0.15), Vector3(0.5, 0.7, 0.32), 1.05, 1.0)
-			head.position.y += 0.3
-			Build.box(torso, Vector3(0.16, 0.36, 0.16), Color(0.55, 0.6, 0.35), Vector3(0, 0.88, 0))
-			_face_infected(Color(0.6, 1.0, 0.2))
-			Build.box(head, Vector3(0.3, 0.18, 0.04), Color(0.5, 1.0, 0.2), Vector3(0, 0.08, 0.26), Vector3.ZERO).material_override = Build.mat(Color(0.5, 1.0, 0.2), 0.5, 2.5)
-		"tank":
-			_body(Color(0.6, 0.5, 0.48), Color(0.6, 0.5, 0.48), Color(0.22, 0.2, 0.25), Vector3(1.5, 0.9, 0.9), 1.0, 0.9, 2.0)
-			_face_infected(Color(1.0, 0.2, 0.1))
-			head.scale = Vector3(0.75, 0.75, 0.75)
-			head.position = Vector3(0, 0.8, 0.25)
-			for k in 8:
-				Build.sphere(torso, rng.randf_range(0.12, 0.25), Color(0.55, 0.42, 0.4), Vector3(rng.randf_range(-0.6, 0.6), rng.randf_range(0.2, 0.8), rng.randf_range(-0.4, 0.4)))
-		"witch":
-			_body(Color(0.92, 0.9, 0.88), Color(0.75, 0.72, 0.7), Color(0.75, 0.72, 0.7), Vector3(0.44, 0.7, 0.28), 1.0, 1.0)
-			_face_infected(Color(1.0, 0.85, 0.6))
-			ArtShapes.oval(head, Vector3(0.65, 0.80, 0.28), Color(0.95, 0.95, 0.92), Vector3(0, 0.1, -0.22))  # hair
-			ArtShapes.oval(head, Vector3(0.66, 0.3, 0.58), Color(0.95, 0.95, 0.92), Vector3(0, 0.5, 0))
-			for hand in [arm_l, arm_r]:
-				for k in 3:
-					var claw := Build.box(hand, Vector3(0.025, 0.4, 0.025), Color(0.95, 0.9, 0.85), Vector3(-0.05 + k * 0.05, -0.95, 0.05))
-					claw.rotation.x = 0.2
-		_:  # common
-			var shirts := [Color(0.35, 0.3, 0.25), Color(0.25, 0.3, 0.38), Color(0.45, 0.2, 0.18), Color(0.4, 0.4, 0.38), Color(0.2, 0.28, 0.2), Color(0.55, 0.5, 0.4), Color(0.6, 0.6, 0.62)]
-			var pants := [Color(0.2, 0.22, 0.3), Color(0.3, 0.25, 0.2), Color(0.15, 0.15, 0.17), Color(0.35, 0.33, 0.3)]
-			var belly := rng.randf_range(0.9, 1.15)
-			_body(pale, shirts[rng.randi() % shirts.size()], pants[rng.randi() % pants.size()], Vector3(0.6 * belly, 0.7, 0.36 * belly), rng.randf_range(0.95, 1.08), 1.0)
-			_face_infected(Color(1.0, 0.3, 0.2))
-			ArtShapes.oval(torso,Vector3(0.22,0.18,0.035),pale.darkened(0.14),Vector3(0.12,0.25,0.21))
-			for k in 3:
-				ArtShapes.link(torso,Vector3(0.02+k*0.065,0.35,0.23),Vector3(0.04+k*0.065,0.27,0.24),0.018,shirts[seed_v%shirts.size()])
-			ArtShapes.oval(torso,Vector3(0.12,0.10,0.02),Color(0.47,0.15,0.12),Vector3(-0.16,0.43,0.19))
-	_add_bends()
+	look = id if id != "" else ZombieCatalog.pick(type, seed_v)
+	_mount(ZombieKit.rig(look))
 
+
+## Hangs a ZombieKit rig's baked part meshes on the same pivots _body builds, so the animation is shared.
+func _mount(rig: Dictionary) -> void:
+	for child in get_children(): child.queue_free()
+	_eyes.clear()
+	_tail = null
+	_skin = rig.skin
+	_hip_h = rig.hip_h
+	var meshes: Dictionary = rig.meshes
+	var arm: Vector2 = rig.arm
+	var leg: Vector2 = rig.leg
+	var shoulder: Vector3 = rig.shoulder
+	hips = _part(self, meshes.hips, Vector3(0, _hip_h, 0))
+	torso = _part(hips, meshes.torso, Vector3.ZERO)
+	head = _part(torso, meshes.head, rig.head)
+	head.scale = Vector3.ONE * float(rig.head_scale)
+	for eye: Array in rig.eyes:
+		var node := _part(head, eye[2], eye[0])
+		node.rotation.z = eye[1]
+		_eyes.append(node)
+	mouth = Node3D.new()
+	mouth.position = rig.mouth
+	head.add_child(mouth)
+	arm_l = _part(torso, meshes.arm_l, Vector3(-shoulder.x, shoulder.y, 0))
+	arm_r = _part(torso, meshes.arm_r, shoulder)
+	elbow_l = _part(arm_l, meshes.fore_l, Vector3(0, -arm.x * 0.42, 0.01))
+	elbow_r = _part(arm_r, meshes.fore_r, Vector3(0, -arm.x * 0.42, 0.01))
+	hand_r = Node3D.new()
+	hand_r.position = Vector3(0, -arm.x * 0.53, 0.035)
+	elbow_r.add_child(hand_r)
+	leg_l = _part(hips, meshes.leg_l, Vector3(-rig.hip_x, 0, 0))
+	leg_r = _part(hips, meshes.leg_r, Vector3(rig.hip_x, 0, 0))
+	knee_l = _part(leg_l, meshes.shin_l, Vector3(0, -leg.x * 0.42, 0.01))
+	knee_r = _part(leg_r, meshes.shin_r, Vector3(0, -leg.x * 0.42, 0.01))
+	for limb: Node3D in [arm_l, arm_r]: _limb_colors[limb] = [arm.x, arm.y, rig.sleeve]
+	for limb: Node3D in [leg_l, leg_r]: _limb_colors[limb] = [leg.x, leg.y, rig.pants]
+	_set_contacts()
+
+
+func _part(parent: Node3D, mesh: Mesh, at: Vector3) -> Node3D:
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = at
+	parent.add_child(node)
+	return node
 
 
 func _body(skin: Color, shirt: Color, pants: Color, torso_size: Vector3, height := 1.0, legs := 1.0, arms := 1.0) -> void:
@@ -181,12 +174,8 @@ func _limb(parent: Node3D, pivot: Vector3, size: Vector3, color: Color, skin: Co
 	return joint
 
 
-## Splits each limb at the middle, with a ball to cover the join. Nothing bends until the body dies.
-func _add_bends() -> void:
-	knee_l = _add_bend(leg_l)
-	knee_r = _add_bend(leg_r)
-	elbow_l = _add_bend(arm_l)
-	elbow_r = _add_bend(arm_r)
+## Where a dead body touches the floor: core points, then each limb's far end. Nothing bends until the body dies.
+func _set_contacts() -> void:
 	_contacts.clear()
 	for side: float in [-1, 1]:
 		_contacts.append([hips, Vector3(side * 0.16, 0, 0), 0.14])
@@ -204,21 +193,6 @@ func _add_bends() -> void:
 		else:
 			ends.append([bend, Vector3(0, -drop, 0.04), 0.07])
 		_limb_ends[bend.get_parent()] = ends
-
-
-func _add_bend(limb: Node3D) -> Node3D:
-	var h: float = _limb_colors[limb][0]
-	var bend := Node3D.new()
-	bend.position = Vector3(0, -h * 0.42, 0.01)
-	var moved := limb.get_children().filter(func(child): return child is Node3D and child.position.y < bend.position.y)
-	limb.add_child(bend)
-	for child: Node3D in moved:
-		limb.remove_child(child)
-		bend.add_child(child)
-		child.position -= bend.position
-	var ball := float(_limb_colors[limb][1]) * 1.85
-	ArtShapes.oval(bend, Vector3.ONE * ball, _limb_colors[limb][2])
-	return bend
 
 
 func _eye(pos: Vector3, size: Vector3, pupil: Color, tilt := 0.0) -> void:
@@ -243,22 +217,6 @@ func _face_survivor() -> void:
 	for side: float in [-1,1]:
 		ArtShapes.link(head,Vector3(side*0.055,0.455,0.238),Vector3(side*0.20,0.445,0.19),0.026,Color(0.20,0.13,0.085))
 		ArtShapes.oval(head,Vector3(0.12,0.055,0.025),Color(0.74,0.31,0.22),Vector3(side*0.21,0.19,0.224))
-
-
-func _face_infected(_eye_color: Color) -> void:
-	_eye(Vector3(-0.13,0.35,0.23),Vector3(0.22,0.25,0.18),Color(0.24,0.075,0.025),-0.20)
-	_eye(Vector3(0.13,0.31,0.24),Vector3(0.19,0.21,0.16),Color(0.24,0.075,0.025),0.15)
-	ArtShapes.oval(head,Vector3(0.20,0.17,0.26),Color(0.47,0.56,0.28),Vector3(-0.025,0.20,0.32),Vector3(0,0,-15))
-	ArtShapes.oval(head,Vector3(0.32,0.15,0.17),Color(0.36,0.43,0.23),Vector3(0.035,0.035,0.235),Vector3(0,0,-12))
-	ArtShapes.oval(head,Vector3(0.28,0.11,0.09),Color(0.20,0.055,0.055),Vector3(0.025,0.095,0.282),Vector3(0,0,-12))
-	for i in 4:
-		var tooth := ArtShapes.oval(head,Vector3(0.045,0.07 if i%2==0 else 0.05,0.034),Color(0.9,0.83,0.56),Vector3(-0.09+i*0.07,0.10,0.325),Vector3(0,0,-10+i*6))
-		tooth.name = "CrookedTooth%d" % i
-	ArtShapes.oval(head,Vector3(0.08,0.07,0.09),Color(0.68,0.25,0.24),Vector3(0.06,0.04,0.33),Vector3(0,0,-12))
-	ArtShapes.link(head,Vector3(-0.24,0.47,0.17),Vector3(-0.07,0.48,0.23),0.03,Color(0.24,0.29,0.13))
-	for i in 5:
-		var tuft := ArtShapes.loft(head,[Vector4(0,0.05,0.04,0),Vector4(0.10,0.035,0.025,0),Vector4(0.17,0.001,0.001,0)],Color(0.19,0.22,0.11),Vector3(-0.20+i*0.085,0.51,-0.04))
-		tuft.rotation.z = deg_to_rad(-18+i*9)
 
 
 func _survivor_hair(style: String, color: Color) -> void:
@@ -312,8 +270,10 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	var s := sin(_phase)
 	var k := 1.0 - exp(-delta * 12.0)
 	var limp := gait.limp if gait and alive else 0.0
-	leg_l.rotation = Vector3(s * amp, 0, 0)
-	leg_r.rotation = Vector3(-s * amp * (1.0 - limp * 0.6), 0, limp * 0.12)
+	var ahead := move_dir.y
+	var across := absf(move_dir.x)
+	leg_l.rotation = Vector3(s * amp * ahead, 0, -maxf(0.0, s) * amp * 0.5 * across)
+	leg_r.rotation = Vector3(-s * amp * ahead * (1.0 - limp * 0.6), 0, limp * 0.12 + maxf(0.0, -s) * amp * 0.5 * across)
 	_swing = lerpf(_swing, attack, 1.0 - exp(-delta * 20.0))
 	var crouch := pose in ["crouch", "pounce", "sit", "revive"]
 	var hip_goal := _hip_h * (0.55 if crouch else 1.0)
@@ -335,8 +295,9 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	var lean := breath * 0.012
 	if kind == "survivor":
 		var armed := pose in ["aim", "ready", "reload", "inspect"]
-		arm_l.rotation.x = (-1.15 if pose == "aim" else -0.85) if armed else -s * amp * 0.8 + breath * 0.025
-		arm_r.rotation.x = ((-1.35 if pose == "aim" else -1.05) if armed else s * amp * 0.8) - _swing * 1.4 - shot * 0.16
+		var arm_swing := amp * 0.8 * maxf(absf(ahead), 0.35)
+		arm_l.rotation.x = (-1.15 if pose == "aim" else -0.85) if armed else -s * arm_swing + breath * 0.025
+		arm_r.rotation.x = ((-1.35 if pose == "aim" else -1.05) if armed else s * arm_swing) - _swing * 1.4 - shot * 0.16
 		arm_l.rotation.z = 0.85 if armed else -0.035
 		arm_r.rotation.z = -0.20 if armed else 0.035
 		if pose == "reload":
@@ -381,10 +342,19 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 		lean = -0.5 + sin(_time * 10) * 0.08
 		arm_l.rotation.z = 0.5
 		arm_r.rotation.z = -0.5
+	if kind == "survivor":
+		# Lean into the run and towards a side-step, like there's weight behind it.
+		if alive: lean += amp * 0.12 * ahead
+		torso.rotation.z = lerpf(torso.rotation.z, -move_dir.x * amp * 0.1 if alive else 0.0, k)
 	torso.rotation.x = lerpf(torso.rotation.x, lean, k)
 	_lie = lerpf(_lie, 1.0 if pose == "down" else 0.0, 1.0 - exp(-delta * 8.0))
 	rotation.x = -PI * 0.5 * _lie
 	position.y = 0.25 * _lie
+
+
+## Counts footfalls (one per half stride), so callers can play steps in time with the legs.
+func footfalls() -> int:
+	return floori(_phase / PI)
 
 
 ## Starts a clip from DeathClips.compiled, blending out of whatever the body was doing.

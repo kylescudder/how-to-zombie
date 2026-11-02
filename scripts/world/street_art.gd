@@ -5,25 +5,12 @@ const CREAM := Color(0.89,0.79,0.57)
 const RUST := Color(0.70,0.23,0.13)
 const TEAL := Color(0.22,0.45,0.40)
 
-static func car(parent: Node3D, color: Color) -> void:
-	var shell := Node3D.new()
-	shell.position.y = 0.64
-	shell.rotation.x = PI*0.5
-	parent.add_child(shell)
-	ArtShapes.loft(shell,[Vector4(-2.2,0.60,0.17,0),Vector4(-1.9,0.88,0.32,0),Vector4(-1.1,0.95,0.38,0),Vector4(1.4,0.95,0.34,0),Vector4(2.0,0.82,0.24,0),Vector4(2.2,0.57,0.15,0)],color)
-	ArtShapes.oval(parent,Vector3(1.72,0.86,2.28),Color(0.12,0.25,0.28),Vector3(0,1.20,-0.24))
-	ArtShapes.oval(parent,Vector3(1.63,0.25,2.05),color,Vector3(0,1.58,-0.26))
-	for side: float in [-1,1]:
-		ArtShapes.link(parent,Vector3(side*0.80,0.98,0.65),Vector3(side*0.69,1.55,0.47),0.045,color.lightened(0.1))
-		ArtShapes.link(parent,Vector3(side*0.83,0.98,-1.0),Vector3(side*0.70,1.54,-0.90),0.045,color)
-		ArtShapes.link(parent,Vector3(side*0.94,0.80,0),Vector3(side*0.94,0.80,0.23),0.035,CREAM)
-		for z: float in [-1.35,1.35]:
-			Build.cyl(parent,0.37,0.37,0.24,Color(0.07,0.09,0.09),Vector3(side*0.89,0.37,z),Vector3(0,0,90),24)
-			Build.cyl(parent,0.20,0.20,0.25,CREAM.darkened(0.25),Vector3(side*0.92,0.37,z),Vector3(0,0,90),16)
-		ArtShapes.oval(parent,Vector3(0.40,0.19,0.12),Color(0.99,0.89,0.59),Vector3(side*0.58,0.69,2.08))
-		ArtShapes.oval(parent,Vector3(0.27,0.14,0.10),RUST,Vector3(side*0.61,0.72,-2.11))
-	ArtShapes.link(parent,Vector3(-0.76,0.46,2.1),Vector3(0.76,0.46,2.1),0.065,CREAM.darkened(0.20))
-	ArtShapes.link(parent,Vector3(-0.76,0.46,-2.1),Vector3(0.76,0.46,-2.1),0.065,CREAM.darkened(0.20))
+## A parked car, picked from where it stands so every peer sees the same one. Returns its roof height.
+static func car(parent: Node3D, color: Color) -> float:
+	var models := VehicleCatalog.STREET_MODELS
+	var id: String = models[absi(hash(Vector3i(parent.position)))%models.size()]
+	VehicleKit.build(parent,id,color)
+	return VehicleCatalog.find(id).roof
 
 static func corner(parent: Node3D, pos: Vector3, yaw := 0.0) -> Node3D:
 	var n := Node3D.new()

@@ -8,7 +8,7 @@ The visual reference is How to Fish: playful three-dimensional characters and sc
 - Bodies use tapering clothing, curved limbs, oversized hands and boots. Accessories break the silhouette. Preserve the existing animation pivots.
 - World props use simplified curves, uneven boards, striped fabric, warm painted surfaces and readable signage. Buildings can be rectangular; their details should feel designed rather than repeated placeholder boxes.
 - Guns use convincing proportions, identifiable construction, restrained steel highlights and distinct wood/polymer furniture. Moving mechanisms remain separate rigs.
-- Lighting preserves color and readability: warm directional light, cooler ambient fill, gentle atmospheric depth and contact shadows.
+- Lighting is moody but readable: a low warm sun or cold moon, cooler ambient fill, layered fog and contact shadows. Characters keep their colour blocks; the world around them carries the dread.
 
 ## First implemented slice
 
@@ -27,9 +27,37 @@ Ordinary blocks draw from a per-district mix (`BareaCity.MIXES`), built by `City
 
 `Coast` replaces the old uniform beach ring. Each island's shore is laid out in `Coast.LAYOUTS` as stretches of beach, port, cliff or sea wall, with angle 0 at the harbour. Neighbouring stretches blend over about 0.07 rad. Unlisted shore keeps the plain shelf, which is how harbours and Barea's ferry pier stay reachable by boat. Ground height is a per-kind profile across the shoreline, so the terrain mesh, its collision and `Coast.height_at` agree. The interior stays at y = 0. Raised ground is kept off the nav grid, and the cliffs' inland rock step is too steep to climb. Dressing goes through the shared `Batch`, except the ice cream vans and fuel tanks. Seagulls (`scripts/entities/seagull.gd`) are local-only scenery: they scatter from survivors and infected, circle, then land again, and they stop animating away from the camera. `--test=world` checks real collision heights for each kind; `--test=barea_shots` writes `18_coast_*.png`, `19_on_the_beach.png` and `20_island_*.png`.
 
+## Atmosphere
+
+`scripts/world/atmosphere.gd` owns each level's sky, light, weather and ambience. Every chapter names a mood in `DB.CHAPTERS`:
+
+- **storm_dusk** (Main Street, the open world): burnt-orange horizon under a breaking storm, rain, lightning every 12–34 s.
+- **dead_night** (The Warehouse): close, cold night, dust hanging in torch beams, distant heat lightning.
+- **drowned_night** (The Docks): heavy rain and frequent lightning.
+
+The sky is a shader with drifting fbm clouds that light up from the strike direction. Fog layers distance fog, ground mist and (Medium and High quality) volumetric fog, so torches, muzzle flashes and lightning throw beams. Glow makes lit windows and lamps bleed. About a third of linear-campaign street lamps flicker, chosen by position hash so map layout seeds are untouched. Sound adds looped wind, rain and a low drone (Music bus), thunder timed to each strike's distance, occasional distant groans, screams, creaks and sirens, and reverb on the Effects and Voice buses. All of it is cosmetic and local to each peer. The HUD adds film grain, vignette and edge fringing, scaled by the **Film grain and vignette** comfort slider.
+
 ## Surfaces
 
 World geometry is textured from `assets/textures`, baked by `godot --headless --path . --script tools/bake_textures.gd`. Albedos are grey and multiply over the colour a surface already has, so colour blocking survives. Materials are triplanar and need no UVs. Set `Build.paint` around static scenery to choose a surface; it maps in world space, so never use it on anything that moves. Everything else gets the local `painted` fallback. The `.import` files beside the textures are committed because they turn on mipmaps and VRAM compression.
+
+## Vehicles
+
+Vehicles are the other deliberate hard edge in the world. `VehicleKit` extrudes a side profile into flat-shaded `Forge` panels, cuts the wheel arches, then adds glass, trim and named fittings, baking each model into one shared mesh. `VehicleCatalog` holds twelve types of ten models; set `CAMP_MODELS`, `STREET_MODELS` or `POLICE_MODEL` to change what appears in the game. The nose is at -Z, the way `TeamVehicle` drives.
+
+```sh
+tools/godot --headless -- --solo --test=vehicles             # every model meshes and fits its role
+tools/godot --fixed-fps 20 -- --solo --test=vehicle_lineup   # cards and sheets in screenshots/vehicles
+```
+
+## Infected
+
+Infected share the vehicles' faceted look. `ZombieKit` lofts each body part from a few cross-sections and paints it face by face: clothing patterns, tears, blood and rot patches are coloured facets, while hats, hair and fittings are added as faceted solids. Each part is baked into one mesh that hangs on `CharacterModel`'s rig, so the gaits, death clips and hit capsule still apply, and an infected costs 13 mesh nodes instead of about 70. `ZombieCatalog` holds twelve types of ten models: six common groups (Townsfolk, Workers, Uniforms, Sporty, Old Timers, Outdoors) that spawn mixed together, plus ten looks each for the Boomer, Hunter, Smoker, Spitter, Tank and Witch. Specials keep their type's silhouette across all ten looks. The spawn seed picks a look, so every peer agrees without extra replication. Eyes stay separate so they can blink and close on death. Gloss for eyes, teeth, gore and hi-vis comes from Forge's wet layer, and the Spitter's acid uses its unlit glow layer.
+
+```sh
+tools/godot --headless -- --solo --test=zombies             # every look meshes, every kind has looks, heads fit the capsule
+tools/godot --fixed-fps 20 -- --solo --test=zombie_lineup   # cards and sheets in screenshots/zombies
+```
 
 ## Evidence and reproduction
 

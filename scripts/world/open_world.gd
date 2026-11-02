@@ -86,7 +86,7 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 		markers.caches.append({"pos": base + Vector3(0,0,6), "items": ["smg", "pump_shotgun", "rifle", "hunting_rifle", "medkit", "medkit", "pills"], "dir": Vector3.RIGHT})
 		markers.items.append(base + Vector3(-6,0,-4))
 		markers.path.append(Vector3(ISLANDS[index].center.x,0,ISLANDS[index].center.y))
-		markers.vehicles.append({"type": "car", "pos": base + Vector3(-8,0,0), "yaw": PI/2})
+		markers.vehicles.append({"type": "car", "model": VehicleCatalog.CAMP_MODELS[index], "pos": base + Vector3(-8,0,0), "yaw": PI/2})
 		markers.vehicles.append({"type": "boat", "pos": dock(index) + Vector3(31,-0.45,10), "yaw": PI})
 	coast.flush()
 	for index in 4: markers.spawns.append(camp(0) + Vector3(index*1.5-3,0.1,3))

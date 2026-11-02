@@ -69,21 +69,21 @@ const CHAPTERS := [
 		"segments": ["saferoom_start", "street", "alley", "street", "park", "alley", "street_alarm", "saferoom_end"],
 		"start_weapons": ["smg", "smg", "pump_shotgun", "pump_shotgun"],
 		"tank": true, "witch": true,
-		"sky": Color(0.24,0.50,0.62), "fog": Color(0.57,0.68,0.60),
+		"mood": "storm_dusk",
 	},
 	{
 		"name": "The Warehouse", "seed": 2202,
 		"segments": ["saferoom_start", "alley", "warehouse", "warehouse_gate", "yard", "warehouse", "saferoom_end"],
 		"start_weapons": ["rifle", "auto_shotgun", "hunting_rifle", "smg"],
 		"tank": true, "witch": true,
-		"sky": Color(0.06, 0.05, 0.09), "fog": Color(0.09, 0.08, 0.11),
+		"mood": "dead_night",
 	},
 	{
 		"name": "The Docks (Finale)", "seed": 3303,
 		"segments": ["saferoom_start", "street", "containers", "docks_finale"],
 		"start_weapons": ["rifle", "auto_shotgun", "rifle", "auto_shotgun"],
 		"tank": false, "witch": false, "finale": true,
-		"sky": Color(0.08, 0.06, 0.12), "fog": Color(0.1, 0.09, 0.14),
+		"mood": "drowned_night",
 	},
 ]
 
@@ -107,15 +107,16 @@ static func weapon(id: String) -> Dictionary:
 
 
 # Semi-real platforms. These are game tuning values, not manufacturer specifications.
+# Velocity (m/s) is slowed well below real muzzle speeds so that bullet drop shows at game distances.
 const GUN_PROFILES := {
-	"pistol": {"model": "M9 SERVICE", "caliber": "9×19 mm", "recoil": 0.012, "recovery": 7.0, "range": 35.0, "zoom": 1.35},
-	"dual_pistols": {"model": "M9 / AKIMBO", "caliber": "9×19 mm", "recoil": 0.016, "recovery": 6.0, "range": 30.0, "zoom": 1.2},
-	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "zoom": 1.4},
-	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "zoom": 1.3},
-	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "zoom": 1.5},
-	"reduced_rifle": {"model": "AR-15 MARKDOWN", "caliber": "5.56×45 mm (best before: soon)", "recoil": 0.02, "recovery": 7.5, "range": 70.0, "zoom": 1.5},
-	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "zoom": 1.3},
-	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "zoom": 3.0},
+	"pistol": {"model": "M9 SERVICE", "caliber": "9×19 mm", "recoil": 0.012, "recovery": 7.0, "range": 35.0, "velocity": 150.0, "zoom": 1.35},
+	"dual_pistols": {"model": "M9 / AKIMBO", "caliber": "9×19 mm", "recoil": 0.016, "recovery": 6.0, "range": 30.0, "velocity": 140.0, "zoom": 1.2},
+	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "velocity": 150.0, "zoom": 1.4},
+	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "velocity": 100.0, "zoom": 1.3},
+	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "velocity": 270.0, "zoom": 1.5},
+	"reduced_rifle": {"model": "AR-15 MARKDOWN", "caliber": "5.56×45 mm (best before: soon)", "recoil": 0.02, "recovery": 7.5, "range": 70.0, "velocity": 280.0, "zoom": 1.5},
+	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "velocity": 105.0, "zoom": 1.3},
+	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "velocity": 400.0, "zoom": 3.0},
 }
 const UPGRADES := {
 	"power": {"name": "MATCH AMMUNITION", "detail": "+20% damage per tier", "cost": 180, "max": 3},

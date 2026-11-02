@@ -19,7 +19,7 @@ func _ready() -> void:
 			Wardrobe.storage_path="res://screenshots/test-profiles/%s.cfg"%argument.trim_prefix("--test=").replace("/","_")
 			Wardrobe.xp=0
 			Wardrobe.equipped=CosmeticCatalog.defaults()
-	if "--test=bots" in OS.get_cmdline_user_args() or "--test=loading" in OS.get_cmdline_user_args() or "--test=loading_click" in OS.get_cmdline_user_args() or "--test=noses" in OS.get_cmdline_user_args() or "--test=wardrobe" in OS.get_cmdline_user_args() or "--test=menu_hideout" in OS.get_cmdline_user_args() or "--test=city_pacing" in OS.get_cmdline_user_args() or "--test=settings" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
+	if "--test=bots" in OS.get_cmdline_user_args() or "--test=loading" in OS.get_cmdline_user_args() or "--test=loading_click" in OS.get_cmdline_user_args() or "--test=noses" in OS.get_cmdline_user_args() or "--test=wardrobe" in OS.get_cmdline_user_args() or "--test=menu_hideout" in OS.get_cmdline_user_args() or "--test=city_pacing" in OS.get_cmdline_user_args() or "--test=settings" in OS.get_cmdline_user_args() or "--test=clean_shots" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--test=world")): AudioServer.set_bus_mute(0, true)
 	if "--test=wardrobe_net_host" in OS.get_cmdline_user_args():
 		Wardrobe.xp=4000
 		Wardrobe.equipped.hair=2

@@ -63,15 +63,22 @@ uniform float hurt = 0.0;
 uniform float bile = 0.0;
 uniform float down = 0.0;
 uniform float grey = 0.0;
+uniform float grain = 0.0;
 void fragment() {
 	vec2 uv = SCREEN_UV;
 	if (bile > 0.0) {
 		uv += vec2(sin(uv.y * 30.0 + TIME * 3.0), cos(uv.x * 24.0 + TIME * 2.0)) * 0.004 * bile;
 	}
-	vec3 c = texture(screen_tex, uv).rgb;
+	float v = distance(UV, vec2(0.5));
+	// A cheap lens: colour fringing towards the edges.
+	vec2 fringe = (UV - vec2(0.5)) * v * 0.006 * grain;
+	vec3 c = vec3(texture(screen_tex, uv + fringe).r, texture(screen_tex, uv).g, texture(screen_tex, uv - fringe).b);
 	float l = dot(c, vec3(0.299, 0.587, 0.114));
 	c = mix(c, vec3(l), grey);
-	float v = distance(UV, vec2(0.5));
+	// Film grain (stronger in the shadows) and a heavy vignette.
+	float n = fract(sin(dot(FRAGCOORD.xy + fract(TIME * 7.13) * vec2(97.3, 41.9), vec2(12.9898, 78.233))) * 43758.5453);
+	c += (n - 0.5) * (0.075 - l * 0.04) * grain;
+	c *= 1.0 - smoothstep(0.3, 0.92, v) * 0.55 * grain;
 	c = mix(c, vec3(0.6, 0.0, 0.0), hurt * smoothstep(0.25, 0.75, v) * 0.8);
 	c = mix(c, vec3(0.35, 0.6, 0.1) * (0.5 + l), bile * (0.55 + 0.3 * smoothstep(0.2, 0.7, v)));
 	c = mix(c, c * vec3(1.0, 0.35, 0.3), down * 0.7);
@@ -316,6 +323,7 @@ func _update_me(me: Survivor, delta: float) -> void:
 	fx_mat.set_shader_parameter("hurt", _hurt * Settings.hit_flashes)
 	fx_mat.set_shader_parameter("bile", clampf(me.biled / 3.0, 0.0, 1.0))
 	fx_mat.set_shader_parameter("down", 1.0 if me.incapped else 0.0)
+	fx_mat.set_shader_parameter("grain", Settings.film_grain)
 	fx_mat.set_shader_parameter("grey", 0.9 if me.black_and_white() or me.dead else 0.0)
 	if me.black_and_white() or me.incapped:
 		_heartbeat -= delta
