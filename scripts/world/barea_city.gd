@@ -602,15 +602,16 @@ func _parked(p: Vector3, yaw: float, alarm: bool, police := false) -> void:
 	cs.shape = bs
 	cs.position.y = 0.75
 	body.add_child(cs)
-	StreetArt.car(body, Color(0.95, 0.95, 0.97) if police else CAR_COLORS[rng.randi() % CAR_COLORS.size()])
-	_fade(body, 260.0)
+	var roof := 0.0
 	if police:
-		Build.box(body, Vector3(2.05, 0.35, 1.6), Color(0.1, 0.15, 0.4), Vector3(0, 0.95, 0))
-		Build.box(body, Vector3(0.5, 0.15, 0.3), Color(1.0, 0.15, 0.1), Vector3(-0.3, 1.82, 0.1), Vector3.ZERO, 3.0)
-		Build.box(body, Vector3(0.5, 0.15, 0.3), Color(0.2, 0.35, 1.0), Vector3(0.3, 1.82, 0.1), Vector3.ZERO, 3.0)
+		VehicleKit.build(body, VehicleCatalog.POLICE_MODEL)
+		roof = VehicleCatalog.find(VehicleCatalog.POLICE_MODEL).roof + 0.2
+	else:
+		roof = StreetArt.car(body, CAR_COLORS[rng.randi() % CAR_COLORS.size()])
+	_fade(body, 260.0)
 	if alarm:
 		body.set_meta("alarm", ow.markers.alarm_cars.size())
-		var lamp := Build.box(body, Vector3(0.3, 0.12, 0.3), Color(1.0, 0.15, 0.1), Vector3(0, 1.86, -0.6), Vector3.ZERO, 4.0)
+		var lamp := Build.box(body, Vector3(0.3, 0.12, 0.3), Color(1.0, 0.15, 0.1), Vector3(0, roof + 0.08, -0.6), Vector3.ZERO, 4.0)
 		lamp.name = "AlarmLamp"
 		ow.markers.alarm_cars.append(p)
 

@@ -162,10 +162,10 @@ func _car(x0: int, z0: int, along_z := true, alarm := false) -> bool:
 	cs.shape = bs
 	cs.position.y = 0.75
 	body.add_child(cs)
-	StreetArt.car(body,c)
+	var roof := StreetArt.car(body,c)
 	if alarm:
 		body.set_meta("alarm", markers.alarm_cars.size())
-		var lamp := Build.box(body, Vector3(0.3, 0.12, 0.3), Color(1.0, 0.15, 0.1), Vector3(0, 1.66, -0.2), Vector3.ZERO, 4.0)
+		var lamp := Build.box(body, Vector3(0.3, 0.12, 0.3), Color(1.0, 0.15, 0.1), Vector3(0, roof + 0.08, -0.2), Vector3.ZERO, 4.0)
 		lamp.name = "AlarmLamp"
 		markers.alarm_cars.append(body.position)
 	return true
