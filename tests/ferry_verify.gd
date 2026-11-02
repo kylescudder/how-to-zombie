@@ -54,6 +54,16 @@ func run(test: Node) -> void:
 	test.check(boat.helm_slot == -1, "E hands the helm back to Captain Marla")
 	await test.wait(1.5)
 	test.check(absf(boat.net_speed) < 0.1, "captain safely holds the ferry after taking control back")
+	var bots: Array = test.level().get_survivors().filter(func(s: Survivor): return s.bot and s.slot in boat.seats)
+	test.check(not bots.is_empty(), "bot teammates start aboard the ferry")
+	await test.wait(1.0)
+	test.check(bots.all(func(s: Survivor): return s.slot in boat.seats), "bots stay aboard while a human is still on the ferry")
+	boat.global_position = test.level().markers.ferry_boat.pos
+	boat.request_exit(test.me().slot)
+	await test.wait_for(func(): return test.level().vehicle_for_slot(test.me().slot) == null, 3)
+	test.check(test.level().vehicle_for_slot(test.me().slot) == null, "human disembarks at the berth")
+	await test.wait_for(func(): return bots.all(func(s: Survivor): return test.level().vehicle_for_slot(s.slot) == null), 3)
+	test.check(bots.all(func(s: Survivor): return test.level().vehicle_for_slot(s.slot) == null), "bots follow the humans ashore once nobody human is aboard")
 
 func network(test: Node, host: bool) -> void:
 	test.process_mode = Node.PROCESS_MODE_ALWAYS

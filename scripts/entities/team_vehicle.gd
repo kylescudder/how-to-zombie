@@ -18,6 +18,9 @@ const WATERLINE := -0.45
 var kind := "car"
 var model := ""
 var ferry := false  # Marla's boat at Barea's old ferry terminal (the escape boat)
+var _bot_exit_t := 0.0
+# The 7x18 m ferry needs wider rings than a car to reach a pier, nearest first.
+static var FERRY_EXITS: Array[Vector3] = _ferry_exits()
 var net_pos := Vector3.ZERO
 var net_yaw := 0.0
 var net_speed := 0.0
@@ -191,7 +194,7 @@ func request_enter(slot: int) -> void:
 func exit_point(slot: int) -> Vector3:
 	var index := Array(seats).find(slot)
 	if index<0: return Vector3.INF
-	for offset in [Vector3(-3,0,0),Vector3(3,0,0),Vector3(0,0,-5),Vector3(0,0,5),Vector3(-5,0,0),Vector3(5,0,0),Vector3(5,0,-5),Vector3(-5,0,-5),Vector3(5,0,5),Vector3(-5,0,5)]:
+	for offset in (FERRY_EXITS if ferry else [Vector3(-3,0,0),Vector3(3,0,0),Vector3(0,0,-5),Vector3(0,0,5),Vector3(-5,0,0),Vector3(5,0,0),Vector3(5,0,-5),Vector3(-5,0,-5),Vector3(5,0,5),Vector3(-5,0,5)]):
 		var point := to_global(offset)
 		var query := PhysicsRayQueryParameters3D.create(point+Vector3.UP*3,point-Vector3.UP*3,1)
 		var hit := get_world_3d().direct_space_state.intersect_ray(query)
@@ -261,6 +264,7 @@ func _physics_process(delta: float) -> void:
 				seats[index]=-1
 		if ferry:
 			_tick_deck(delta)
+			_release_bots(delta)
 		_simulate(delta)
 		net_pos=global_position
 		net_yaw=rotation.y
@@ -559,6 +563,31 @@ func _tick_deck(delta: float) -> void:
 				occupied = occupied or target.distance_to(point) < 0.75
 		if not occupied:
 			deck_positions[index] = target
+
+## Bots have no ferry controls of their own: once every human is off a stopped ferry, they follow ashore.
+func _release_bots(delta: float) -> void:
+	_bot_exit_t -= delta
+	if _bot_exit_t > 0 or absf(_speed) > 2:
+		return
+	_bot_exit_t = 0.5
+	var bots: Array[int] = []
+	for slot in seats:
+		var rider := level().get_survivor_by_slot(slot) if slot >= 0 else null
+		if rider == null:
+			continue
+		if not rider.bot:
+			return
+		bots.append(slot)
+	for slot in bots:
+		_exit(slot)
+
+static func _ferry_exits() -> Array[Vector3]:
+	var offsets: Array[Vector3] = []
+	for gap in [1.5, 3.5, 5.5, 7.5]:
+		for step in 16:
+			var angle := TAU * step / 16.0
+			offsets.append(Vector3(sin(angle) * (3.5 + gap), 0, cos(angle) * (9.0 + gap)))
+	return offsets
 
 func _present_captain() -> void:
 	var captain := level().npc("marla_ferry")
