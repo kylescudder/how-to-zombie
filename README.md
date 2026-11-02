@@ -50,6 +50,7 @@ Open-world encounters use build-up, surge and recovery phases. Team health, rece
 ### Getting around
 
 - **Vehicles.** Five cars and five boats, shared by the team. Press **E** next to one to board (the first in drives; up to four aboard, nearby bots climb in too). **WASD** drive, **Space** brake, **E** to get out once stopped. Cars stay on land; boats carry the squad between island piers.
+- **Handling.** Cars build speed through the gears, lean on their springs (squat, dive, body roll) and carry a little slip through fast corners. Brake while steering to throw the tail out. Walls scrape you along or stop you with a jolt. Boats drift wide and ride up onto the plane. The chase camera trails behind and pulls back with speed.
 - **World map** (**M**): islands, Barea's city blocks, camps, vehicles, teammates, survivors to talk to (**!**) and the idol once you know where it is. Click to set a personal waypoint.
 
 To play the original chapter-based campaign instead, launch with `--linear` (see below).
@@ -196,6 +197,7 @@ There are no imported models or audio. Models combine authored cross-section mes
 
 ```bash
 tools/godot --headless --fixed-fps 60 -- --solo --test=world          # open world: terrain, 10 vehicles, driving, boats, docking
+tools/godot --headless --fixed-fps 60 -- --solo --test=handling       # weight: car grip, slides, springs, impacts; footstep bob, momentum and landings (screenshots with a window)
 tools/godot --headless --fixed-fps 60 -- --solo --test=city_pacing    # street access, 45-minute simulated pacing and queue limits
 tools/godot --headless --fixed-fps 60 -- --solo --test=world_horde    # the Director finds the team on different islands
 tools/godot --headless --fixed-fps 60 -- --solo --test=infected_motion # a pack of commons closes in on varied lines, paces and sides

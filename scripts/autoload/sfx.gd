@@ -45,6 +45,14 @@ func _ready() -> void:
 	_streams["pickup"] = _make(0.18, func(t, _i): return sin(TAU * (500.0 if t < 0.08 else 750.0) * t) * exp(-t * 10.0) * 0.4)
 	_streams["heartbeat"] = _make(0.8, func(t, _i): return sin(TAU * 55.0 * t) * (exp(-t * 18.0) + exp(-max(t - 0.25, 0.0) * 18.0) * float(t > 0.25) * 0.7))
 	_streams["click"] = _make(0.04, func(t, _i): return sin(TAU * 1800.0 * t) * exp(-t * 150.0) * 0.5)
+	# Footfalls: a soft heel thud with a little grit, and a heavier one for landing a jump.
+	_streams["step"] = _make(0.12, func(t, _i): return (_lowpass(_noise(), 0.25) * 1.6 * exp(-t * 45.0) + sin(TAU * (95.0 - t * 200.0) * t) * exp(-t * 38.0) * 0.5) * 0.7)
+	_streams["land"] = _make(0.3, func(t, _i): return _lowpass(_noise(), 0.18) * 2.0 * exp(-t * 22.0) + sin(TAU * (70.0 - t * 90.0) * t) * exp(-t * 16.0) * 0.8)
+	# Vehicles. The loops are pitched by the engine's revs; 40 Hz firing pulses read as a four-cylinder.
+	_streams["engine_loop"] = _make_loop(1.0, func(t, _i): return (pow(maxf(0.0, sin(TAU * 40.0 * t)), 5.0) * 0.8 + _saw(t * 80.0) * 0.18 + sin(TAU * 20.0 * t) * 0.25 + _lowpass(_noise(), 0.1) * 0.6) * 0.5)
+	_streams["boat_loop"] = _make_loop(1.0, func(t, _i): return (pow(maxf(0.0, sin(TAU * 30.0 * t)), 3.0) * 0.6 + _saw(t * 60.0) * 0.12 + _lowpass(_noise(), 0.05) * 1.4 * (0.7 + 0.3 * sin(TAU * 3.0 * t))) * 0.5)
+	_streams["skid_loop"] = _make_loop(1.0, func(t, _i): return (_hiss() * 0.25 + sin(TAU * (1300.0 + sin(TAU * 7.0 * t) * 60.0) * t) * 0.12) * (0.8 + 0.2 * sin(TAU * 11.0 * t)))
+	_streams["crash"] = _make(0.7, func(t, _i): return _noise() * exp(-t * 9.0) * 0.9 + sin(TAU * (75.0 - t * 40.0) * t) * exp(-t * 7.0) * 0.8 + (sin(TAU * 2900.0 * t) + sin(TAU * 4100.0 * t)) * exp(-t * 14.0) * 0.12)
 	# Infected
 	_streams["groan"] = _make(0.9, func(t, _i): return _saw(t * (95.0 + sin(t * 9.0) * 15.0)) * sin(PI * t / 0.9) * 0.3)
 	_streams["scream"] = _make(0.7, func(t, _i): return (_saw(t * (380.0 + sin(t * 30.0) * 60.0)) * 0.5 + _noise() * 0.3) * sin(PI * t / 0.7) * 0.5)

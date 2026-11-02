@@ -10,6 +10,10 @@ const CROUCH := 2.2
 const LIMP := 0.8  # speed multiplier under 40 hp
 const JUMP := 5.6
 const GRAVITY := 16.0
+const ACCEL := 34.0     # m/s² towards the stick on the ground: about a sixth of a second to full run
+const FRICTION := 26.0  # m/s² of slowdown when you let go
+const TURN_ACCEL := 52.0  # reversing direction digs in harder than starting off
+const AIR_ACCEL := 6.0
 const SHOVE_COOLDOWN := 0.7
 const BULLET_GRAVITY := 9.8
 const BULLET_RANGE := 240.0  # metres of flight before a round is lost
@@ -90,7 +94,14 @@ var _flash_t := 0.0
 var _muzzle_flash: OmniLight3D
 var _hurt_flash := 0.0
 var _look_target: Object
-var _step_t := 0.0
+var _bob_amp := 0.0
+var _dip := 0.0        # camera drop from landing (negative), sprung back up
+var _dip_v := 0.0
+var _lean := 0.0
+var _was_floor := true
+var _seen_foot := 0
+var _seen_pos := Vector3.INF
+var _seen_vel := Vector3.ZERO  # smoothed, from how far the body actually moved
 
 # Inputs (filled by the local player or a BotBrain each frame)
 var in_move := Vector2.ZERO
@@ -174,6 +185,9 @@ func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 1 | 2 | 4 | 32
 	floor_max_angle = deg_to_rad(50)
+	# Stick to slopes and kerbs on the way down instead of skating off them.
+	floor_snap_length = 0.35
+	floor_constant_speed = true
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.38
@@ -463,12 +477,25 @@ func _local_move(delta: float) -> void:
 	dir.y = 0
 	if dir.length() > 1.0:
 		dir = dir.normalized()
+	var grounded := is_on_floor()
 	velocity.y -= GRAVITY * delta
-	if is_on_floor() and in_jump and able() and action_t <= 0.0:
+	if grounded and in_jump and able() and action_t <= 0.0:
 		velocity.y = JUMP
-	var accel := 14.0 if is_on_floor() else 3.0
-	velocity.x = move_toward(velocity.x, dir.x * speed, accel * RUN * delta)
-	velocity.z = move_toward(velocity.z, dir.z * speed, accel * RUN * delta)
+		_dip_v -= 0.35  # push off: the head drops a touch before it rises
+		if is_me(): Sfx.play("step", Vector3.INF, -8.0, 0.9)
+	# Momentum: ramp up into a run, skid down out of it, dig in to change direction; little say in the air.
+	var flat := Vector2(velocity.x, velocity.z)
+	var want := Vector2(dir.x, dir.z) * speed
+	var rate := AIR_ACCEL
+	if grounded:
+		if want.length_squared() < 0.01: rate = FRICTION
+		elif flat.dot(want) < 0.0: rate = TURN_ACCEL
+		else: rate = ACCEL
+	elif want.length_squared() < 0.01:
+		rate = 1.0
+	flat = flat.move_toward(want, rate * delta)
+	velocity.x = flat.x
+	velocity.z = flat.y
 	# Smoker drag: pulled toward whoever has the tongue on us.
 	if pin_type == "smoker":
 		var sm := level().get_infected(pinned_by)
@@ -488,7 +515,14 @@ func _local_move(delta: float) -> void:
 	if _knock.length() > 0.1:
 		velocity += _knock
 		_knock = Vector3.ZERO
+	var fall := velocity.y
 	move_and_slide()
+	var landed := is_on_floor() and not _was_floor
+	_was_floor = is_on_floor()
+	if landed and fall < -2.5:
+		# The camera takes the landing in the knees; harder falls sink further.
+		_dip_v -= clampf(-fall * 0.13, 0.3, 2.0)
+		if is_me(): Sfx.play("land", Vector3.INF, clampf(-16.0 - fall * 1.2, -14.0, 0.0))
 	if level().open_world and global_position.y < -0.9 and OpenWorld.land_index(global_position) < 0:
 		global_position.y = -0.9
 		velocity.y = 0
@@ -498,17 +532,30 @@ func _local_move(delta: float) -> void:
 		global_position = level().respawn_point(self)
 		velocity = Vector3.ZERO
 	var hs := Vector2(velocity.x, velocity.z).length()
-	if is_on_floor() and hs > 0.5:
-		_bob_t += delta * hs * 1.6
-		_step_t -= delta * hs
-		if _step_t <= 0.0 and is_me():
-			_step_t = 2.2
+	var pace := minf(hs / RUN, 1.0)
+	var striding := is_on_floor() and hs > 0.5
+	_bob_amp = lerpf(_bob_amp, pace if striding else 0.0, clampf(delta * 8.0, 0.0, 1.0))
+	if striding:
+		# One footfall per half cycle; cadence rises with pace, so walking reads differently from a run.
+		var before := floori(_bob_t / PI)
+		_bob_t += delta * (1.5 + hs * 0.24) * PI
+		if floori(_bob_t / PI) != before and is_me():
+			var loud := -7.0 if hs > 4.0 else (-13.0 if hs > 2.4 else -18.0)
+			Sfx.play("step", Vector3.INF, loud, 0.85 + pace * 0.25)
+	_dip_v += (-_dip * 95.0 - _dip_v * 11.0) * delta
+	_dip = clampf(_dip + _dip_v * delta, -0.3, 0.12)
 	if camera:
-		camera.position = Vector3(0, Settings.head_bob * sin(_bob_t * 2.0) * 0.022 * minf(hs / RUN, 1.0) * (1.0 - aim_blend * 0.9), 0) + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), 0) * _shake * 0.12 * Settings.camera_shake
-		var tilt := 0.0
+		var bob := Settings.head_bob * _bob_amp * (1.0 - aim_blend * 0.85)
+		# The head dips at each footfall and sways over whichever foot is planted.
+		var sway := Vector3(sin(_bob_t) * 0.022, (absf(sin(_bob_t)) - 0.55) * 0.05, 0) * bob
+		camera.position = sway + Vector3(0, _dip, 0) + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), 0) * _shake * 0.12 * Settings.camera_shake
+		var side := (global_transform.basis.inverse() * velocity).x
+		_lean = lerpf(_lean, -side / RUN * 0.022 * Settings.head_bob, clampf(delta * 6.0, 0.0, 1.0))
+		var tilt := _lean + sin(_bob_t) * 0.006 * bob
 		if incapped:
 			tilt = 0.25
-		camera.rotation.z = lerpf(camera.rotation.z, tilt, clampf(delta * 4.0, 0.0, 1.0))
+		camera.rotation.z = lerpf(camera.rotation.z, tilt, clampf(delta * 8.0, 0.0, 1.0))
+		camera.rotation.x = _dip * 0.3
 	_shake = maxf(_shake - delta * 2.5, 0.0)
 
 
@@ -536,9 +583,7 @@ func _animate_frame(delta: float) -> void:
 		_cancel_action()
 		reload_t = 0
 		net_reload = -1
-		if camera:
-			camera.global_position = transport.to_global(Vector3(0,4.5,9 if transport.kind=="car" else 12))
-			camera.look_at(transport.global_position+Vector3.UP*1.2)
+		if camera: transport.chase_camera(camera, delta)
 		prompt = "WASD drive • Space brake • E exit when stopped" if transport.seats[0]==slot else "Riding with squad • E exit when stopped"
 		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
@@ -1315,7 +1360,17 @@ func respawn_state() -> Dictionary:
 # --- Visuals -----------------------------------------------------------------------------------
 
 func _animate_body(delta: float) -> void:
-	var hs := Vector2(velocity.x, velocity.z).length() if is_local() else Vector2(net_pos.x - global_position.x, net_pos.z - global_position.z).length() * 15.0
+	# Drive the legs from how far the body really moved, so feet keep pace with the ground on every peer
+	# (not from replication lag, which jumps whenever a packet lands).
+	if _seen_pos == Vector3.INF: _seen_pos = global_position
+	var moved := (global_position - _seen_pos) / maxf(delta, 0.0001)
+	_seen_pos = global_position
+	if moved.length() > 20.0: moved = Vector3.ZERO  # teleports and seat changes
+	_seen_vel = _seen_vel.lerp(velocity if is_local() else moved, clampf(delta * 12.0, 0.0, 1.0))
+	var hs := Vector2(_seen_vel.x, _seen_vel.z).length()
+	if hs > 0.3:
+		var local := global_transform.basis.inverse() * _seen_vel
+		body_model.move_dir = body_model.move_dir.lerp(Vector2(local.x, -local.z).normalized(), clampf(delta * 10.0, 0.0, 1.0))
 	var pose := ""
 	if level().vehicle_for_slot(slot)!=null:
 		pose = "crouch"
@@ -1335,6 +1390,12 @@ func _animate_body(delta: float) -> void:
 		pose = "aim" if net_aim > 0.5 or _shot_age < 0.15 else "ready"
 	body_model.animate(delta, minf(hs, 6.0), _swing, pose, net_reload, net_action_t, exp(-_shot_age * 20.0))
 	var transport := level().vehicle_for_slot(slot)
+	# Teammates' footsteps, from their legs' own footfalls. Our own come from the head bob.
+	var foot := body_model.footfalls()
+	if foot != _seen_foot:
+		_seen_foot = foot
+		if not is_me() and transport == null and hs > 1.0 and not dead and not incapped:
+			Sfx.play("step", global_position, -12.0 if hs > 4.0 else -18.0, 0.9)
 	body_model.visible = not is_me() and (transport==null or transport.kind=="boat")
 	var carrying := carrying_idol() and not dead
 	if carrying and _idol_art == null and body_model.torso:

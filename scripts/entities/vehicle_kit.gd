@@ -20,6 +20,7 @@ static var _meshes := {}
 static var _materials: Array[Material] = []
 
 var v: Dictionary
+var bare := false
 var f := Forge.new()
 var rng := RandomNumberGenerator.new()
 var paint: Color
@@ -40,12 +41,14 @@ var lower: PackedVector2Array
 var cabin: PackedVector2Array
 
 ## Adds the model to parent as a single mesh. Identical vehicles share it. An alpha-0 paint keeps the catalog colour.
-static func build(parent: Node3D, id: String, color := Color(0,0,0,0)) -> MeshInstance3D:
-	var key := "%s|%s" % [id,color.to_html()]
+## Pass bare=true to leave the wheels off, for drivable cars that add them with build_wheels.
+static func build(parent: Node3D, id: String, color := Color(0,0,0,0), bare := false) -> MeshInstance3D:
+	var key := "%s|%s|%s" % [id,color.to_html(),bare]
 	if not _meshes.has(key):
 		var data := VehicleCatalog.find(id)
 		if color.a > 0: data.paint = color
 		var kit := VehicleKit.new(data)
+		kit.bare = bare
 		kit._assemble()
 		_meshes[key] = kit.f.commit(_layer_materials())
 	var mi := MeshInstance3D.new()
@@ -53,6 +56,34 @@ static func build(parent: Node3D, id: String, color := Color(0,0,0,0)) -> MeshIn
 	mi.mesh = _meshes[key]
 	parent.add_child(mi)
 	return mi
+
+## One pivot per wheel (or dual pair), centred on its hub so it can spin about X and steer about Y.
+## Each carries meta "front" (steers) and "radius" (for rolling speed).
+static func build_wheels(parent: Node3D, id: String) -> Array[Node3D]:
+	var data := VehicleCatalog.find(id)
+	var kit := VehicleKit.new(data)
+	var out: Array[Node3D] = []
+	var axles := kit.axles()
+	for a in axles.size():
+		for side: float in [-1,1]:
+			var key := "%s|wheel%d|%d" % [id,a,side]
+			if not _meshes.has(key):
+				var one := VehicleKit.new(data)
+				one._wheel_side(float(axles[a]),side)
+				_meshes[key] = one.f.commit(_layer_materials())
+			var hub := Vector3(side*(kit.W*0.5+float(data.get("track",0.015))-float(data.tw)*0.5),kit.r,kit.z(float(axles[a])))
+			var pivot := Node3D.new()
+			pivot.name = "Wheel%d%s" % [a,"L" if side<0 else "R"]
+			pivot.position = hub
+			pivot.set_meta("front",a==0)
+			pivot.set_meta("radius",kit.r)
+			var mi := MeshInstance3D.new()
+			mi.mesh = _meshes[key]
+			mi.position = -hub
+			pivot.add_child(mi)
+			parent.add_child(pivot)
+			out.append(pivot)
+	return out
 
 static func _layer_materials() -> Array[Material]:
 	if _materials.is_empty():
@@ -120,7 +151,8 @@ func _assemble() -> void:
 	_bonnet()
 	_nose()
 	_tail()
-	for t: float in axles(): _wheels(t)
+	if not bare:
+		for t: float in axles(): _wheels(t)
 	_cargo()
 	for fitting: String in v.fit: _fit(fitting)
 	_wear()
@@ -403,18 +435,20 @@ func _tail() -> void:
 		f.tube(Vector3(0.45,ride+0.03,z(L)-0.2),Vector3(0.45,ride+0.03,z(L)+0.12),0.04,0.04,STEEL,Forge.CHROME,8)
 
 func _wheels(t: float) -> void:
+	for side: float in [-1,1]: _wheel_side(t,side)
+
+func _wheel_side(t: float, side: float) -> void:
 	var tw: float = v.tw
 	var pairs: int = 2 if v.dual and t != v.ax_f else 1
-	for side: float in [-1,1]:
-		for k in pairs:
-			var outer := W*0.5+float(v.get("track",0.015))-k*(tw+0.03)
-			var inner := outer-tw
-			var at := Vector3(0,r,z(t))
-			var o := Vector3(side*outer,0,0)
-			var i := Vector3(side*inner,0,0)
-			f.tube(at+i,at+o-Vector3(side*0.035,0,0),r,r,TYRE,Forge.PAINT,16,false)
-			f.tube(at+o-Vector3(side*0.035,0,0),at+o,r,r*0.9,TYRE,Forge.PAINT,16)
-			if k == 0: _rim(at+o,side)
+	for k in pairs:
+		var outer := W*0.5+float(v.get("track",0.015))-k*(tw+0.03)
+		var inner := outer-tw
+		var at := Vector3(0,r,z(t))
+		var o := Vector3(side*outer,0,0)
+		var i := Vector3(side*inner,0,0)
+		f.tube(at+i,at+o-Vector3(side*0.035,0,0),r,r,TYRE,Forge.PAINT,16,false)
+		f.tube(at+o-Vector3(side*0.035,0,0),at+o,r,r*0.9,TYRE,Forge.PAINT,16)
+		if k == 0: _rim(at+o,side)
 
 func _rim(at: Vector3, side: float) -> void:
 	var out := Vector3(side,0,0)
