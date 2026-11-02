@@ -51,6 +51,8 @@ func _ready() -> void:
 			await _suite("res://tests/world_verify.gd").new().run(self)
 		"handling":
 			await _suite("res://tests/handling_verify.gd").new().run(self)
+		"handling_demo":
+			await _suite("res://tests/handling_demo.gd").new().run(self)
 		"clean_shots":
 			await _suite("res://tests/clean_shots.gd").new().run(self)
 		"perf":

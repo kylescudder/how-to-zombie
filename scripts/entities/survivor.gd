@@ -482,7 +482,7 @@ func _local_move(delta: float) -> void:
 	if grounded and in_jump and able() and action_t <= 0.0:
 		velocity.y = JUMP
 		_dip_v -= 0.35  # push off: the head drops a touch before it rises
-		if is_me(): Sfx.play("step", Vector3.INF, -8.0, 0.9)
+		if is_me(): Sfx.play(_step_sound(), Vector3.INF, -11.0, 0.9)
 	# Momentum: ramp up into a run, skid down out of it, dig in to change direction; little say in the air.
 	var flat := Vector2(velocity.x, velocity.z)
 	var want := Vector2(dir.x, dir.z) * speed
@@ -522,7 +522,7 @@ func _local_move(delta: float) -> void:
 	if landed and fall < -2.5:
 		# The camera takes the landing in the knees; harder falls sink further.
 		_dip_v -= clampf(-fall * 0.13, 0.3, 2.0)
-		if is_me(): Sfx.play("land", Vector3.INF, clampf(-16.0 - fall * 1.2, -14.0, 0.0))
+		if is_me(): Sfx.play("land", Vector3.INF, clampf(-16.0 - fall * 1.0, -14.0, -4.0))
 	if level().open_world and global_position.y < -0.9 and OpenWorld.land_index(global_position) < 0:
 		global_position.y = -0.9
 		velocity.y = 0
@@ -540,8 +540,8 @@ func _local_move(delta: float) -> void:
 		var before := floori(_bob_t / PI)
 		_bob_t += delta * (1.5 + hs * 0.24) * PI
 		if floori(_bob_t / PI) != before and is_me():
-			var loud := -7.0 if hs > 4.0 else (-13.0 if hs > 2.4 else -18.0)
-			Sfx.play("step", Vector3.INF, loud, 0.85 + pace * 0.25)
+			var loud := -9.0 if hs > 4.0 else (-14.0 if hs > 2.4 else -19.0)
+			Sfx.play(_step_sound(), Vector3.INF, loud, 0.9 + pace * 0.15)
 	_dip_v += (-_dip * 95.0 - _dip_v * 11.0) * delta
 	_dip = clampf(_dip + _dip_v * delta, -0.3, 0.12)
 	if camera:
@@ -1359,6 +1359,10 @@ func respawn_state() -> Dictionary:
 
 # --- Visuals -----------------------------------------------------------------------------------
 
+func _step_sound() -> String:
+	return "step%d" % _rng.randi_range(1, 4)
+
+
 func _animate_body(delta: float) -> void:
 	# Drive the legs from how far the body really moved, so feet keep pace with the ground on every peer
 	# (not from replication lag, which jumps whenever a packet lands).
@@ -1395,7 +1399,7 @@ func _animate_body(delta: float) -> void:
 	if foot != _seen_foot:
 		_seen_foot = foot
 		if not is_me() and transport == null and hs > 1.0 and not dead and not incapped:
-			Sfx.play("step", global_position, -12.0 if hs > 4.0 else -18.0, 0.9)
+			Sfx.play(_step_sound(), global_position, -10.0 if hs > 4.0 else -16.0, 0.95)
 	body_model.visible = not is_me() and (transport==null or transport.kind=="boat")
 	var carrying := carrying_idol() and not dead
 	if carrying and _idol_art == null and body_model.torso:

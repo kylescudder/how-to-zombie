@@ -58,7 +58,7 @@ var _heave_v := 0.0
 var _clock := 0.0
 var _jolt := 0.0
 var _revs := 0.0
-var _engine: AudioStreamPlayer3D
+var _engine: EngineVoice
 var _skid: AudioStreamPlayer3D
 var _cam_pos := Vector3.ZERO
 var _cam_yaw := 0.0
@@ -95,7 +95,8 @@ func _ready() -> void:
 	var spec := VehicleCatalog.find(model)
 	box.size = Vector3(spec.wid+0.2,1.4,spec.len+0.1) if kind=="car" else Vector3(3,0.65,6)
 	shape.shape = box
-	shape.position.y = 0.85 if kind=="car" else 0.3
+	# Flush with the tyre bottoms (the model's y=0), so the car rests on its wheels rather than in the road.
+	shape.position.y = box.size.y*0.5 if kind=="car" else 0.3
 	add_child(shape)
 	# The body hangs from a pivot at axle height, so it pitches and rolls about its springs, not the road.
 	_pivot = spec.r if kind=="car" else 0.5
@@ -120,7 +121,10 @@ func _ready() -> void:
 		Build.box(shell,Vector3(0.9,0.8,0.5),Color(0.17,0.22,0.23),Vector3(0,0.65,3))
 		Build.label(shell,"MARLA'S FERRY" if ferry else "SQUAD BOAT",Vector3(0,1.9,0),20,Color(1,0.9,0.7))
 		_wheelbase = 3.4
-	_engine = _loop_player("engine_loop" if kind=="car" else "boat_loop")
+	if DisplayServer.get_name() != "headless":
+		_engine = EngineVoice.new(kind)
+		_engine.position.y = 0.8
+		add_child(_engine)
 	if kind == "car": _skid = _loop_player("skid_loop")
 	_last_pos = global_position
 	_last_yaw = rotation.y
@@ -423,15 +427,17 @@ func _engine_sound(delta: float, forward_speed: float, slide: float) -> void:
 	_revs = lerpf(_revs,clampf(revs,0,1),1.0-exp(-delta*(6.0 if revs > _revs else 9.0)))
 	if _engine:
 		var volume := -80.0
-		if occupied: volume = -9.0+_revs*5.0+load*4.0
+		if occupied: volume = -6.0+_revs*3.0+load*2.0
 		_engine.volume_db = lerpf(_engine.volume_db,volume,1.0-exp(-delta*(8.0 if occupied else 3.0)))
-		_engine.pitch_scale = (0.75+_revs*1.15+load*0.08) if kind=="car" else (0.8+_revs*0.9)
+		# Keep clear of the limiter: cruising sits mid-range and only a hard pull nears redline.
+		_engine.revs = _revs*0.75+load*0.1
+		_engine.load = load
 		if volume > -79.0 and not _engine.playing: _engine.play()
 		elif _engine.volume_db < -70.0 and _engine.playing and not occupied: _engine.stop()
 	if _skid:
 		var squeal := clampf((slide-2.5)/5.0,0,1) if is_on_floor() or not Net.is_host() else 0.0
-		_skid.volume_db = lerpf(-50.0,-4.0,squeal)
-		_skid.pitch_scale = 0.9+squeal*0.2
+		_skid.volume_db = lerpf(-45.0,-13.0,squeal)
+		_skid.pitch_scale = 0.95+squeal*0.1
 		if squeal > 0.02 and not _skid.playing: _skid.play()
 		elif squeal <= 0.02 and _skid.playing: _skid.stop()
 
