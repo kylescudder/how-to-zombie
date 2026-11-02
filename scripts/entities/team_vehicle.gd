@@ -24,6 +24,9 @@ var net_speed := 0.0
 var net_steer := 0.0  # front wheel angle, radians
 var net_bump := 0.0   # running total of impact speed; peers jolt by the difference
 var seats := PackedInt32Array([-1,-1,-1,-1])
+var helm_slot := -1  # Ferry only: -1 means Captain Marla, otherwise one survivor slot.
+var deck_positions := PackedVector3Array([FerryDeck.start(0), FerryDeck.start(1), FerryDeck.start(2), FerryDeck.start(3)])
+var _deck_input := {}
 var _throttle := 0.0
 var _steer := 0.0
 var _brake := true
@@ -68,6 +71,7 @@ func setup(data: Dictionary) -> void:
 	kind = data.type
 	model = data.get("model",VehicleCatalog.CAMP_MODELS[0])
 	ferry = bool(data.get("ferry", false))
+	seats = PackedInt32Array(data.get("seats", [-1, -1, -1, -1]))
 	position = data.pos
 	net_pos = position
 	rotation.y = float(data.yaw)
@@ -77,7 +81,7 @@ func _init() -> void:
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"
 	var cfg := SceneReplicationConfig.new()
-	for property in ["net_pos", "net_yaw", "net_speed", "net_steer", "net_bump", "seats"]:
+	for property in ["net_pos", "net_yaw", "net_speed", "net_steer", "net_bump", "seats", "helm_slot", "deck_positions"]:
 		var path := NodePath(".:"+property)
 		cfg.add_property(path)
 		cfg.property_set_spawn(path,true)
@@ -93,7 +97,7 @@ func _ready() -> void:
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var spec := VehicleCatalog.find(model)
-	box.size = Vector3(spec.wid+0.2,1.4,spec.len+0.1) if kind=="car" else Vector3(3,0.65,6)
+	box.size = Vector3(spec.wid+0.2,1.4,spec.len+0.1) if kind=="car" else (Vector3(7, 1.4, 18) if ferry else Vector3(3,0.65,6))
 	shape.shape = box
 	# Flush with the tyre bottoms (the model's y=0), so the car rests on its wheels rather than in the road.
 	shape.position.y = box.size.y*0.5 if kind=="car" else 0.3
@@ -113,6 +117,9 @@ func _ready() -> void:
 		_wheels = VehicleKit.build_wheels(self,model)
 		_wheelbase = maxf(float(spec.ax_r)-float(spec.ax_f),1.8)
 		Build.label(shell,"SQUAD 04",Vector3(0,spec.roof+0.75,0),20,Color(1,0.88,0.62))
+	elif ferry:
+		FerryDeck.build(shell)
+		_wheelbase = 8.0
 	else:
 		ArtShapes.loft(shell,[Vector4(-0.15,0.1,0.1,0),Vector4(0,1.15,2.8,0),Vector4(0.65,1.55,3.25,0),Vector4(0.8,1.5,3.1,0)],Color(0.84,0.73,0.47))
 		Build.box(shell,Vector3(2.4,0.14,4.7),Color(0.39,0.50,0.46),Vector3(0,0.82,0))
@@ -149,6 +156,8 @@ func survivor_at(index: int) -> Survivor:
 	return level().get_survivor_by_slot(seats[index]) if seats[index] >= 0 else null
 
 func seat_position(index: int) -> Vector3:
+	if ferry:
+		return to_global(FerryDeck.HELM if seats[index] == helm_slot else deck_positions[index])
 	return to_global(Vector3(-0.55 if index%2==0 else 0.55,0.6 if kind=="car" else 0.85,-0.5 if index<2 else 0.85))
 
 func _owns(slot: int) -> bool:
@@ -161,11 +170,14 @@ func _owns(slot: int) -> bool:
 func request_enter(slot: int) -> void:
 	if not _owns(slot): return
 	var survivor := level().get_survivor_by_slot(slot)
-	if not survivor.able() or absf(_speed)>2 or survivor.global_position.distance_to(global_position)>7: return
+	if not survivor.able() or absf(_speed)>2 or survivor.global_position.distance_to(global_position)>(12.0 if ferry else 7.0): return
 	if level().vehicle_for_slot(slot) != null: return
 	var index := Array(seats).find(-1)
 	if index < 0: return
 	seats[index] = slot
+	if ferry:
+		deck_positions[index] = FerryDeck.start(index)
+		return
 	if index == 0:
 		_throttle = 0
 		_steer = 0
@@ -210,9 +222,13 @@ func _exit(slot: int) -> void:
 	if point == Vector3.INF: return
 	var index := Array(seats).find(slot)
 	seats[index] = -1
+	if ferry and helm_slot == slot:
+		helm_slot = -1
+		_throttle = 0
+		_brake = true
 	last_exit[slot] = point
 	place_rider.rpc(slot,point)
-	if index == 0:
+	if index == 0 and not ferry:
 		_throttle=0
 		_brake=true
 		for other in seats.duplicate():
@@ -229,7 +245,7 @@ func place_rider(slot: int, point: Vector3) -> void:
 
 @rpc("any_peer","call_local","unreliable_ordered")
 func drive(slot: int, throttle: float, steer: float, brake: bool) -> void:
-	if not _owns(slot) or seats[0]!=slot or not is_finite(throttle) or not is_finite(steer): return
+	if not _owns(slot) or (helm_slot if ferry else seats[0]) != slot or not is_finite(throttle) or not is_finite(steer): return
 	_throttle=clampf(throttle,-1,1)
 	_steer=clampf(steer,-1,1)
 	_brake=brake
@@ -243,6 +259,8 @@ func _physics_process(delta: float) -> void:
 			if seats[index]>=0 and (rider==null or not rider.able()):
 				if rider: place_rider.rpc(rider.slot,global_position+Vector3(4,0.2,0))
 				seats[index]=-1
+		if ferry:
+			_tick_deck(delta)
 		_simulate(delta)
 		net_pos=global_position
 		net_yaw=rotation.y
@@ -252,6 +270,8 @@ func _physics_process(delta: float) -> void:
 		global_position=global_position.lerp(net_pos,1-exp(-delta*12))
 		rotation.y=lerp_angle(rotation.y,net_yaw,1-exp(-delta*12))
 	_present(delta)
+	if ferry:
+		_present_captain()
 
 func _steer_limit() -> float:
 	var h: Dictionary = HANDLING[kind]
@@ -259,7 +279,7 @@ func _steer_limit() -> float:
 
 func _simulate(delta: float) -> void:
 	var h: Dictionary = HANDLING[kind]
-	var driver := survivor_at(0)
+	var driver := level().get_survivor_by_slot(helm_slot) if ferry else survivor_at(0)
 	var live := driver != null and _input_age < 0.5
 	var throttle := _throttle if live else 0.0
 	var braking := _brake or not live
@@ -468,6 +488,9 @@ func chase_camera(cam: Camera3D, delta: float) -> void:
 	cam.fov = lerpf(cam.fov,Settings.fov+pace*12.0,1.0-exp(-delta*4.0))
 
 func local_controls(survivor: Survivor, delta: float) -> void:
+	if ferry:
+		_ferry_controls(survivor, delta)
+		return
 	if Input.is_action_just_pressed("interact") and not survivor.ui_open: request_exit.rpc_id(1,survivor.slot)
 	if seats[0]!=survivor.slot: return
 	_send_t-=delta
@@ -475,3 +498,94 @@ func local_controls(survivor: Survivor, delta: float) -> void:
 		_send_t=0.05
 		var move := Input.get_vector("move_left","move_right","move_forward","move_back") if not survivor.ui_open else Vector2.ZERO
 		drive.rpc_id(1,survivor.slot,-move.y,move.x,survivor.ui_open or Input.is_action_pressed("jump"))
+
+
+func ferry_prompt(slot: int) -> String:
+	if helm_slot == slot:
+		return "WASD steer • Space brake • E hand helm back to Marla"
+	var rider := level().get_survivor_by_slot(slot)
+	if rider and rider.global_position.distance_to(to_global(FerryDeck.HELM)) < 2.4:
+		return "[E] Take the helm from Captain Marla" if helm_slot < 0 else "Helm occupied • WASD walk on deck"
+	return "WASD walk on deck • E disembark when stopped • Captain: %s" % ("Marla" if helm_slot < 0 else level().get_survivor_by_slot(helm_slot).short_name() if level().get_survivor_by_slot(helm_slot) else "Marla")
+
+@rpc("any_peer", "call_local", "reliable")
+func request_helm(slot: int) -> void:
+	if not ferry or not _owns(slot) or slot not in seats:
+		return
+	var rider := level().get_survivor_by_slot(slot)
+	if not rider.able():
+		return
+	if helm_slot == slot:
+		deck_positions[Array(seats).find(slot)] = FerryDeck.RELEASE
+		helm_slot = -1
+	elif helm_slot < 0 and rider.global_position.distance_to(to_global(FerryDeck.HELM)) < 2.4:
+		helm_slot = slot
+	else:
+		return
+	_throttle = 0
+	_steer = 0
+	_brake = true
+	_input_age = 1.0
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func walk_deck(slot: int, move: Vector2) -> void:
+	if not ferry or not _owns(slot) or slot not in seats or not is_finite(move.x) or not is_finite(move.y):
+		return
+	_deck_input[slot] = {"move": move.limit_length(), "age": 0.0}
+
+func _tick_deck(delta: float) -> void:
+	var driver := level().get_survivor_by_slot(helm_slot)
+	if helm_slot >= 0 and (driver == null or not driver.able() or helm_slot not in seats):
+		helm_slot = -1
+		_throttle = 0
+		_brake = true
+	for index in 4:
+		var slot := seats[index]
+		var input: Dictionary = _deck_input.get(slot, {})
+		if input.is_empty():
+			continue
+		input.age += delta
+		if slot < 0 or slot == helm_slot or input.age > 0.5:
+			continue
+		var rider := level().get_survivor_by_slot(slot)
+		if rider == null or not rider.able():
+			continue
+		var move: Vector2 = input.move
+		var target := FerryDeck.constrain(deck_positions[index] + Vector3(move.x, 0, move.y) * FerryDeck.WALK_SPEED * delta)
+		var occupied := target.distance_to(FerryDeck.HELM if helm_slot < 0 else FerryDeck.CAPTAIN_REST) < 0.85
+		for other in 4:
+			if other != index and seats[other] >= 0:
+				var point := FerryDeck.HELM if seats[other] == helm_slot else deck_positions[other]
+				occupied = occupied or target.distance_to(point) < 0.75
+		if not occupied:
+			deck_positions[index] = target
+
+func _present_captain() -> void:
+	var captain := level().npc("marla_ferry")
+	if captain == null:
+		return
+	captain.global_position = to_global(FerryDeck.HELM if helm_slot < 0 else FerryDeck.CAPTAIN_REST)
+	captain.rotation.y = rotation.y + (PI if helm_slot < 0 else 0.0)
+	if captain.get_node_or_null("Marker"):
+		captain.mark_talked()
+	# Passengers use the bounded deck simulation. The captain must not collide with her hull.
+	for child in captain.get_children():
+		if child is StaticBody3D:
+			child.collision_layer = 0
+
+func _ferry_controls(rider: Survivor, delta: float) -> void:
+	if Input.is_action_just_pressed("interact") and not rider.ui_open:
+		if helm_slot == rider.slot or rider.global_position.distance_to(to_global(FerryDeck.HELM)) < 2.4:
+			request_helm.rpc_id(1, rider.slot)
+		else:
+			request_exit.rpc_id(1, rider.slot)
+	_send_t -= delta
+	if _send_t > 0:
+		return
+	_send_t = 0.05
+	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back") if not rider.ui_open else Vector2.ZERO
+	if helm_slot == rider.slot:
+		drive.rpc_id(1, rider.slot, -move.y, move.x, rider.ui_open or Input.is_action_pressed("jump"))
+	else:
+		var local_move := Vector3(move.x, 0, move.y).rotated(Vector3.UP, rider.rotation.y - rotation.y)
+		walk_deck.rpc_id(1, rider.slot, Vector2(local_move.x, local_move.z))

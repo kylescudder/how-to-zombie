@@ -14,6 +14,7 @@ var max_hp := 50.0
 var anim: int = A.IDLE
 var alert := false
 var target_name := ""
+var intro_roamer := false
 var horde := false   # spawned as part of a horde: always chasing
 
 # Replicated
@@ -68,9 +69,15 @@ func setup(d: Dictionary) -> void:
 	position = d.pos
 	net_pos = d.pos
 	horde = bool(d.get("horde", false))
+	intro_roamer = bool(d.get("intro_roamer", false))
+	if intro_roamer:
+		process_mode = Node.PROCESS_MODE_ALWAYS
 	alert = horde or type not in ["common", "witch"]
 	_rng.seed = hash(d.name)
 	gait = InfectedGait.roll(type, _rng.seed)
+	if intro_roamer:
+		_wander_dir = Vector3.FORWARD.rotated(Vector3.UP, _rng.randf() * TAU)
+		_wander_t = _rng.randf_range(3.0, 5.0)
 	rotation.y = _rng.randf() * TAU
 	net_yaw = rotation.y
 	if type == "witch":

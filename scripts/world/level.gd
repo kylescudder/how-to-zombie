@@ -100,10 +100,16 @@ func _ready() -> void:
 	if Net.is_host() and open_world:
 		for index in markers.vehicles.size():
 			var data: Dictionary = markers.vehicles[index].duplicate()
+			if data.get("ferry", false):
+				data.seats = [0, 1, 2, 3]
 			data.kind = "vehicle"
 			data.name = "Vehicle%d" % index
 			spawner.spawn(data)
-		Game.show_banner.rpc("DEAD LOW TIDE — FREE ROAM", "Five islands. One squad. Take a vehicle and explore.")
+	if open_world:
+		var intro := preload("res://scripts/world/arrival_cutscene.gd").new()
+		intro.name = "ArrivalCutscene"
+		add_child(intro)
+
 	elif Net.is_host():
 		Game.show_banner.rpc("CHAPTER %d: %s" % [chapter + 1, DB.CHAPTERS[chapter].name.to_upper()], DB.CAMPAIGN_NAME)
 
@@ -250,8 +256,8 @@ func count_commons() -> int:
 	return n
 
 
-func spawn_infected(type: String, pos: Vector3, horde: bool) -> Infected:
-	var data := {"kind": "infected", "name": "I%d" % _next_id, "type": type, "pos": pos + Vector3.UP * 0.1, "horde": horde}
+func spawn_infected(type: String, pos: Vector3, horde: bool, intro_roamer := false) -> Infected:
+	var data := {"kind": "infected", "name": "I%d" % _next_id, "type": type, "pos": pos + Vector3.UP * 0.1, "horde": horde, "intro_roamer": intro_roamer}
 	_next_id += 1
 	return spawner.spawn(data) as Infected
 

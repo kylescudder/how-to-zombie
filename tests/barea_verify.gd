@@ -117,7 +117,7 @@ func run(owner: Node) -> void:
 	for k in Story.npc("marla").lines.size():
 		hud.talk(level, "marla")
 	test.check(not hud._talk_panel.visible, "conversation ends after the last line")
-	test.check(not level.npc("marla_ferry").visible, "Marla isn't at the ferry terminal yet")
+	test.check(level.npc("marla_ferry").visible, "Marla captains her ferry from the opening")
 
 	# Scale: each act is in its own district. Walk the whole route with every lock open.
 	for lock: Dictionary in [level.markers.sub_gate, level.markers.shutter]:
@@ -273,11 +273,13 @@ func run(owner: Node) -> void:
 	await test.wait(0.2)
 	test.check(level.vehicle_for_slot(me.slot) == ferry, "boarded Marla's ferry")
 	test.check(level.barea_stage() == "alert", "still on alert while moored")
-	# Actually sail it out: it must not be stuck on the beach shelf.
+	# Actually sail it out: it must not be stuck on the beach shelf. She's moored bow-in to
+	# the island, so take the helm from Marla and back out astern.
 	var moored := ferry.global_position
+	ferry.helm_slot = me.slot
 	ferry._send_t = 1000
-	for k in 80:
-		ferry.drive(me.slot, 1.0, 0.0, false)
+	for k in 160:
+		ferry.drive(me.slot, -1.0, 0.0, false)
 		await test.wait(0.05)
 	test.check(ferry.global_position.distance_to(moored) > 25.0, "Marla's ferry sails away from the pier (%.0f m)" % ferry.global_position.distance_to(moored))
 	ferry.global_position = level.markers.ferry_terminal + Vector3(-360, -0.45, 0)
