@@ -89,9 +89,9 @@ func _ready() -> void:
 	toggle(cross, "Visual hit markers", "hit_markers")
 	toggle(cross, "Hit marker sound", "hit_marker_sound")
 	var audio := page("Audio")
-	for pair in [["Master", "master_volume"], ["Effects", "effects_volume"], ["Music", "music_volume"], ["Voice", "voice_volume"]]:
+	for pair in [["Master", "master_volume"], ["Effects", "effects_volume"], ["Weapons", "weapons_volume"], ["Vehicles", "vehicles_volume"], ["Environment", "environment_volume"], ["Music", "music_volume"], ["Voice", "voice_volume"]]:
 		slider(audio, pair[0], pair[1], 0, 1, 0.05)
-	audio.add_child(_label("Voice controls character vocal effects. Voice chat is not implemented yet.", 17))
+	audio.add_child(_label("Weapons, Vehicles and Environment sit under Effects, so Effects scales all three. Voice controls character vocal effects; voice chat is not implemented yet.", 17))
 	var display := page("Display")
 	slider(display, "Field of view", "fov", 60, 110, 1)
 	choice(display, "Window mode", "window_mode", ["Windowed", "Borderless fullscreen", "Exclusive fullscreen"], [0, 1, 2], true)
@@ -297,7 +297,7 @@ func _tab_help(index: int) -> void:
 		["Make it yours","Tune movement and aim, then scroll down to change bindings. Mouse and controller controls can be set independently."],
 		["Steady hands","Turn down extra motion and damage flashes to keep the action comfortable. Weapon behaviour stays consistent."],
 		["A clear sightline","Choose a colour and size that stand out against the world. The preview below updates as you adjust your crosshair."],
-		["Listen closely","Balance effects, music and character voices. Voice chat is not available yet."],
+		["Listen closely","Balance effects, music and character voices. Weapons, vehicles and environment (rain, wind, thunder, alarms) have their own sliders. Voice chat is not available yet."],
 		["Set the scene","Adjust your view and performance. Window and resolution changes give you fifteen seconds to confirm before reverting."],
 	]
 	_help_title.text=notes[index][0]
@@ -315,6 +315,8 @@ func _setting_help(title: String) -> void:
 		"Crosshair size":"Adjust the size of the crosshair without changing weapon spread.",
 		"Crosshair opacity":"Make the crosshair more solid or more transparent.",
 		"Field of view":"A wider view shows more of your surroundings. Aiming still uses the weapon's zoom.",
+		"Effects":"Overall sound-effect level. Weapons, Vehicles and Environment are scaled by this too.",
+		"Environment":"Rain, wind, thunder, alarms, doors, fire and explosions.",
 		"Window resolution":"Applies in windowed mode. Fullscreen uses your display resolution.",
 		"VSync":"Synchronise frames with the display to reduce tearing.",
 	}

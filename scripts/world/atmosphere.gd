@@ -328,9 +328,9 @@ static func _fade_curve() -> CurveTexture:
 # --- Sound --------------------------------------------------------------------------------
 
 func _build_audio() -> void:
-	_wind = _loop("wind_loop", -13.0 if mood.rain > 0.0 else -9.0, "Effects")
+	_wind = _loop("wind_loop", -13.0 if mood.rain > 0.0 else -9.0, "Environment")
 	if float(mood.rain) > 0.0:
-		_rain_audio = _loop("rain_loop", -17.0 + float(mood.rain) * 4.0, "Effects")
+		_rain_audio = _loop("rain_loop", -23.0 + float(mood.rain) * 3.0, "Environment")
 	_drone = _loop("drone_loop", -15.0, "Music")
 	# Everything echoes a little: streets, warehouses, docks.
 	for bus_name in ["Effects", "Voice"]:
