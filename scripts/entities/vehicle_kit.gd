@@ -20,7 +20,7 @@ static var _meshes := {}
 static var _materials: Array[Material] = []
 
 var v: Dictionary
-var f := VehicleForge.new()
+var f := Forge.new()
 var rng := RandomNumberGenerator.new()
 var paint: Color
 var L: float
@@ -192,7 +192,7 @@ func _glazing() -> void:
 	var pillar: Color = Color(v.pillar) if v.has("pillar") else TRIM
 	for piece: PackedVector2Array in band:
 		for side: float in [-1,1]:
-			f.pane(piece,side,half,0.012,GLASS,VehicleForge.GLASS)
+			f.pane(piece,side,half,0.012,GLASS,Forge.GLASS)
 			for t: float in v.pillars:
 				var post := PackedVector2Array([Vector2(z(t)-0.045,belt),Vector2(z(t)+0.045,belt),Vector2(z(t)+0.045,roof+1),Vector2(z(t)-0.045,roof+1)])
 				for bit: PackedVector2Array in Geometry2D.intersect_polygons(post,piece):
@@ -219,12 +219,12 @@ func _screen(t0: float, y0: float, t1: float, y1: float, facing: float) -> void:
 	var w0 := half(y0)-0.1
 	var w1 := half(y1)-0.1
 	f.quad(a+Vector3(-w0,0,0)+lift*0.5-(b-a).normalized()*0.04,a+Vector3(w0,0,0)+lift*0.5-(b-a).normalized()*0.04,b+Vector3(w1,0,0)+lift*0.5+(b-a).normalized()*0.04,b+Vector3(-w1,0,0)+lift*0.5+(b-a).normalized()*0.04,n,TRIM)
-	f.quad(a+Vector3(-w0+0.04,0,0)+lift,a+Vector3(w0-0.04,0,0)+lift,b+Vector3(w1-0.04,0,0)+lift,b+Vector3(-w1+0.04,0,0)+lift,n,GLASS,VehicleForge.GLASS)
+	f.quad(a+Vector3(-w0+0.04,0,0)+lift,a+Vector3(w0-0.04,0,0)+lift,b+Vector3(w1-0.04,0,0)+lift,b+Vector3(-w1+0.04,0,0)+lift,n,GLASS,Forge.GLASS)
 	var g := lift*1.3
-	f.quad(a.lerp(b,0.1)+Vector3(-w0*0.55,0,0)+g,a.lerp(b,0.1)+Vector3(-w0*0.25,0,0)+g,a.lerp(b,0.86)+Vector3(w1*0.1,0,0)+g,a.lerp(b,0.86)+Vector3(-w1*0.2,0,0)+g,n,GLARE,VehicleForge.GLASS)
+	f.quad(a.lerp(b,0.1)+Vector3(-w0*0.55,0,0)+g,a.lerp(b,0.1)+Vector3(-w0*0.25,0,0)+g,a.lerp(b,0.86)+Vector3(w1*0.1,0,0)+g,a.lerp(b,0.86)+Vector3(-w1*0.2,0,0)+g,n,GLARE,Forge.GLASS)
 
 ## A panel on both flanks over t0..t1, clipped to the body so it follows arches and shoulders.
-func _side(t0: float, t1: float, y0: float, y1: float, color: Color, clip := lower, lift := 0.006, layer := VehicleForge.PAINT) -> void:
+func _side(t0: float, t1: float, y0: float, y1: float, color: Color, clip := lower, lift := 0.006, layer := Forge.PAINT) -> void:
 	var rect := PackedVector2Array([Vector2(z(t0),y0),Vector2(z(t1),y0),Vector2(z(t1),y1),Vector2(z(t0),y1)])
 	for piece: PackedVector2Array in Geometry2D.intersect_polygons(rect,clip):
 		for side: float in [-1,1]:
@@ -241,7 +241,7 @@ func _flanks() -> void:
 	if v.rub != "none":
 		var y := ride+(belt-ride)*0.5
 		var color: Color = STEEL if v.rub == "chrome" else TRIM
-		_side(0.2,L-0.2,y-0.03,y+0.03,color,lower,0.016,VehicleForge.CHROME if v.rub == "chrome" else VehicleForge.PAINT)
+		_side(0.2,L-0.2,y-0.03,y+0.03,color,lower,0.016,Forge.CHROME if v.rub == "chrome" else Forge.PAINT)
 	# Mirrors on stalks.
 	for side: float in [-1,1]:
 		var at := Vector3(side*(W*0.5+0.13),belt+0.12,z(minf(peak,cowl+0.42)))
@@ -253,7 +253,7 @@ func _handle(t: float, y: float) -> void:
 		f.block(Vector3(side*(W*0.5+0.012),y,z(t)),Vector3(0.03,0.035,0.15),TRIM)
 
 ## Panel on the sloping bonnet, x centred, between t0 and t1.
-func _hood_panel(x: float, wide: float, t0: float, t1: float, lift: float, color: Color, layer := VehicleForge.PAINT) -> void:
+func _hood_panel(x: float, wide: float, t0: float, t1: float, lift: float, color: Color, layer := Forge.PAINT) -> void:
 	var a := Vector3(x-wide*0.5,hood_y(t0)+lift,z(t0))
 	var b := Vector3(x+wide*0.5,hood_y(t0)+lift,z(t0))
 	var c := Vector3(x+wide*0.5,hood_y(t1)+lift,z(t1))
@@ -267,10 +267,10 @@ func _bonnet() -> void:
 	_hood_panel(0,W-0.46,0.17,0.19,0.004,paint.darkened(0.45))
 
 ## A block on the nose. Centre x, height y.
-func _front(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.05, layer := VehicleForge.PAINT) -> void:
+func _front(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.05, layer := Forge.PAINT) -> void:
 	f.block(Vector3(x,y,z(0)-depth*0.5+0.01),Vector3(sx,sy,depth),color,layer)
 
-func _back_block(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.05, layer := VehicleForge.PAINT) -> void:
+func _back_block(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.05, layer := Forge.PAINT) -> void:
 	f.block(Vector3(x,y,z(L)+depth*0.5-0.01),Vector3(sx,sy,depth),color,layer)
 
 func _nose() -> void:
@@ -280,8 +280,8 @@ func _nose() -> void:
 	var lx := hw-0.27
 	var ly := lerpf(bumper_top,top,0.62)
 	var round_lamp := func(x: float, y: float, radius: float) -> void:
-		f.tube(Vector3(x,y,z(0)+0.02),Vector3(x,y,z(0)-0.03),radius+0.03,radius+0.03,STEEL,VehicleForge.CHROME,12)
-		f.tube(Vector3(x,y,z(0)-0.02),Vector3(x,y,z(0)-0.05),radius,radius*0.92,HEADLAMP,VehicleForge.GLASS,12)
+		f.tube(Vector3(x,y,z(0)+0.02),Vector3(x,y,z(0)-0.03),radius+0.03,radius+0.03,STEEL,Forge.CHROME,12)
+		f.tube(Vector3(x,y,z(0)-0.02),Vector3(x,y,z(0)-0.05),radius,radius*0.92,HEADLAMP,Forge.GLASS,12)
 	var grille_w: float = v.grille_w*hw
 	var grille_h := minf((top-bumper_top)*0.74,0.62)
 	var gy := bumper_top+(top-bumper_top)*0.52
@@ -306,10 +306,10 @@ func _nose() -> void:
 				_front(side*grille_w*0.54,gy,grille_w*0.78,0.02,STEEL,0.05)
 			_front(0,gy,grille_w*0.2,grille_h+0.04,paint.darkened(0.2),0.05)
 		"chrome":
-			_front(0,gy,grille_w*2+0.08,grille_h+0.08,STEEL,0.04,VehicleForge.CHROME)
+			_front(0,gy,grille_w*2+0.08,grille_h+0.08,STEEL,0.04,Forge.CHROME)
 			_front(0,gy,grille_w*2,grille_h,SHADOW,0.05)
 			for i in 11:
-				_front(-grille_w+(i+0.5)*grille_w*2/11,gy,0.024,grille_h,STEEL,0.06,VehicleForge.CHROME)
+				_front(-grille_w+(i+0.5)*grille_w*2/11,gy,0.024,grille_h,STEEL,0.06,Forge.CHROME)
 		"slot":
 			_front(0,top-0.09,grille_w*2,0.07,SHADOW,0.03)
 			_front(0,bumper_top+0.1,grille_w*1.5,0.12,SHADOW,0.03)
@@ -319,16 +319,16 @@ func _nose() -> void:
 		"rect":
 			for side: float in [-1,1]:
 				_front(side*lx,ly,0.42,0.18,TRIM,0.03)
-				_front(side*lx,ly,0.37,0.14,HEADLAMP,0.05,VehicleForge.GLASS)
-				_front(side*(lx+0.27),ly,0.09,0.14,AMBER,0.04,VehicleForge.GLASS)
+				_front(side*lx,ly,0.37,0.14,HEADLAMP,0.05,Forge.GLASS)
+				_front(side*(lx+0.27),ly,0.09,0.14,AMBER,0.04,Forge.GLASS)
 		"slim":
 			for side: float in [-1,1]:
 				_front(side*lx,top-0.05,0.54,0.08,TRIM,0.03)
-				_front(side*lx,top-0.05,0.48,0.05,HEADLAMP,0.05,VehicleForge.GLASS)
+				_front(side*lx,top-0.05,0.48,0.05,HEADLAMP,0.05,Forge.GLASS)
 		"round":
 			for side: float in [-1,1]:
 				round_lamp.call(side*lx,ly,0.135)
-				_front(side*(lx-0.26),ly-0.14,0.09,0.06,AMBER,0.04,VehicleForge.GLASS)
+				_front(side*(lx-0.26),ly-0.14,0.09,0.06,AMBER,0.04,Forge.GLASS)
 		"quad":
 			for side: float in [-1,1]:
 				round_lamp.call(side*(lx+0.15),ly,0.095)
@@ -336,8 +336,8 @@ func _nose() -> void:
 		"square":
 			for side: float in [-1,1]:
 				_front(side*lx,ly,0.3,0.3,TRIM,0.03)
-				_front(side*lx,ly,0.25,0.25,HEADLAMP,0.05,VehicleForge.GLASS)
-				_front(side*lx,ly-0.21,0.25,0.08,AMBER,0.04,VehicleForge.GLASS)
+				_front(side*lx,ly,0.25,0.25,HEADLAMP,0.05,Forge.GLASS)
+				_front(side*lx,ly-0.21,0.25,0.08,AMBER,0.04,Forge.GLASS)
 		"hooded":
 			for side: float in [-1,1]:
 				round_lamp.call(side*lx,ly,0.11)
@@ -350,7 +350,7 @@ func _plate_front(y: float) -> void:
 
 func _bumper(front: bool) -> void:
 	var style: String = v.bumper
-	var place := func(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.16, layer := VehicleForge.PAINT) -> void:
+	var place := func(x: float, y: float, sx: float, sy: float, color: Color, depth := 0.16, layer := Forge.PAINT) -> void:
 		if front: _front(x,y,sx,sy,color,depth,layer)
 		else: _back_block(x,y,sx,sy,color,depth,layer)
 	var y := ride+0.11
@@ -362,8 +362,8 @@ func _bumper(front: bool) -> void:
 			place.call(0,y,hw*2+0.02,0.2,paint.darkened(0.12),0.12)
 			place.call(0,y-0.06,hw*2-0.2,0.07,TRIM,0.15)
 		"chrome":
-			place.call(0,y,W-0.02,0.13,STEEL,0.13,VehicleForge.CHROME)
-			for x: float in [-0.5,0.5]: place.call(x,y,0.09,0.25,STEEL,0.19,VehicleForge.CHROME)
+			place.call(0,y,W-0.02,0.13,STEEL,0.13,Forge.CHROME)
+			for x: float in [-0.5,0.5]: place.call(x,y,0.09,0.25,STEEL,0.19,Forge.CHROME)
 		"steel":
 			place.call(0,y+0.02,W+0.04,0.25,TRIM.lightened(0.08),0.2)
 			for x: float in [-1,1]: place.call(x*(W*0.5-0.18),y+0.17,0.09,0.12,TRIM.lightened(0.08),0.1)
@@ -379,28 +379,28 @@ func _tail() -> void:
 	match lamp:
 		"rect":
 			for side: float in [-1,1]:
-				_back_block(side*lx,ly,0.46,0.17,TAILLAMP,0.04,VehicleForge.GLASS)
-				_back_block(side*(lx-0.3),ly,0.14,0.17,AMBER,0.03,VehicleForge.GLASS)
+				_back_block(side*lx,ly,0.46,0.17,TAILLAMP,0.04,Forge.GLASS)
+				_back_block(side*(lx-0.3),ly,0.14,0.17,AMBER,0.03,Forge.GLASS)
 		"tall":
 			for side: float in [-1,1]:
-				_back_block(side*(hw-0.06),lerpf(bumper_top,top,0.55),0.13,minf(top-bumper_top,0.62)*0.86,TAILLAMP,0.04,VehicleForge.GLASS)
+				_back_block(side*(hw-0.06),lerpf(bumper_top,top,0.55),0.13,minf(top-bumper_top,0.62)*0.86,TAILLAMP,0.04,Forge.GLASS)
 		"round":
 			for side: float in [-1,1]:
 				for x: float in [0.0,-0.27]:
 					var at := Vector3(side*(lx+x),ly,z(L))
-					f.tube(at-Vector3(0,0,0.01),at+Vector3(0,0,0.04),0.105,0.1,TAILLAMP,VehicleForge.GLASS,10)
+					f.tube(at-Vector3(0,0,0.01),at+Vector3(0,0,0.04),0.105,0.1,TAILLAMP,Forge.GLASS,10)
 		"bar":
-			_back_block(0,ly,hw*2-0.1,0.09,TAILLAMP,0.04,VehicleForge.GLASS)
+			_back_block(0,ly,hw*2-0.1,0.09,TAILLAMP,0.04,Forge.GLASS)
 		"small":
 			for side: float in [-1,1]:
-				_back_block(side*lx,bumper_top+0.1,0.2,0.1,TAILLAMP,0.04,VehicleForge.GLASS)
+				_back_block(side*lx,bumper_top+0.1,0.2,0.1,TAILLAMP,0.04,Forge.GLASS)
 	if W < 2.2:
 		_back_block(0,bumper_top+0.14,0.42,0.1,PLATE,0.03)
 	if foot > L-0.6 and belt == tail and not v.fit.has("bed"):
 		_back_block(0,(top+bumper_top)*0.5,0.018,top-bumper_top,paint.darkened(0.5),0.03)
 	_bumper(false)
 	if v.exhaust:
-		f.tube(Vector3(0.45,ride+0.03,z(L)-0.2),Vector3(0.45,ride+0.03,z(L)+0.12),0.04,0.04,STEEL,VehicleForge.CHROME,8)
+		f.tube(Vector3(0.45,ride+0.03,z(L)-0.2),Vector3(0.45,ride+0.03,z(L)+0.12),0.04,0.04,STEEL,Forge.CHROME,8)
 
 func _wheels(t: float) -> void:
 	var tw: float = v.tw
@@ -412,40 +412,40 @@ func _wheels(t: float) -> void:
 			var at := Vector3(0,r,z(t))
 			var o := Vector3(side*outer,0,0)
 			var i := Vector3(side*inner,0,0)
-			f.tube(at+i,at+o-Vector3(side*0.035,0,0),r,r,TYRE,VehicleForge.PAINT,16,false)
-			f.tube(at+o-Vector3(side*0.035,0,0),at+o,r,r*0.9,TYRE,VehicleForge.PAINT,16)
+			f.tube(at+i,at+o-Vector3(side*0.035,0,0),r,r,TYRE,Forge.PAINT,16,false)
+			f.tube(at+o-Vector3(side*0.035,0,0),at+o,r,r*0.9,TYRE,Forge.PAINT,16)
 			if k == 0: _rim(at+o,side)
 
 func _rim(at: Vector3, side: float) -> void:
 	var out := Vector3(side,0,0)
 	var style: String = v.rim
 	var color: Color = Color(v.rim_paint) if v.has("rim_paint") else STEEL
-	var layer := VehicleForge.CHROME if not v.has("rim_paint") else VehicleForge.PAINT
+	var layer := Forge.CHROME if not v.has("rim_paint") else Forge.PAINT
 	var size := r*0.62
-	f.tube(at,at+out*0.008,size*1.08,size*1.04,TRIM,VehicleForge.PAINT,12)
+	f.tube(at,at+out*0.008,size*1.08,size*1.04,TRIM,Forge.PAINT,12)
 	match style:
 		"steel":
 			f.tube(at+out*0.008,at+out*0.018,size,size*0.92,color,layer,12)
-			f.tube(at+out*0.018,at+out*0.024,size*0.5,size*0.42,TRIM,VehicleForge.PAINT,8)
+			f.tube(at+out*0.018,at+out*0.024,size*0.5,size*0.42,TRIM,Forge.PAINT,8)
 			for i in 6:
 				var a := TAU*i/6.0
-				f.tube(at+out*0.018+Vector3(0,sin(a),cos(a))*size*0.7,at+out*0.024+Vector3(0,sin(a),cos(a))*size*0.7,size*0.1,size*0.1,SHADOW,VehicleForge.PAINT,6)
+				f.tube(at+out*0.018+Vector3(0,sin(a),cos(a))*size*0.7,at+out*0.024+Vector3(0,sin(a),cos(a))*size*0.7,size*0.1,size*0.1,SHADOW,Forge.PAINT,6)
 		"star":
-			f.tube(at+out*0.008,at+out*0.012,size,size,SHADOW,VehicleForge.PAINT,12)
+			f.tube(at+out*0.008,at+out*0.012,size,size,SHADOW,Forge.PAINT,12)
 			for i in 5:
 				var a := TAU*i/5.0
 				f.beam(at+out*0.022,at+out*0.022+Vector3(0,sin(a),cos(a))*size,size*0.26,color,layer)
 			f.tube(at+out*0.012,at+out*0.04,size*0.24,size*0.2,color,layer,8)
 		"deep":
 			f.tube(at+out*0.008,at+out*0.014,size,size,color,layer,12)
-			f.tube(at+out*0.014,at+out*0.018,size*0.82,size*0.82,SHADOW,VehicleForge.PAINT,12)
+			f.tube(at+out*0.014,at+out*0.018,size*0.82,size*0.82,SHADOW,Forge.PAINT,12)
 			f.tube(at+out*0.018,at+out*0.05,size*0.42,size*0.3,color,layer,8)
 		"truck":
 			f.tube(at+out*0.008,at+out*0.014,size,size*0.95,color,layer,10)
-			f.tube(at+out*0.014,at+out*0.06,size*0.45,size*0.36,color.darkened(0.2),VehicleForge.PAINT,8)
+			f.tube(at+out*0.014,at+out*0.06,size*0.45,size*0.36,color.darkened(0.2),Forge.PAINT,8)
 			for i in 8:
 				var a := TAU*i/8.0
-				f.tube(at+out*0.014+Vector3(0,sin(a),cos(a))*size*0.7,at+out*0.034+Vector3(0,sin(a),cos(a))*size*0.7,0.024,0.02,SHADOW,VehicleForge.PAINT,6)
+				f.tube(at+out*0.014+Vector3(0,sin(a),cos(a))*size*0.7,at+out*0.034+Vector3(0,sin(a),cos(a))*size*0.7,0.024,0.02,SHADOW,Forge.PAINT,6)
 
 func _cargo() -> void:
 	if v.has("box"):
@@ -496,7 +496,7 @@ func _fit(fitting: String) -> void:
 			var profile := PackedVector2Array([Vector2(z(a),tail+0.04),Vector2(z(a),roof-0.02),Vector2(z(b)-0.12,roof-0.1),Vector2(z(b),tail+0.04)])
 			f.prism(profile,func(y: float) -> float: return lerpf(W*0.5-0.03,W*0.42,(y-tail)/(roof-tail)),Color(v.get("canopy_paint",paint.darkened(0.08))))
 			for side: float in [-1,1]:
-				f.pane(PackedVector2Array([Vector2(z(a+0.2),tail+0.2),Vector2(z(b-0.3),tail+0.2),Vector2(z(b-0.3),roof-0.2),Vector2(z(a+0.2),roof-0.2)]),side,func(y: float) -> float: return lerpf(W*0.5-0.03,W*0.42,(y-tail)/(roof-tail)),0.012,GLASS,VehicleForge.GLASS)
+				f.pane(PackedVector2Array([Vector2(z(a+0.2),tail+0.2),Vector2(z(b-0.3),tail+0.2),Vector2(z(b-0.3),roof-0.2),Vector2(z(a+0.2),roof-0.2)]),side,func(y: float) -> float: return lerpf(W*0.5-0.03,W*0.42,(y-tail)/(roof-tail)),0.012,GLASS,Forge.GLASS)
 		"tarp":
 			var a := foot+0.08
 			var b := L-0.12
@@ -509,7 +509,7 @@ func _fit(fitting: String) -> void:
 		"load":
 			for k in 6:
 				var c := Color(0.58,0.42,0.22).darkened(rng.randf()*0.25)
-				f.block(Vector3(rng.randf_range(-0.35,0.35),tail+0.2+(k%2)*0.3,z(rng.randf_range(foot+0.45,L-0.5))),Vector3(0.48,0.3,0.5),c,VehicleForge.PAINT,Basis(Vector3.UP,rng.randf_range(-0.3,0.3)))
+				f.block(Vector3(rng.randf_range(-0.35,0.35),tail+0.2+(k%2)*0.3,z(rng.randf_range(foot+0.45,L-0.5))),Vector3(0.48,0.3,0.5),c,Forge.PAINT,Basis(Vector3.UP,rng.randf_range(-0.3,0.3)))
 		"rack":
 			var a := peak+0.2
 			var b := back-0.02
@@ -522,7 +522,7 @@ func _fit(fitting: String) -> void:
 				f.block(Vector3(0,top+0.13,z(lerpf(a,b,float(i)/n))),Vector3(half(roof)*2-0.18,0.03,0.04),TRIM)
 		"rails":
 			for side: float in [-1,1]:
-				f.block(Vector3(side*(half(roof)-0.08),top+0.06,z(mid)),Vector3(0.05,0.04,back-peak-0.2),STEEL,VehicleForge.CHROME)
+				f.block(Vector3(side*(half(roof)-0.08),top+0.06,z(mid)),Vector3(0.05,0.04,back-peak-0.2),STEEL,Forge.CHROME)
 		"luggage":
 			f.block(Vector3(-0.2,top+0.3,z(mid-0.25)),Vector3(0.6,0.28,0.8),CANVAS)
 			f.block(Vector3(0.28,top+0.26,z(mid+0.35)),Vector3(0.5,0.22,0.7),Color(0.32,0.2,0.12))
@@ -532,9 +532,9 @@ func _fit(fitting: String) -> void:
 			var y1 := nose+0.1
 			var front := z(0)-0.2
 			for x: float in [-0.5,0.5]:
-				f.tube(Vector3(x,y0,front),Vector3(x,y1,front),0.04,0.04,TRIM,VehicleForge.PAINT,8)
-			f.tube(Vector3(-W*0.5+0.1,ride+0.25,front),Vector3(W*0.5-0.1,ride+0.25,front),0.04,0.04,TRIM,VehicleForge.PAINT,8)
-			f.tube(Vector3(-0.5,y1,front),Vector3(0.5,y1,front),0.04,0.04,TRIM,VehicleForge.PAINT,8)
+				f.tube(Vector3(x,y0,front),Vector3(x,y1,front),0.04,0.04,TRIM,Forge.PAINT,8)
+			f.tube(Vector3(-W*0.5+0.1,ride+0.25,front),Vector3(W*0.5-0.1,ride+0.25,front),0.04,0.04,TRIM,Forge.PAINT,8)
+			f.tube(Vector3(-0.5,y1,front),Vector3(0.5,y1,front),0.04,0.04,TRIM,Forge.PAINT,8)
 		"plough":
 			var y0 := 0.14
 			var y1 := nose+0.08
@@ -547,39 +547,39 @@ func _fit(fitting: String) -> void:
 		"ram":
 			for i in 5:
 				var x := -W*0.5+0.12+i*(W-0.24)/4
-				f.tube(Vector3(x,ride+0.2,z(0)-0.05),Vector3(x,ride+0.2,z(0)-0.62),0.05,0.012,STEEL,VehicleForge.PAINT,6)
+				f.tube(Vector3(x,ride+0.2,z(0)-0.05),Vector3(x,ride+0.2,z(0)-0.62),0.05,0.012,STEEL,Forge.PAINT,6)
 			f.block(Vector3(0,ride+0.2,z(0)-0.08),Vector3(W+0.05,0.26,0.12),TRIM)
 		"lightbar":
 			f.block(Vector3(0,top+0.05,z(peak+0.35)),Vector3(W*0.42,0.07,0.12),TRIM)
 			for side: float in [-1,1]:
-				f.block(Vector3(side*W*0.13,top+0.13,z(peak+0.35)),Vector3(W*0.2,0.1,0.18),Color(v.get("beacon",Color(0.15,0.3,0.95))),VehicleForge.GLASS)
+				f.block(Vector3(side*W*0.13,top+0.13,z(peak+0.35)),Vector3(W*0.2,0.1,0.18),Color(v.get("beacon",Color(0.15,0.3,0.95))),Forge.GLASS)
 			f.block(Vector3(0,top+0.13,z(peak+0.35)),Vector3(W*0.06,0.08,0.16),TRIM)
 		"redbar":
 			f.block(Vector3(0,top+0.05,z(peak+0.35)),Vector3(W*0.5,0.07,0.12),TRIM)
-			f.block(Vector3(0,top+0.13,z(peak+0.35)),Vector3(W*0.48,0.1,0.18),Color(0.92,0.13,0.08),VehicleForge.GLASS)
+			f.block(Vector3(0,top+0.13,z(peak+0.35)),Vector3(W*0.48,0.1,0.18),Color(0.92,0.13,0.08),Forge.GLASS)
 		"beacon":
-			f.tube(Vector3(0,top,z(peak+0.3)),Vector3(0,top+0.2,z(peak+0.3)),0.1,0.08,AMBER,VehicleForge.GLASS,8)
+			f.tube(Vector3(0,top,z(peak+0.3)),Vector3(0,top+0.2,z(peak+0.3)),0.1,0.08,AMBER,Forge.GLASS,8)
 		"taxi":
-			f.block(Vector3(0,top+0.1,z(mid)),Vector3(0.62,0.18,0.14),Color(0.98,0.82,0.2),VehicleForge.PAINT)
+			f.block(Vector3(0,top+0.1,z(mid)),Vector3(0.62,0.18,0.14),Color(0.98,0.82,0.2),Forge.PAINT)
 			f.block(Vector3(0,top+0.1,z(mid)-0.08),Vector3(0.46,0.09,0.02),SHADOW)
 		"spare":
 			var at := Vector3(0,lerpf(ride,tail,0.6)+0.05,z(L)+0.06)
-			f.tube(at,at+Vector3(0,0,0.24),r*0.92,r*0.92,TYRE,VehicleForge.PAINT,14)
-			f.tube(at+Vector3(0,0,0.24),at+Vector3(0,0,0.27),r*0.56,r*0.5,STEEL,VehicleForge.PAINT,10)
+			f.tube(at,at+Vector3(0,0,0.24),r*0.92,r*0.92,TYRE,Forge.PAINT,14)
+			f.tube(at+Vector3(0,0,0.24),at+Vector3(0,0,0.27),r*0.56,r*0.5,STEEL,Forge.PAINT,10)
 		"roof_spare":
 			var at := Vector3(0,top+0.2,z(mid+0.3))
-			f.tube(at-Vector3(0,0.1,0),at+Vector3(0,0.1,0),r*0.92,r*0.92,TYRE,VehicleForge.PAINT,14)
+			f.tube(at-Vector3(0,0.1,0),at+Vector3(0,0.1,0),r*0.92,r*0.92,TYRE,Forge.PAINT,14)
 		"snorkel":
 			var x := W*0.5+0.04
 			var t := cowl+0.1
-			f.tube(Vector3(x,belt-0.1,z(t)),Vector3(x,roof+0.1,z(t+0.05)),0.05,0.05,TRIM,VehicleForge.PAINT,8)
+			f.tube(Vector3(x,belt-0.1,z(t)),Vector3(x,roof+0.1,z(t+0.05)),0.05,0.05,TRIM,Forge.PAINT,8)
 			f.block(Vector3(x,roof+0.16,z(t+0.02)),Vector3(0.13,0.13,0.2),TRIM)
 		"ladder":
 			var x := W*0.25
 			for k: float in [-0.22,0.22]:
-				f.block(Vector3(x+k,(ride+0.3+top)*0.5,z(L)+0.06),Vector3(0.03,top-ride-0.3,0.03),STEEL,VehicleForge.CHROME)
+				f.block(Vector3(x+k,(ride+0.3+top)*0.5,z(L)+0.06),Vector3(0.03,top-ride-0.3,0.03),STEEL,Forge.CHROME)
 			for i in 7:
-				f.block(Vector3(x,lerpf(ride+0.4,top-0.1,i/6.0),z(L)+0.06),Vector3(0.44,0.025,0.03),STEEL,VehicleForge.CHROME)
+				f.block(Vector3(x,lerpf(ride+0.4,top-0.1,i/6.0),z(L)+0.06),Vector3(0.44,0.025,0.03),STEEL,Forge.CHROME)
 		"jerry":
 			for x: float in [-0.56,-0.26]:
 				f.block(Vector3(x,tail-0.25,z(L)+0.1),Vector3(0.26,0.42,0.14),Color(0.22,0.33,0.2))
@@ -607,9 +607,9 @@ func _fit(fitting: String) -> void:
 				var tilt := rng.randf_range(-9.0,9.0)
 				for side: float in [-1,1]:
 					var c := WOOD.darkened(rng.randf()*0.25)
-					f.block(Vector3(side*(half(y)+0.03),y,z(rng.randf_range(peak+0.35,back-0.4))),Vector3(0.03,0.13,1.1),c,VehicleForge.PAINT,Basis(Vector3.RIGHT,deg_to_rad(tilt)))
+					f.block(Vector3(side*(half(y)+0.03),y,z(rng.randf_range(peak+0.35,back-0.4))),Vector3(0.03,0.13,1.1),c,Forge.PAINT,Basis(Vector3.RIGHT,deg_to_rad(tilt)))
 				var c2 := WOOD.darkened(rng.randf()*0.2)
-				f.block(Vector3(0,y,z(lerpf(cowl,peak,inverse_lerp(belt,roof,y)))-0.04),Vector3(W*0.82,0.11,0.03),c2,VehicleForge.PAINT,Basis(Vector3.FORWARD,deg_to_rad(tilt*0.7)))
+				f.block(Vector3(0,y,z(lerpf(cowl,peak,inverse_lerp(belt,roof,y)))-0.04),Vector3(W*0.82,0.11,0.03),c2,Forge.PAINT,Basis(Vector3.FORWARD,deg_to_rad(tilt*0.7)))
 		"windscreen_slit":
 			var y0 := belt+0.05
 			var y1 := roof-0.28
@@ -630,7 +630,7 @@ func _fit(fitting: String) -> void:
 		"spikes":
 			for t: float in [0.5,1.1,1.7,L-1.6,L-1.0,L-0.4]:
 				for side: float in [-1,1]:
-					f.tube(Vector3(side*W*0.5,belt-0.14,z(t)),Vector3(side*(W*0.5+0.32),belt-0.1,z(t)),0.04,0.006,STEEL,VehicleForge.PAINT,6)
+					f.tube(Vector3(side*W*0.5,belt-0.14,z(t)),Vector3(side*(W*0.5+0.32),belt-0.1,z(t)),0.04,0.006,STEEL,Forge.PAINT,6)
 		"sandbags":
 			for k in 7:
 				var side := -1.0 if k%2 else 1.0
@@ -638,26 +638,26 @@ func _fit(fitting: String) -> void:
 		"roll":
 			var at := z(foot+0.5)
 			for side: float in [-1,1]:
-				f.tube(Vector3(side*W*0.42,tail,at),Vector3(side*W*0.38,roof+0.1,at),0.04,0.04,TRIM,VehicleForge.PAINT,8)
-			f.tube(Vector3(-W*0.38,roof+0.1,at),Vector3(W*0.38,roof+0.1,at),0.04,0.04,TRIM,VehicleForge.PAINT,8)
+				f.tube(Vector3(side*W*0.42,tail,at),Vector3(side*W*0.38,roof+0.1,at),0.04,0.04,TRIM,Forge.PAINT,8)
+			f.tube(Vector3(-W*0.38,roof+0.1,at),Vector3(W*0.38,roof+0.1,at),0.04,0.04,TRIM,Forge.PAINT,8)
 			for x: float in [-0.4,-0.14,0.14,0.4]:
-				f.block(Vector3(x,roof+0.1,at-0.02),Vector3(0.18,0.13,0.09),HEADLAMP,VehicleForge.GLASS)
+				f.block(Vector3(x,roof+0.1,at-0.02),Vector3(0.18,0.13,0.09),HEADLAMP,Forge.GLASS)
 		"drums":
 			for i in 4:
 				var at := Vector3(-0.42+(i%2)*0.84,tail+0.02,z(foot+0.45+(i/2)*0.65))
-				f.tube(at,at+Vector3(0,0.62,0),0.27,0.27,Color(0.17,0.34,0.5).darkened(rng.randf()*0.25),VehicleForge.PAINT,12)
+				f.tube(at,at+Vector3(0,0.62,0),0.27,0.27,Color(0.17,0.34,0.5).darkened(rng.randf()*0.25),Forge.PAINT,12)
 		"tank":
 			var a := foot+0.25
 			var b := L-0.18
 			var y := tail+0.72
 			var at := Vector3(0,y,z(a))
 			var e := Vector3(0,y,z(b))
-			f.tube(e,at,0.58,0.58,Color(v.get("tank_paint",STEEL)),VehicleForge.PAINT,14)
-			f.tube(at,e,0.58,0.58,Color(v.get("tank_paint",STEEL)),VehicleForge.PAINT,14)
+			f.tube(e,at,0.58,0.58,Color(v.get("tank_paint",STEEL)),Forge.PAINT,14)
+			f.tube(at,e,0.58,0.58,Color(v.get("tank_paint",STEEL)),Forge.PAINT,14)
 			for t: float in [0.2,0.5,0.8]:
 				var x := lerpf(a,b,t)
-				f.tube(Vector3(0,y,z(x)-0.03),Vector3(0,y,z(x)+0.03),0.6,0.6,TRIM,VehicleForge.PAINT,14)
-			f.tube(Vector3(0,y+0.58,z(a+0.8)),Vector3(0,y+0.7,z(a+0.8)),0.16,0.16,TRIM,VehicleForge.PAINT,8)
+				f.tube(Vector3(0,y,z(x)-0.03),Vector3(0,y,z(x)+0.03),0.6,0.6,TRIM,Forge.PAINT,14)
+			f.tube(Vector3(0,y+0.58,z(a+0.8)),Vector3(0,y+0.7,z(a+0.8)),0.16,0.16,TRIM,Forge.PAINT,8)
 		"tent":
 			f.block(Vector3(0,top+0.14,z(mid)),Vector3(half(roof)*1.9,0.2,minf(back-peak-0.1,1.8)),Color(0.17,0.22,0.22))
 			f.block(Vector3(0,top+0.255,z(mid)),Vector3(half(roof)*1.9-0.1,0.04,minf(back-peak-0.1,1.8)-0.1),Color(v.get("paint2",AMBER)))
@@ -676,7 +676,7 @@ func _fit(fitting: String) -> void:
 			var b := back-0.5
 			f.block(Vector3(W*0.5-0.02,roof-0.1,z((a+b)*0.5)),Vector3(0.1,0.1,b-a),Color(0.82,0.8,0.74))
 		"sunroof":
-			f.block(Vector3(0,top+0.008,z(mid-0.1)),Vector3(half(roof)*1.1,0.015,0.8),GLASS,VehicleForge.GLASS)
+			f.block(Vector3(0,top+0.008,z(mid-0.1)),Vector3(half(roof)*1.1,0.015,0.8),GLASS,Forge.GLASS)
 		"vinyl":
 			f.prism(PackedVector2Array([Vector2(z(peak+0.1),roof+0.01),Vector2(z(mid),top+0.012),Vector2(z(back),roof+0.01),Vector2(z(foot-0.06),belt+0.2),Vector2(z(back+0.1),belt+0.2)]),func(y: float) -> float: return half(y)+0.008,TRIM)
 		"scoop":
@@ -685,7 +685,7 @@ func _fit(fitting: String) -> void:
 			f.block(Vector3(0,hood_y(t)+0.08,z(t-0.36)),Vector3(0.44,0.08,0.02),SHADOW)
 		"blower":
 			var t := cowl*0.55
-			f.block(Vector3(0,hood_y(t)+0.09,z(t)),Vector3(0.36,0.18,0.54),STEEL,VehicleForge.CHROME)
+			f.block(Vector3(0,hood_y(t)+0.09,z(t)),Vector3(0.36,0.18,0.54),STEEL,Forge.CHROME)
 			f.block(Vector3(0,hood_y(t)+0.26,z(t)),Vector3(0.28,0.2,0.3),TRIM)
 		"hood_vents":
 			for side: float in [-1,1]:
@@ -696,8 +696,8 @@ func _fit(fitting: String) -> void:
 		"rally":
 			for x: float in [-0.48,-0.16,0.16,0.48]:
 				var at := Vector3(x,top+0.13,z(peak+0.08))
-				f.tube(at+Vector3(0,0,0.04),at-Vector3(0,0,0.04),0.095,0.095,TRIM,VehicleForge.PAINT,10)
-				f.tube(at-Vector3(0,0,0.04),at-Vector3(0,0,0.055),0.08,0.08,HEADLAMP,VehicleForge.GLASS,10)
+				f.tube(at+Vector3(0,0,0.04),at-Vector3(0,0,0.04),0.095,0.095,TRIM,Forge.PAINT,10)
+				f.tube(at-Vector3(0,0,0.04),at-Vector3(0,0,0.055),0.08,0.08,HEADLAMP,Forge.GLASS,10)
 		"spoiler":
 			var y := deck_y(L-0.2)
 			for x: float in [-0.56,0.56]:
@@ -709,7 +709,7 @@ func _fit(fitting: String) -> void:
 			f.block(Vector3(0,ride+0.02,z(0)-0.05),Vector3(W-0.04,0.03,0.22),TRIM)
 		"side_pipes":
 			for side: float in [-1,1]:
-				f.tube(Vector3(side*(W*0.5+0.05),ride+0.02,z(float(v.ax_f)+0.5)),Vector3(side*(W*0.5+0.05),ride+0.02,z(float(v.ax_r)-0.5)),0.05,0.05,STEEL,VehicleForge.CHROME,8)
+				f.tube(Vector3(side*(W*0.5+0.05),ride+0.02,z(float(v.ax_f)+0.5)),Vector3(side*(W*0.5+0.05),ride+0.02,z(float(v.ax_r)-0.5)),0.05,0.05,STEEL,Forge.CHROME,8)
 		"stripes":
 			for x: float in [-0.2,0.2]:
 				_hood_panel(x,0.24,0.14,cowl,0.005,paint2)
@@ -762,10 +762,10 @@ func _fit(fitting: String) -> void:
 		"destination":
 			var y := roof-0.1
 			f.block(Vector3(0,y,z(peak)-0.05),Vector3(W*0.6,0.2,0.05),SHADOW)
-			f.block(Vector3(0,y,z(peak)-0.08),Vector3(W*0.5,0.09,0.02),AMBER,VehicleForge.GLASS)
+			f.block(Vector3(0,y,z(peak)-0.08),Vector3(W*0.5,0.09,0.02),AMBER,Forge.GLASS)
 		"door_bus":
-			_side(0.42,1.4,ride+0.1,roof-0.25,GLASS,lower,0.02,VehicleForge.GLASS)
-			_side(0.42,1.4,belt,roof-0.25,GLASS,cabin,0.024,VehicleForge.GLASS)
+			_side(0.42,1.4,ride+0.1,roof-0.25,GLASS,lower,0.02,Forge.GLASS)
+			_side(0.42,1.4,belt,roof-0.25,GLASS,cabin,0.024,Forge.GLASS)
 			_side(0.9,0.93,ride+0.1,belt,TRIM,lower,0.024)
 			_side(0.9,0.93,belt,roof-0.25,TRIM,cabin,0.03)
 		"stop_arm":
@@ -774,18 +774,18 @@ func _fit(fitting: String) -> void:
 		"exhaust_stack":
 			var x := W*0.5-0.08
 			var t: float = back+0.08
-			f.tube(Vector3(x,tail,z(t)),Vector3(x,roof+0.5,z(t)),0.075,0.075,STEEL,VehicleForge.CHROME,10)
+			f.tube(Vector3(x,tail,z(t)),Vector3(x,roof+0.5,z(t)),0.075,0.075,STEEL,Forge.CHROME,10)
 		"visor":
-			f.block(Vector3(0,roof+0.03,z(peak)-0.16),Vector3(W*0.8,0.05,0.38),paint.darkened(0.2),VehicleForge.PAINT,Basis(Vector3.RIGHT,-0.2))
+			f.block(Vector3(0,roof+0.03,z(peak)-0.16),Vector3(W*0.8,0.05,0.38),paint.darkened(0.2),Forge.PAINT,Basis(Vector3.RIGHT,-0.2))
 		"winch":
 			f.block(Vector3(0,ride+0.24,z(0)-0.28),Vector3(0.58,0.2,0.24),TRIM.lightened(0.05))
-			f.tube(Vector3(-0.24,ride+0.24,z(0)-0.3),Vector3(0.24,ride+0.24,z(0)-0.3),0.09,0.09,STEEL,VehicleForge.PAINT,8)
+			f.tube(Vector3(-0.24,ride+0.24,z(0)-0.3),Vector3(0.24,ride+0.24,z(0)-0.3),0.09,0.09,STEEL,Forge.PAINT,8)
 		"steps":
 			for side: float in [-1,1]:
 				f.block(Vector3(side*(W*0.5+0.09),ride-0.04,z((float(v.ax_f)+float(v.ax_r))*0.5)),Vector3(0.22,0.05,float(v.ax_r)-float(v.ax_f)-arch_radius()*2.3),TRIM.lightened(0.05))
 		"tow":
 			f.block(Vector3(0,ride+0.02,z(L)+0.2),Vector3(0.08,0.08,0.3),TRIM)
-			f.tube(Vector3(0,ride+0.08,z(L)+0.32),Vector3(0,ride+0.15,z(L)+0.32),0.05,0.05,STEEL,VehicleForge.PAINT,8)
+			f.tube(Vector3(0,ride+0.08,z(L)+0.32),Vector3(0,ride+0.15,z(L)+0.32),0.05,0.05,STEEL,Forge.PAINT,8)
 		"crane":
 			var at := Vector3(0.0,tail,z(foot+0.32))
 			f.block(at+Vector3(0,0.2,0),Vector3(0.5,0.4,0.5),AMBER.darkened(0.15))
