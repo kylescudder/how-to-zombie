@@ -107,15 +107,16 @@ static func weapon(id: String) -> Dictionary:
 
 
 # Semi-real platforms. These are game tuning values, not manufacturer specifications.
+# Velocity (m/s) is slowed well below real muzzle speeds so that bullet drop shows at game distances.
 const GUN_PROFILES := {
-	"pistol": {"model": "M9 SERVICE", "caliber": "9×19 mm", "recoil": 0.012, "recovery": 7.0, "range": 35.0, "zoom": 1.35},
-	"dual_pistols": {"model": "M9 / AKIMBO", "caliber": "9×19 mm", "recoil": 0.016, "recovery": 6.0, "range": 30.0, "zoom": 1.2},
-	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "zoom": 1.4},
-	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "zoom": 1.3},
-	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "zoom": 1.5},
-	"reduced_rifle": {"model": "AR-15 MARKDOWN", "caliber": "5.56×45 mm (best before: soon)", "recoil": 0.02, "recovery": 7.5, "range": 70.0, "zoom": 1.5},
-	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "zoom": 1.3},
-	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "zoom": 3.0},
+	"pistol": {"model": "M9 SERVICE", "caliber": "9×19 mm", "recoil": 0.012, "recovery": 7.0, "range": 35.0, "velocity": 150.0, "zoom": 1.35},
+	"dual_pistols": {"model": "M9 / AKIMBO", "caliber": "9×19 mm", "recoil": 0.016, "recovery": 6.0, "range": 30.0, "velocity": 140.0, "zoom": 1.2},
+	"smg": {"model": "MP5 COMPACT", "caliber": "9×19 mm", "recoil": 0.009, "recovery": 8.5, "range": 30.0, "velocity": 150.0, "zoom": 1.4},
+	"pump_shotgun": {"model": "M590 BREACHER", "caliber": "12 gauge", "recoil": 0.055, "recovery": 5.0, "range": 16.0, "velocity": 100.0, "zoom": 1.3},
+	"rifle": {"model": "AR-15 PATROL", "caliber": "5.56×45 mm", "recoil": 0.016, "recovery": 7.5, "range": 60.0, "velocity": 270.0, "zoom": 1.5},
+	"reduced_rifle": {"model": "AR-15 MARKDOWN", "caliber": "5.56×45 mm (best before: soon)", "recoil": 0.02, "recovery": 7.5, "range": 70.0, "velocity": 280.0, "zoom": 1.5},
+	"auto_shotgun": {"model": "M4 TACTICAL", "caliber": "12 gauge", "recoil": 0.042, "recovery": 5.5, "range": 18.0, "velocity": 105.0, "zoom": 1.3},
+	"hunting_rifle": {"model": "M14 SCOUT", "caliber": "7.62×51 mm", "recoil": 0.038, "recovery": 6.5, "range": 90.0, "velocity": 400.0, "zoom": 3.0},
 }
 const UPGRADES := {
 	"power": {"name": "MATCH AMMUNITION", "detail": "+20% damage per tier", "cost": 180, "max": 3},

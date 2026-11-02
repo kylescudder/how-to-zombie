@@ -77,6 +77,7 @@ func _rebuild() -> void:
 		["Recoil / shot", "%.2f°" % rad_to_deg(w.recoil)],
 		["Recoil recovery", "%.1f / s" % w.recovery],
 		["Full damage range", "%.0f m" % w.range],
+		["Bullet velocity", "%.0f m/s" % w.velocity],
 		["Aim magnification", "%.1f×" % w.zoom],
 	]:
 		var r := HBoxContainer.new()
