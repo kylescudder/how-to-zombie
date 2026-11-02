@@ -91,6 +91,7 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 	coast.flush()
 	for index in 4: markers.spawns.append(camp(0) + Vector3(index*1.5-3,0.1,3))
 	if markers.has("ferry_boat"): markers.vehicles.append(markers.ferry_boat)
+	_ground_details()
 	grid.build_astar()
 
 func _roads(index: int) -> void:
@@ -187,3 +188,20 @@ func _harbour(index: int) -> void:
 		for z in [-6,6]: Build.cyl(root,0.25,0.28,3,Color(0.35,0.28,0.21),pos+Vector3(x,-0.4,z))
 	Build.label(root,"FERRY / BOATS",pos+Vector3(3,4,0),32,Color(0.95,0.83,0.48))
 	Build.label(root,"SAFE CAMP • GUNSMITH • SUPPLIES",camp(index)+Vector3(0,4,-8),26,Color(0.6,0.96,0.77))
+
+
+func _ground_details() -> void:
+	var detail := GroundDetail.new()
+	var dressing := RandomNumberGenerator.new()
+	dressing.seed = 92815
+	for index in range(1, ISLANDS.size()):
+		var island: Dictionary = ISLANDS[index]
+		for patch in 3800:
+			var p := Vector3(island.center.x + dressing.randf_range(-island.radius.x,island.radius.x),0,island.center.y+dressing.randf_range(-island.radius.y,island.radius.y))
+			var local := Vector2(p.x-island.center.x,p.z-island.center.y)
+			var radius: float = (local/Vector2(island.radius)).length()
+			# Same clear corridors as settlement generation; no beach shelf or ring road.
+			if land_index(p,26) != index or not grid.walkable_at(p): continue
+			if absf(local.x)<20 or absf(local.y)<20 or absf(radius-0.61)<0.10: continue
+			detail.add("stone" if patch%6==0 else "grass",p,dressing.randf_range(0.7,1.6),dressing.randf_range(0,TAU))
+	detail.flush(root)

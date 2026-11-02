@@ -8,6 +8,16 @@ func run(owner: Node) -> void:
 	level=test.get_tree().get_first_node_in_group("level") as Level
 	test.check(level!=null and level.open_world,"default session is one open world")
 	if not level or not level.open_world: return
+	var detail_count := 0
+	var types := {}
+	for node in level.get_tree().get_nodes_in_group("ground_detail"):
+		if not level.is_ancestor_of(node): continue
+		detail_count += node.multimesh.instance_count
+		types[node.multimesh.mesh] = true
+	test.check(detail_count > 10000 and types.size() >= 3,"world contains batched 3D grass, stones and broken paving (%d objects)" % detail_count)
+	for kind in ["grass", "stone", "broken_paving"]:
+		var mesh := GroundDetail.model(kind)
+		test.check(mesh.get_aabb().size.y > 0.1 and mesh.get_surface_count() > 0,kind + " has raised mesh geometry")
 	level.director.set_process(false)
 	for infected in level.all_infected(): infected.queue_free()
 	await test.wait(0.1)
