@@ -2,6 +2,7 @@ class_name TeamVehicle
 extends CharacterBody3D
 ## Host simulates vehicles and seat ownership; clients send clamped driver controls only.
 var kind := "car"
+var model := ""
 var ferry := false  # Marla's boat at Barea's old ferry terminal (the escape boat)
 var net_pos := Vector3.ZERO
 var net_yaw := 0.0
@@ -18,6 +19,7 @@ var last_exit := {}
 
 func setup(data: Dictionary) -> void:
 	kind = data.type
+	model = data.get("model",VehicleCatalog.CAMP_MODELS[0])
 	ferry = bool(data.get("ferry", false))
 	position = data.pos
 	net_pos = position
@@ -43,14 +45,14 @@ func _ready() -> void:
 	collision_mask = 1 | 32
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(2.1,1.4,4.5) if kind=="car" else Vector3(3,0.65,6)
+	var spec := VehicleCatalog.find(model)
+	box.size = Vector3(spec.wid+0.2,1.4,spec.len+0.1) if kind=="car" else Vector3(3,0.65,6)
 	shape.shape = box
 	shape.position.y = 0.85 if kind=="car" else 0.3
 	add_child(shape)
 	if kind == "car":
-		StreetArt.car(self,Color(0.74,0.34,0.16))
-		Build.box(self,Vector3(1.6,0.12,1.4),Color(0.18,0.22,0.22),Vector3(0,1.82,0.1))
-		Build.label(self,"SQUAD 04",Vector3(0,2.2,0),20,Color(1,0.88,0.62))
+		VehicleKit.build(self,model)
+		Build.label(self,"SQUAD 04",Vector3(0,spec.roof+0.75,0),20,Color(1,0.88,0.62))
 	else:
 		ArtShapes.loft(self,[Vector4(-0.15,0.1,0.1,0),Vector4(0,1.15,2.8,0),Vector4(0.65,1.55,3.25,0),Vector4(0.8,1.5,3.1,0)],Color(0.84,0.73,0.47))
 		Build.box(self,Vector3(2.4,0.14,4.7),Color(0.39,0.50,0.46),Vector3(0,0.82,0))

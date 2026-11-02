@@ -33,6 +33,15 @@ The sky is a shader with drifting fbm clouds that light up from the strike direc
 
 World geometry is textured from `assets/textures`, baked by `godot --headless --path . --script tools/bake_textures.gd`. Albedos are grey and multiply over the colour a surface already has, so colour blocking survives. Materials are triplanar and need no UVs. Set `Build.paint` around static scenery to choose a surface; it maps in world space, so never use it on anything that moves. Everything else gets the local `painted` fallback. The `.import` files beside the textures are committed because they turn on mipmaps and VRAM compression.
 
+## Vehicles
+
+Vehicles are the other deliberate hard edge in the world. `VehicleKit` extrudes a side profile into flat-shaded panels, cuts the wheel arches, then adds glass, trim and named fittings, baking each model into one shared mesh. `VehicleCatalog` holds twelve types of ten models; set `CAMP_MODELS`, `STREET_MODELS` or `POLICE_MODEL` to change what appears in the game. The nose is at -Z, the way `TeamVehicle` drives.
+
+```sh
+tools/godot --headless -- --solo --test=vehicles             # every model meshes and fits its role
+tools/godot --fixed-fps 20 -- --solo --test=vehicle_lineup   # cards and sheets in screenshots/vehicles
+```
+
 ## Evidence and reproduction
 
 ```sh
