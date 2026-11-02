@@ -89,7 +89,10 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 		markers.vehicles.append({"type": "car", "model": VehicleCatalog.CAMP_MODELS[index], "pos": base + Vector3(-8,0,0), "yaw": PI/2})
 		markers.vehicles.append({"type": "boat", "pos": dock(index) + Vector3(31,-0.45,10), "yaw": PI})
 	coast.flush()
-	for index in 4: markers.spawns.append(camp(0) + Vector3(index*1.5-3,0.1,3))
+	# Four passengers start on the open deck; the NPC captain owns the separate helm.
+	var ferry: Dictionary = markers.ferry_boat
+	for index in 4:
+		markers.spawns.append(ferry.pos + FerryDeck.start(index).rotated(Vector3.UP, ferry.yaw))
 	if markers.has("ferry_boat"): markers.vehicles.append(markers.ferry_boat)
 	_ground_details()
 	grid.build_astar()

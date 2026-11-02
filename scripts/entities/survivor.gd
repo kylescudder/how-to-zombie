@@ -106,6 +106,7 @@ var _seen_vel := Vector3.ZERO  # smoothed, from how far the body actually moved
 # Inputs (filled by the local player or a BotBrain each frame)
 var in_move := Vector2.ZERO
 var in_jump := false
+var _ride_yaw := 0.0
 var _was_riding := false
 var _aim_latched := false
 var _crouch_latched := false
@@ -347,12 +348,25 @@ func black_and_white() -> bool:
 func _physics_process(delta: float) -> void:
 	var transport := level().vehicle_for_slot(slot)
 	if transport:
+		if not _was_riding:
+			_ride_yaw = transport.rotation.y
+			rotation.y = transport.rotation.y
 		_was_riding = true
 		collision_layer = 0
 		collision_mask = 0
 		var seat := Array(transport.seats).find(slot)
 		global_position = transport.seat_position(seat)
-		rotation.y = transport.rotation.y
+		if transport.ferry:
+			if is_local():
+				rotation.y += angle_difference(_ride_yaw, transport.rotation.y)
+				head.rotation.x = _pitch
+				net_pitch = _pitch
+			else:
+				rotation.y = net_yaw
+				head.rotation.x = net_pitch
+			_ride_yaw = transport.rotation.y
+		else:
+			rotation.y = transport.rotation.y
 		velocity = Vector3.ZERO
 		net_pos = global_position
 		net_yaw = rotation.y
@@ -583,6 +597,13 @@ func _animate_frame(delta: float) -> void:
 		_cancel_action()
 		reload_t = 0
 		net_reload = -1
+		if transport.ferry:
+			if camera:
+				camera.position = Vector3.ZERO
+				camera.rotation = Vector3.ZERO
+				camera.fov = Settings.fov
+			prompt = transport.ferry_prompt(slot)
+			return
 		if camera: transport.chase_camera(camera, delta)
 		prompt = "WASD drive • Space brake • E exit when stopped" if transport.seats[0]==slot else "Riding with squad • E exit when stopped"
 		return
@@ -1052,7 +1073,7 @@ func _update_prompt() -> void:
 			prompt = "Hold [E] to revive %s" % s.short_name()
 			return
 	for transport: TeamVehicle in level().vehicles():
-		if transport.global_position.distance_to(global_position) < (6.5 if transport.kind=="boat" else 3.8):
+		if transport.global_position.distance_to(global_position) < (12.0 if transport.ferry else 6.5 if transport.kind=="boat" else 3.8):
 			_look_target = transport
 			prompt = "[E] Board squad %s (%d/4)" % [transport.kind, 4-Array(transport.seats).count(-1)]
 			return
@@ -1376,7 +1397,7 @@ func _animate_body(delta: float) -> void:
 		var local := global_transform.basis.inverse() * _seen_vel
 		body_model.move_dir = body_model.move_dir.lerp(Vector2(local.x, -local.z).normalized(), clampf(delta * 10.0, 0.0, 1.0))
 	var pose := ""
-	if level().vehicle_for_slot(slot)!=null:
+	if level().vehicle_for_slot(slot)!=null and not level().vehicle_for_slot(slot).ferry:
 		pose = "crouch"
 	elif dead or incapped or pin_type == "hunter":
 		pose = "down"
@@ -1410,7 +1431,7 @@ func _animate_body(delta: float) -> void:
 	elif not carrying and _idol_art:
 		_idol_art.queue_free()
 		_idol_art = null
-	body_model.position.y = -0.45 if transport else 0.0
+	body_model.position.y = -0.45 if transport and not transport.ferry else 0.0
 	var upgrades := Game.gun_upgrades(slot, net_weapon)
 	var key := (net_weapon + str(upgrades.hash())) if not dead else ""
 	if key != _body_key:

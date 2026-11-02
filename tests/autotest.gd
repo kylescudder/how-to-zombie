@@ -12,11 +12,21 @@ var _fails := 0
 
 func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
+	if not (test_name.begins_with("cutscene") or test_name.begins_with("ferry") or test_name.begins_with("loading") or test_name.begins_with("menu")):
+		await _skip_intro()
 	match test_name:
 		"ground_capture":
 			var capture := _suite("res://tests/ground_capture.gd").new() as Node
 			add_child(capture)
 			await capture.run(self)
+		"ferry_net_host", "ferry_net_client":
+			await _suite("res://tests/ferry_verify.gd").new().network(self, test_name == "ferry_net_host")
+		"ferry":
+			await _suite("res://tests/ferry_verify.gd").new().run(self)
+		"cutscene_net_host", "cutscene_net_client":
+			await _suite("res://tests/cutscene_verify.gd").new().network(self, test_name == "cutscene_net_host")
+		"cutscene":
+			await _suite("res://tests/cutscene_verify.gd").new().run(self)
 		"deaths":
 			await _suite("res://tests/death_verify.gd").new().run(self)
 		"death_capture":
@@ -117,6 +127,39 @@ func _suite(path: String) -> Object:
 	return script
 
 
+## Older open-world suites expect the squad on foot at Barea's camp with gameplay running.
+## Skip the arrival cutscene and walk everyone off Marla's ferry first.
+func _skip_intro() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	if not await wait_for(func(): return level() != null, 30) or not level().open_world:
+		return
+	var intro := level().get_node_or_null("ArrivalCutscene")
+	if intro == null:
+		return
+	if test_name.ends_with("_host"):
+		await wait_for(func(): return Net.players.size() > 1, 30)
+	await wait_for(func(): return not is_instance_valid(intro) or intro.started, 45)
+	if Net.is_host() and is_instance_valid(intro) and not intro.ending:
+		intro._finish.rpc()
+	await wait_for(func(): return not get_tree().paused, 15)
+	for transport: TeamVehicle in level().vehicles():
+		if not transport.ferry or not Net.is_host():
+			continue
+		for index in 4:
+			var slot := transport.seats[index]
+			if slot >= 0:
+				transport.seats[index] = -1
+				transport.place_rider.rpc(slot, OpenWorld.camp(0) + Vector3(slot * 1.5 - 3, 0.1, 3))
+				var rider := level().get_survivor_by_slot(slot)
+				if rider and rider.is_local():
+					rider.rotation.y = PI  # the old camp spawn heading
+	if not Net.is_host():
+		await wait_for(func(): return level().vehicle_for_slot(Net.slot_of(Net.my_id())) == null, 15)
+	process_mode = Node.PROCESS_MODE_INHERIT
+	# Bots spawned at camp used to grab its supplies before a suite began; let them do that now.
+	await wait(3.0)
+
+
 func check(cond: bool, what: String) -> void:
 	print("[TEST]   %s %s" % ["ok  " if cond else "FAIL", what])
 	if not cond:
@@ -201,7 +244,10 @@ func ahead(dist: float) -> Vector3:
 		if path_pt.z <= z:
 			best = path_pt
 	var c := lvl.nav.nearest_walkable(Vector3(best.x + 0.5, 0, z), 12)
-	return lvl.nav.center(c) + Vector3.UP * 0.2 if c.x >= 0 else lvl.markers.spawns[0]
+	if c.x >= 0:
+		return lvl.nav.center(c) + Vector3.UP * 0.2
+	# Open-world spawns are on Marla's ferry; fall back to Barea's camp instead.
+	return OpenWorld.camp(0) + Vector3(-3, 0.1, 3) if lvl.open_world else lvl.markers.spawns[0]
 
 
 # --- Solo: every core mechanic ------------------------------------------------------------

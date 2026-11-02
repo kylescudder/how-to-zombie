@@ -956,5 +956,5 @@ func _ferry_front() -> void:
 			Build.cyl(root, 0.25, 0.28, 3.0, Color(0.35, 0.28, 0.21), t + Vector3(6.0 - k, -1.2, z))
 	_sign("FERRY  →", t + Vector3(0, 3.5, 4.8), PI, 120, Color(1, 0.85, 0.2))
 	# Appended after the standard vehicles (see OpenWorld) so existing vehicle indices stay put.
-	ow.markers["ferry_boat"] = {"type": "boat", "pos": t + Vector3(-pier_len + 2.0, -0.45, 9.0), "yaw": PI * 0.5, "ferry": true}
+	ow.markers["ferry_boat"] = {"type": "boat", "pos": t + Vector3(-pier_len + 2.0, -0.45, 9.0), "yaw": -PI * 0.5, "ferry": true}
 	_npc("marla_ferry", t + Vector3(-pier_len + 9.0, 0.0, 2.5), PI * 0.5)

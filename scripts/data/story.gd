@@ -78,7 +78,7 @@ const NPCS := [
 		"id": "marla_ferry", "name": "Captain Marla", "look": [Color(0.86, 0.68, 0.52), Color(0.2, 0.3, 0.55), Color(0.18, 0.18, 0.22)],
 		"lines": ["Get aboard! Everyone, and that idol!"],
 		"alert": ["Get aboard! Everyone, and that idol! I'm not waiting for the whole city!"],
-		"only_alert": true,
+		"only_alert": false,
 	},
 ]
 
