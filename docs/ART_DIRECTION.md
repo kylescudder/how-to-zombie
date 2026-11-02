@@ -33,6 +33,21 @@ The sky is a shader with drifting fbm clouds that light up from the strike direc
 
 World geometry is textured from `assets/textures`, baked by `godot --headless --path . --script tools/bake_textures.gd`. Albedos are grey and multiply over the colour a surface already has, so colour blocking survives. Materials are triplanar and need no UVs. Set `Build.paint` around static scenery to choose a surface; it maps in world space, so never use it on anything that moves. Everything else gets the local `painted` fallback. The `.import` files beside the textures are committed because they turn on mipmaps and VRAM compression.
 
+Ground textures also carry wrapped, seeded detail stamps: curved grass blades, mineral chips and pebbles, and branching fissures in asphalt, paving and concrete. Their albedo and normal maps are baked together; the existing material colours, world-space mapping and collision geometry are preserved. Re-run the texture baker to reproduce them.
+
+## Ground objects
+
+`GroundDetail` supplies actual low-poly mesh grass clumps, faceted stones and broken paving lips with open jagged seams, loose chips and weeds. Grass blades have tapered, bent geometry and stones have volume. City curbs, outdoor campaign floors and the rural islands place these meshes deterministically with a separate random stream. City crossings, road centres, rural roads and campaign centre lanes stay clear. The small dressing has no collision.
+
+Shared meshes are instanced in 64 m spatial batches, with an 85 m visibility limit. They supplement the ground materials. The pavement detail is raised fragments around a seam; it does not cut holes into the underlying collision floor.
+
+```sh
+tools/godot --headless --fixed-fps 60 -- --solo --test=world
+tools/godot --fixed-fps 30 -- --solo --test=ground_capture
+```
+
+The capture saves real mesh inspection and generated-city images to `screenshots/ground-detail/3d/`.
+
 ## Vehicles
 
 Vehicles are the other deliberate hard edge in the world. `VehicleKit` extrudes a side profile into flat-shaded `Forge` panels, cuts the wheel arches, then adds glass, trim and named fittings, baking each model into one shared mesh. `VehicleCatalog` holds twelve types of ten models; set `CAMP_MODELS`, `STREET_MODELS` or `POLICE_MODEL` to change what appears in the game. The nose is at -Z, the way `TeamVehicle` drives.

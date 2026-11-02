@@ -173,11 +173,25 @@ func _tile(key: String, color: Color, pos: Vector3, size: Vector3, yaw := 0.0, e
 # --- Ground ----------------------------------------------------------------------------
 
 func _ground() -> void:
+	var detail := GroundDetail.new()
+	var dressing := RandomNumberGenerator.new()
+	dressing.seed = 91307
 	for b: Vector2i in blocks:
 		var c := block_center(b)
 		# Asphalt tile covering this block plus half of each surrounding street.
 		_tile("asphalt", Color(0.27, 0.28, 0.3), c + Vector3(0, 0.02, 0), Vector3(PITCH + 0.2, 0.04, PITCH + 0.2))
 		_tile("sidewalk", Color(0.62, 0.6, 0.56), c + Vector3(0, 0.05, 0), Vector3(LOT + 4.0, 0.03, LOT + 4.0))
+		# Dress the outer kerb, away from storefronts, crossings and the road centre.
+		for edge in 4:
+			for patch in 5:
+				var offset := dressing.randf_range(-19,19)
+				var p := Vector3(offset,0.065,25.7) if edge % 2 == 0 else Vector3(25.7,0.065,offset)
+				if edge >= 2: p = Vector3(-p.x,p.y,-p.z)
+				detail.add("grass",c+p,dressing.randf_range(0.7,1.3),dressing.randf_range(0,TAU))
+				if patch % 2 == 0:
+					detail.add("stone",c+p+Vector3(0.2,0,0.2),dressing.randf_range(0.5,1.0),offset)
+			var seam := Vector3(-14,0.065,25.0).rotated(Vector3.UP,edge*PI*0.5)
+			detail.add("broken_paving",c+seam,1.0,edge*PI*0.5)
 		# Centre-line dashes on the street to the east and south of this block.
 		for k in 8:
 			var o := -PITCH * 0.5 + 4.0 + k * 8.0
@@ -186,6 +200,8 @@ func _ground() -> void:
 		# Zebra crossing at the corner
 		for k in 5:
 			_tile("zebra", Color(0.92, 0.92, 0.9), c + Vector3(PITCH * 0.5 - 6.0 + k * 1.6 - 3.2, 0.046, PITCH * 0.5 - 9.5), Vector3(0.8, 0.01, 3.0))
+
+	detail.flush(root)
 
 
 # --- Buildings --------------------------------------------------------------------------

@@ -37,6 +37,7 @@ func _init() -> void:
 				_x = float(x) / SIZE
 				_y = float(y) / SIZE
 				call("_" + surface)
+		_ground_detail(surface)
 		_save(surface)
 		print("baked ", surface)
 	quit()
@@ -187,6 +188,60 @@ func _tile() -> void:
 ## The fallback for anything without a real surface: broad paint variation and light scuffs.
 func _painted() -> void:
 	_put(0.6 + _n(_blotch) * 0.16 + _n(_grain) * 0.06, clampf(0.9 + (_n(_clouds) - 0.5) * 0.2 + (_n(_grain) - 0.5) * 0.08, 0.0, 1.0))
+
+
+## Wrapped stamps give the ground readable shapes at walking distance, beyond fine noise.
+## A private seed keeps rebakes reproducible and never changes gameplay random streams.
+func _ground_detail(surface: String) -> void:
+	if surface not in ["grass", "asphalt", "paving", "sand", "concrete"]:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7301
+	if surface == "grass":
+		for blade in 3400:
+			var start := Vector2(rng.randf_range(0, SIZE), rng.randf_range(0, SIZE))
+			var angle := rng.randf_range(-PI, PI)
+			var length := rng.randf_range(4, 13)
+			var direction := Vector2.from_angle(angle)
+			var tone := rng.randf_range(0.48, 0.98)
+			for step in int(length):
+				var t := float(step) / length
+				var point := start + direction * step + direction.orthogonal() * t * t * 3.0
+				_stamp(point, 0.8 * (1.0 - t) + 0.35, 0.25, tone, 0.85)
+	# Sparse, rounded mineral chips; grass and sand carry larger exposed pebbles.
+	for stone in (180 if surface in ["grass", "sand"] else 650):
+		var point := Vector2(rng.randf_range(0, SIZE), rng.randf_range(0, SIZE))
+		var radius := rng.randf_range(1.3, 3.8) if surface in ["grass", "sand"] else rng.randf_range(0.6, 1.8)
+		_stamp(point + Vector2(0.8, 1), radius + 0.7, -0.10, 0.4, 0.7)
+		_stamp(point, radius, 0.24, rng.randf_range(0.66, 1.0), 0.95)
+	if surface in ["asphalt", "paving", "concrete"]:
+		for fissure in 7:
+			var point := Vector2(rng.randf_range(0, SIZE), rng.randf_range(0, SIZE))
+			var angle := rng.randf_range(-PI, PI)
+			for step in rng.randi_range(35, 100):
+				angle += rng.randf_range(-0.45, 0.45)
+				point += Vector2.from_angle(angle) * 1.4
+				_stamp(point, 1.6, -0.16, 0.46, 0.5)
+				_stamp(point, 0.75, -0.42, 0.20, 0.95)
+				if step % 24 == 0:
+					var branch := point
+					var direction := Vector2.from_angle(angle + 1.1)
+					for twig in 15:
+						branch += direction + Vector2(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.5, 0.5))
+						_stamp(branch, 0.6, -0.3, 0.28, 0.85)
+
+
+func _stamp(point: Vector2, radius: float, relief: float, tone: float, opacity: float) -> void:
+	var extent := ceili(radius)
+	for y in range(-extent, extent + 1):
+		for x in range(-extent, extent + 1):
+			var distance := Vector2(x, y).length() / radius
+			if distance > 1.0:
+				continue
+			var weight := (1.0 - smoothstep(0.4, 1.0, distance)) * opacity
+			var index := posmod(roundi(point.y) + y, SIZE) * SIZE + posmod(roundi(point.x) + x, SIZE)
+			_height[index] += relief * weight
+			_shade[index] = lerpf(_shade[index], tone, weight)
 
 
 func _save(name: String) -> void:

@@ -603,6 +603,9 @@ func _connected(a: Vector2i, b: Vector2i, bounds: Rect2i) -> bool:
 # --- Geometry from the grid ---------------------------------------------------------
 
 func _build_floors() -> void:
+	var detail := GroundDetail.new()
+	var dressing := RandomNumberGenerator.new()
+	dressing.seed = 36182
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	root.add_child(body)
@@ -620,6 +623,14 @@ func _build_floors() -> void:
 		cs.shape = bs
 		cs.position = pos
 		body.add_child(cs)
+		if z.kind in ["park", "street", "alley", "yard", "containers"]:
+			for patch in int(r.size.y * 1.5):
+				var p := _w(r.position.x + dressing.randf_range(0.5,r.size.x-0.5),r.position.y+dressing.randf_range(0.5,r.size.y-0.5),i*0.002)
+				if absf(p.x - _w(cx,cz).x) < LANE + 1.5: continue
+				if not grid.walkable_at(p): continue
+				var kind := "grass" if z.kind == "park" else "broken_paving"
+				detail.add(kind,p,dressing.randf_range(0.6,1.1),dressing.randf_range(0,TAU))
+				detail.add("stone",p+Vector3(0.35,0,0.2),0.7)
 		if z.ceil_h > 0.0:
 			Build.paint = "concrete"
 			Build.box(root, Vector3(r.size.x + 2, 0.4, r.size.y + 2), z.wall.darkened(0.35), pos + Vector3(0, z.ceil_h + 0.4, 0))
@@ -637,6 +648,8 @@ func _build_floors() -> void:
 		cs.shape = bs
 		cs.position = pos
 		body.add_child(cs)
+
+	detail.flush(root)
 
 
 ## Every empty cell touching something walkable becomes wall; neighbouring wall cells of the
