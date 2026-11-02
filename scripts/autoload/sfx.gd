@@ -45,6 +45,19 @@ func _ready() -> void:
 	_streams["pickup"] = _make(0.18, func(t, _i): return sin(TAU * (500.0 if t < 0.08 else 750.0) * t) * exp(-t * 10.0) * 0.4)
 	_streams["heartbeat"] = _make(0.8, func(t, _i): return sin(TAU * 55.0 * t) * (exp(-t * 18.0) + exp(-max(t - 0.25, 0.0) * 18.0) * float(t > 0.25) * 0.7))
 	_streams["click"] = _make(0.04, func(t, _i): return sin(TAU * 1800.0 * t) * exp(-t * 150.0) * 0.5)
+	# Footfalls on grit: a soft heel scuff then a lighter toe, band-limited noise with only a hint of thump.
+	# Four variants so a run doesn't machine-gun the same sample.
+	for v in 4:
+		var toe := 0.045 + v * 0.012
+		var bright := 0.35 + v * 0.08
+		_streams["step%d" % (v + 1)] = _make(0.14, func(t, _i):
+			var grit := _noise() - _lowpass(_noise(), bright)
+			var hit := exp(-t * 70.0) + exp(-maxf(t - toe, 0.0) * 90.0) * float(t > toe) * 0.55
+			return (grit * 0.55 + sin(TAU * 70.0 * t) * exp(-t * 60.0) * 0.25) * hit * 2.6)
+	_streams["land"] = _make(0.25, func(t, _i): return ((_noise() - _lowpass(_noise(), 0.3)) * 0.5 * (exp(-t * 35.0) + exp(-maxf(t - 0.05, 0.0) * 40.0) * float(t > 0.05) * 0.6) + sin(TAU * 60.0 * t) * exp(-t * 30.0) * 0.4) * 2.2)
+	# Tyre squeal: a narrow band of noise that wavers, rather than a pure tone.
+	_streams["skid_loop"] = _make_loop(2.0, func(t, _i): return _band(_noise(), 900.0 + sin(TAU * 1.5 * t) * 120.0 + sin(TAU * 4.0 * t) * 40.0) * (0.75 + 0.25 * sin(TAU * 9.0 * t) * sin(TAU * 2.0 * t)) * 0.9)
+	_streams["crash"] = _make(0.7, func(t, _i): return _noise() * exp(-t * 9.0) * 0.9 + sin(TAU * (75.0 - t * 40.0) * t) * exp(-t * 7.0) * 0.8 + (sin(TAU * 2900.0 * t) + sin(TAU * 4100.0 * t)) * exp(-t * 14.0) * 0.12)
 	# Infected
 	_streams["groan"] = _make(0.9, func(t, _i): return _saw(t * (95.0 + sin(t * 9.0) * 15.0)) * sin(PI * t / 0.9) * 0.3)
 	_streams["scream"] = _make(0.7, func(t, _i): return (_saw(t * (380.0 + sin(t * 30.0) * 60.0)) * 0.5 + _noise() * 0.3) * sin(PI * t / 0.7) * 0.5)
@@ -103,6 +116,16 @@ func _brown() -> float:
 func _hiss() -> float:
 	var n := _noise()
 	return n - _lowpass(n, 0.35)
+
+
+## A resonant band-pass (state-variable filter) centred on `hz`.
+var _svf_lo := 0.0
+var _svf_bp := 0.0
+func _band(x: float, hz: float) -> float:
+	var f := 2.0 * sin(PI * hz / RATE)
+	_svf_lo += f * _svf_bp
+	_svf_bp += f * (x - _svf_lo - 0.15 * _svf_bp)
+	return _svf_bp * 0.15
 
 
 ## One-pole low-pass; `k` near zero is darker.

@@ -19,6 +19,9 @@ var knee_r: Node3D
 var gait: InfectedGait  # Infected only: stride, limp and posture.
 var look := ""          # Infected only: the ZombieCatalog model it wears.
 var _phase := 0.0
+## Which way the body is travelling, relative to where it faces: x right, y forwards (unit length).
+## Legs swing along it, so strafing side-steps and backing up back-pedals instead of moonwalking.
+var move_dir := Vector2(0, 1)
 var _time := 0.0
 var _eyes: Array[Node3D] = []
 var _tail: Node3D
@@ -267,8 +270,10 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	var s := sin(_phase)
 	var k := 1.0 - exp(-delta * 12.0)
 	var limp := gait.limp if gait and alive else 0.0
-	leg_l.rotation = Vector3(s * amp, 0, 0)
-	leg_r.rotation = Vector3(-s * amp * (1.0 - limp * 0.6), 0, limp * 0.12)
+	var ahead := move_dir.y
+	var across := absf(move_dir.x)
+	leg_l.rotation = Vector3(s * amp * ahead, 0, -maxf(0.0, s) * amp * 0.5 * across)
+	leg_r.rotation = Vector3(-s * amp * ahead * (1.0 - limp * 0.6), 0, limp * 0.12 + maxf(0.0, -s) * amp * 0.5 * across)
 	_swing = lerpf(_swing, attack, 1.0 - exp(-delta * 20.0))
 	var crouch := pose in ["crouch", "pounce", "sit", "revive"]
 	var hip_goal := _hip_h * (0.55 if crouch else 1.0)
@@ -290,8 +295,9 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 	var lean := breath * 0.012
 	if kind == "survivor":
 		var armed := pose in ["aim", "ready", "reload", "inspect"]
-		arm_l.rotation.x = (-1.15 if pose == "aim" else -0.85) if armed else -s * amp * 0.8 + breath * 0.025
-		arm_r.rotation.x = ((-1.35 if pose == "aim" else -1.05) if armed else s * amp * 0.8) - _swing * 1.4 - shot * 0.16
+		var arm_swing := amp * 0.8 * maxf(absf(ahead), 0.35)
+		arm_l.rotation.x = (-1.15 if pose == "aim" else -0.85) if armed else -s * arm_swing + breath * 0.025
+		arm_r.rotation.x = ((-1.35 if pose == "aim" else -1.05) if armed else s * arm_swing) - _swing * 1.4 - shot * 0.16
 		arm_l.rotation.z = 0.85 if armed else -0.035
 		arm_r.rotation.z = -0.20 if armed else 0.035
 		if pose == "reload":
@@ -336,10 +342,19 @@ func animate(delta: float, speed: float, attack := 0.0, pose := "", reload := -1
 		lean = -0.5 + sin(_time * 10) * 0.08
 		arm_l.rotation.z = 0.5
 		arm_r.rotation.z = -0.5
+	if kind == "survivor":
+		# Lean into the run and towards a side-step, like there's weight behind it.
+		if alive: lean += amp * 0.12 * ahead
+		torso.rotation.z = lerpf(torso.rotation.z, -move_dir.x * amp * 0.1 if alive else 0.0, k)
 	torso.rotation.x = lerpf(torso.rotation.x, lean, k)
 	_lie = lerpf(_lie, 1.0 if pose == "down" else 0.0, 1.0 - exp(-delta * 8.0))
 	rotation.x = -PI * 0.5 * _lie
 	position.y = 0.25 * _lie
+
+
+## Counts footfalls (one per half stride), so callers can play steps in time with the legs.
+func footfalls() -> int:
+	return floori(_phase / PI)
 
 
 ## Starts a clip from DeathClips.compiled, blending out of whatever the body was doing.
