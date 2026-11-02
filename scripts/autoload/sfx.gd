@@ -4,7 +4,7 @@ extends Node
 
 const RATE := 22050
 ## Everything not listed here (footsteps, pickups, interface, infected attacks) stays on Effects.
-const WEAPON_SOUNDS := ["pistol", "smg", "rifle", "shotgun", "sniper", "reload", "pump", "empty", "swing", "shove", "hit", "headshot", "hitmarker", "zombie_hit", "punch"]
+const WEAPON_SOUNDS := ["pistol", "smg", "rifle", "shotgun", "sniper", "reload", "pump", "empty", "swing", "shove", "hit", "headshot", "hitmarker"]
 const VEHICLE_SOUNDS := ["crash", "skid_loop"]
 const ENVIRONMENT_SOUNDS := ["rain_loop", "wind_loop", "thunder", "thunder_far", "creak", "siren", "alarm", "radio", "rescue_horn", "door", "gate", "glass", "fire", "explosion"]
 var _streams := {}
