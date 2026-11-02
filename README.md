@@ -86,7 +86,7 @@ Each chapter starts and ends in a **safe room**. Get everyone inside and shut th
 |---|---|
 | ![Gunsmith with installed optic and match ammunition](docs/08_gunsmith.jpg) | ![AR-style rifle with precision optic](docs/09_rifle.jpg) |
 
-Every safe room has a physical **Gunsmith** bench. Look at it and press **E** to inspect all seven gun configurations, compare stats, and upgrade a gun you carry. Hold right mouse / LT to aim down sights; **V / R3** shoves. Guns have individual damage, fire rate, capacity, reload, spread, recoil, recovery, full-damage range, and aim magnification. Damage falls off beyond a gun's effective range, with a 25% floor. Moving and jumping widen grouping; crouching and aiming tighten it.
+Every safe room has a physical **Gunsmith** bench. Look at it and press **E** to inspect all seven gun configurations, compare stats, and upgrade a gun you carry. Hold right mouse / LT to aim down sights; **V / R3** shoves. Guns have individual damage, fire rate, capacity, reload, spread, recoil, recovery, full-damage range, bullet velocity, and aim magnification. Bullets fall along an arc, so slower guns need holding over at distance, and damage falls off beyond a gun's effective range, with a 25% floor. Moving and jumping widen grouping; crouching and aiming tighten it.
 
 The semi-real platforms are the M9 Service (and akimbo pair), MP5 Compact, M590 Breacher, AR-15 Patrol, M4 Tactical and M14 Scout. These are original procedural models with bevelled receivers, 32-sided barrels, ejection ports, moving actions, triggers, sights, rails, grip texture and mixed metal/polymer/wood materials. Optics and magazine extensions appear in first and third person. Fixed geometry is combined by material and gun models are cached.
 

@@ -737,6 +737,27 @@ func _guns() -> void:
 	press("primary", false)
 	check(is_equal_approx(target.hp, 206.8), "a fired upgraded pistol round deals 43.2 torso damage")
 	target.take_hit(1000, false, Vector3.FORWARD, p.slot)
+	# Bullets fall: a head-high shot at 60 m sinks to the body from a pistol, not from a hunting rifle.
+	var eye := p.eye_position()
+	var range_target := lvl.spawn_infected("hunter", ahead(35), false)
+	range_target.set_physics_process(false)
+	var flat := Vector3(p.global_position.x, range_target.global_position.y, p.global_position.z).direction_to(range_target.global_position)
+	range_target.global_position = p.global_position + flat * 60.0
+	await wait(0.2)
+	var head_dir := eye.direction_to(range_target.global_position + Vector3.UP * 1.7)
+	var pistol_hits := {}
+	p._trace(eye, head_dir, p.current_weapon(), pistol_hits)
+	var pistol_hit: Array = pistol_hits.get(range_target.name, [0.0, true, Vector3.ZERO])
+	check(pistol_hit[0] > 0.0 and not pistol_hit[1], "a pistol round aimed at a head 60 m away drops into the body")
+	check(is_equal_approx(snappedf(pistol_hit[0], 0.1), snappedf(43.2 * 35.0 / eye.distance_to(pistol_hit[2]), 0.1)), "damage falls off along the bullet's flight")
+	var rifle_hits := {}
+	p._trace(eye, head_dir, DB.gun_stats("hunting_rifle"), rifle_hits)
+	check(rifle_hits.has(range_target.name) and rifle_hits[range_target.name][1], "a hunting rifle holds its line to the same head")
+	var gone := p._trace(eye, head_dir + Vector3.UP * 0.4, DB.gun_stats("pump_shotgun"), {})
+	check(gone.distance_to(eye) < Survivor.BULLET_RANGE + 30.0, "a stray round's flight is capped")
+	var lobbed := Survivor.bullet_position(eye, flat, 100.0, 1.0)
+	check(is_equal_approx(lobbed.y, eye.y - 4.9), "a bullet falls under gravity in flight")
+	range_target.take_hit(1000, false, Vector3.FORWARD, p.slot)
 	var reward_target := lvl.spawn_infected("hunter", ahead(45), false)
 	reward_target.take_hit(1000, false, Vector3.FORWARD, p.slot)
 	place(p, bench + Vector3(-1.3, -0.9, 0))

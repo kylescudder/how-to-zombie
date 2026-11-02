@@ -11,6 +11,9 @@ const LIMP := 0.8  # speed multiplier under 40 hp
 const JUMP := 5.6
 const GRAVITY := 16.0
 const SHOVE_COOLDOWN := 0.7
+const BULLET_GRAVITY := 9.8
+const BULLET_RANGE := 240.0  # metres of flight before a round is lost
+const BULLET_STEP := 12.0  # metres per ray along the arc
 
 var slot := 0
 var peer_id := 1
@@ -734,7 +737,7 @@ func _fire(w: Dictionary) -> void:
 	for p in int(w.pellets):
 		var sp := deg_to_rad(spread) * 0.5
 		var dir := (basis_ * Vector3(_rng.randf_range(-1, 1) * sp, _rng.randf_range(-1, 1) * sp, -1.0)).normalized()
-		var end := _trace(origin, dir, 90.0, float(w.dmg), int(w.pierce), hits)
+		var end := _trace(origin, dir, w, hits)
 		if p < 3 or _rng.randf() < 0.3:
 			level().fx_tracer_local(tip, end)
 	for n in hits:
@@ -749,43 +752,60 @@ func _fire(w: Dictionary) -> void:
 	_sync_inv()
 
 
-## Hitscan through infected (up to `pierce` of them). Survivors and alarm cars get hit too.
-func _trace(origin: Vector3, dir: Vector3, dist: float, dmg: float, pierce: int, hits: Dictionary) -> Vector3:
+## Hitscan along a falling arc, through infected (up to `pierce` of them). Survivors and alarm cars get hit too.
+func _trace(origin: Vector3, dir: Vector3, w: Dictionary, hits: Dictionary) -> Vector3:
 	var exclude: Array[RID] = [get_rid()]
+	var dmg := float(w.dmg)
+	var pierce := int(w.pierce)
+	var speed := float(w.velocity)
 	var from := origin
-	var end := origin + dir * dist
+	var step := 1
+	var end := bullet_position(origin, dir, speed, BULLET_STEP / speed)
 	var space := get_world_3d().direct_space_state
-	for i in pierce + 2:
+	while true:
 		var q := PhysicsRayQueryParameters3D.create(from, end, 1 | 2 | 4, exclude)
 		var r := space.intersect_ray(q)
 		if r.is_empty():
-			return end
+			step += 1
+			if step * BULLET_STEP > BULLET_RANGE:
+				return end
+			from = end
+			end = bullet_position(origin, dir, speed, step * BULLET_STEP / speed)
+			continue
 		var col: Object = r.collider
+		var falloff := _falloff(w, origin.distance_to(r.position))
 		if col is Infected:
 			var inf := col as Infected
 			if not inf.is_dead():
 				var head_hit: bool = inf.is_headshot(r.position)
 				var prev: Array = hits.get(inf.name, [0.0, false, r.position])
-				var effective_range := float(current_weapon().get("range", 90.0))
-				var falloff := clampf(effective_range / maxf(origin.distance_to(r.position), effective_range), 0.25, 1.0)
 				hits[inf.name] = [prev[0] + dmg * falloff, prev[1] or head_hit, r.position]
 				level().fx_blood_local(r.position, dir)
 				pierce -= 1
 				if pierce <= 0:
 					return r.position
 			exclude.append(r.rid)
-			from = r.position + dir * 0.05
+			from = r.position + (end - from).normalized() * 0.05
 			continue
 		if col is Survivor:
 			var sv := col as Survivor
 			if sv != self and not sv.dead:
-				level().request_ff.rpc_id(1, sv.name, dmg, slot)
+				level().request_ff.rpc_id(1, sv.name, dmg * falloff, slot)
 			return r.position
 		if col is Node and (col as Node).has_meta("alarm"):
 			level().request_alarm.rpc_id(1, int((col as Node).get_meta("alarm")))
 		level().fx_spark_local(r.position, r.normal)
 		return r.position
 	return end
+
+
+static func bullet_position(origin: Vector3, dir: Vector3, speed: float, t: float) -> Vector3:
+	return origin + dir * speed * t + Vector3.DOWN * 0.5 * BULLET_GRAVITY * t * t
+
+
+func _falloff(w: Dictionary, dist: float) -> float:
+	var effective_range := float(w.get("range", 90.0))
+	return clampf(effective_range / maxf(dist, effective_range), 0.25, 1.0)
 
 
 func eye_position() -> Vector3:
