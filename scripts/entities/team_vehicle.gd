@@ -134,7 +134,7 @@ func _loop_player(sound: String) -> AudioStreamPlayer3D:
 	if stream == null: return null  # headless: nothing synthesised
 	var player := AudioStreamPlayer3D.new()
 	player.stream = stream
-	player.bus = "Effects"
+	player.bus = "Vehicles"
 	player.unit_size = 8.0
 	player.max_distance = 110.0
 	player.volume_db = -80.0

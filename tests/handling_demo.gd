@@ -16,7 +16,7 @@ func run(owner: Node) -> void:
 	for infected in level.all_infected(): infected.queue_free()
 	test.get_tree().current_scene.hud.visible = false
 	# Recordings use a fixed mix, whatever the player's saved volumes are (not saved back).
-	for pair in [["Master", 0.8], ["Effects", 0.8], ["Music", 0.25], ["Voice", 0.7]]:
+	for pair in [["Master", 0.8], ["Effects", 0.8], ["Weapons", 1.0], ["Vehicles", 1.0], ["Environment", 1.0], ["Music", 0.25], ["Voice", 0.7]]:
 		var bus := AudioServer.get_bus_index(pair[0])
 		if bus >= 0:
 			AudioServer.set_bus_mute(bus, false)

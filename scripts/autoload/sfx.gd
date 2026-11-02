@@ -3,6 +3,10 @@ extends Node
 ## Swap any entry in `_streams` for a real AudioStream later.
 
 const RATE := 22050
+## Everything not listed here (footsteps, pickups, interface, infected attacks) stays on Effects.
+const WEAPON_SOUNDS := ["pistol", "smg", "rifle", "shotgun", "sniper", "reload", "pump", "empty", "swing", "shove", "hit", "headshot", "hitmarker", "zombie_hit", "punch"]
+const VEHICLE_SOUNDS := ["crash", "skid_loop"]
+const ENVIRONMENT_SOUNDS := ["rain_loop", "wind_loop", "thunder", "thunder_far", "creak", "siren", "alarm", "radio", "rescue_horn", "door", "gate", "glass", "fire", "explosion"]
 var _streams := {}
 var _rng := RandomNumberGenerator.new()
 var _brown_v := 0.0
@@ -214,4 +218,7 @@ func play(sound: String, pos: Vector3 = Vector3.INF, volume_db: float = 0.0, pit
 func sound_bus(sound: String) -> String:
 	if sound.ends_with("_music") or sound == "drone_loop": return "Music"
 	if sound in ["hurt", "die", "groan", "witch_cry", "witch_scream", "hunter", "smoker", "boomer", "tank", "spitter", "scream"]: return "Voice"
+	if sound in WEAPON_SOUNDS: return "Weapons"
+	if sound in VEHICLE_SOUNDS: return "Vehicles"
+	if sound in ENVIRONMENT_SOUNDS: return "Environment"
 	return "Effects"

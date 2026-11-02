@@ -24,6 +24,9 @@ var crosshair_opacity := 0.85
 var hit_markers := true
 var hit_marker_sound := true
 var effects_volume := 1.0
+var weapons_volume := 1.0
+var vehicles_volume := 1.0
+var environment_volume := 1.0
 var music_volume := 1.0
 var voice_volume := 1.0
 var window_mode := 0
@@ -34,7 +37,7 @@ var graphics_quality := 2
 var bindings: Dictionary = {}
 var pending_display: Array = []
 var _applied_display: Array = []
-const PREFS := ["player_name", "mouse_sensitivity", "master_volume", "fov", "aim_sensitivity", "controller_sensitivity", "controller_deadzone", "invert_look", "toggle_aim", "toggle_crouch", "camera_shake", "head_bob", "weapon_sway", "hit_flashes", "film_grain", "crosshair_color", "crosshair_size", "crosshair_opacity", "hit_markers", "hit_marker_sound", "effects_volume", "music_volume", "voice_volume", "window_mode", "resolution", "vsync", "fps_cap", "graphics_quality", "bindings"]
+const PREFS := ["player_name", "mouse_sensitivity", "master_volume", "fov", "aim_sensitivity", "controller_sensitivity", "controller_deadzone", "invert_look", "toggle_aim", "toggle_crouch", "camera_shake", "head_bob", "weapon_sway", "hit_flashes", "film_grain", "crosshair_color", "crosshair_size", "crosshair_opacity", "hit_markers", "hit_marker_sound", "effects_volume", "weapons_volume", "vehicles_volume", "environment_volume", "music_volume", "voice_volume", "window_mode", "resolution", "vsync", "fps_cap", "graphics_quality", "bindings"]
 
 const ACTIONS := {
 	"move_forward": [KEY_W, KEY_UP],
@@ -149,13 +152,14 @@ func save_settings() -> void:
 
 
 func apply() -> void:
-	for bus in ["Effects", "Music", "Voice"]:
-		if AudioServer.get_bus_index(bus) < 0:
+	# Weapons, Vehicles and Environment feed Effects, so the Effects slider scales all three.
+	for pair in [["Effects", "Master"], ["Weapons", "Effects"], ["Vehicles", "Effects"], ["Environment", "Effects"], ["Music", "Master"], ["Voice", "Master"]]:
+		if AudioServer.get_bus_index(pair[0]) < 0:
 			AudioServer.add_bus()
 			var index := AudioServer.bus_count - 1
-			AudioServer.set_bus_name(index, bus)
-			AudioServer.set_bus_send(index, "Master")
-	for pair in [["Master", master_volume], ["Effects", effects_volume], ["Music", music_volume], ["Voice", voice_volume]]:
+			AudioServer.set_bus_name(index, pair[0])
+			AudioServer.set_bus_send(index, pair[1])
+	for pair in [["Master", master_volume], ["Effects", effects_volume], ["Weapons", weapons_volume], ["Vehicles", vehicles_volume], ["Environment", environment_volume], ["Music", music_volume], ["Voice", voice_volume]]:
 		var index := AudioServer.get_bus_index(pair[0])
 		AudioServer.set_bus_volume_db(index, linear_to_db(maxf(float(pair[1]), 0.0001)))
 		# Preserve capture mute on Master; volume zero is an actual mute on child buses.

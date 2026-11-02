@@ -41,12 +41,15 @@ func run(test: Node) -> void:
 	key.physical_keycode = KEY_R
 	test.check(InputMap.action_has_event("reload", key), "restore defaults restores reload key")
 	Settings.effects_volume = 0
+	Settings.environment_volume = 0.3
 	Settings.music_volume = 0.4
 	Settings.voice_volume = 0.7
 	Settings.apply()
 	test.check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Effects")), "effects zero mutes effects bus")
 	test.check(is_equal_approx(db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))), 0.4), "music channel independent")
-	test.check(Sfx.sound_bus("witch_cry") == "Voice" and Sfx.sound_bus("horde_music") == "Music" and Sfx.sound_bus("rifle") == "Effects", "sounds route to correct buses")
+	test.check(is_equal_approx(db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Environment"))), 0.3) and AudioServer.get_bus_send(AudioServer.get_bus_index("Environment")) == &"Effects", "environment is its own channel under effects")
+	test.check(Sfx.sound_bus("rain_loop") == "Environment" and Sfx.sound_bus("skid_loop") == "Vehicles" and Sfx.sound_bus("pistol") == "Weapons" and Sfx.sound_bus("pickup") == "Effects", "sounds route to effect sub-buses")
+	test.check(Sfx.sound_bus("witch_cry") == "Voice" and Sfx.sound_bus("horde_music") == "Music" and Sfx.sound_bus("step1") == "Effects", "sounds route to correct buses")
 	Settings.fps_cap = 120
 	Settings.graphics_quality = 0
 	Settings.apply()
