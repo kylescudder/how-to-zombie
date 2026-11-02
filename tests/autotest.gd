@@ -669,23 +669,17 @@ func _guns() -> void:
 	check(Game.credits(p.slot) == 500, "start with 500 credits")
 	var button := hud.modal.find_child("Buy_power", true, false) as Button
 	check(button != null and not button.disabled, "affordable upgrade is available")
-	var motion := InputEventMouseMotion.new()
-	motion.position = button.get_global_rect().get_center()
-	motion.global_position = motion.position
-	get_viewport().push_input(motion, true)
+	# Keyboard activation works in headless CI, where the display server has no mouse.
+	button.grab_focus()
+	var activate := InputEventAction.new()
+	activate.action = "ui_accept"
+	activate.pressed = true
+	get_viewport().push_input(activate)
 	await get_tree().process_frame
-	var click := InputEventMouseButton.new()
-	click.button_index = MOUSE_BUTTON_LEFT
-	click.position = button.get_global_rect().get_center()
-	click.global_position = click.position
-	click.button_mask = MOUSE_BUTTON_MASK_LEFT
-	click.pressed = true
-	get_viewport().push_input(click, true)
-	await get_tree().process_frame
-	var release := click.duplicate() as InputEventMouseButton
-	release.pressed = false
-	release.button_mask = 0
-	get_viewport().push_input(release, true)
+	activate = InputEventAction.new()
+	activate.action = "ui_accept"
+	activate.pressed = false
+	get_viewport().push_input(activate)
 	check(await wait_for(func(): return Game.gun_stats(p.slot, "pistol").dmg > 36.0), "shop purchase raises equipped pistol damage")
 	check(Game.credits(p.slot) == 320, "purchase charges exactly once")
 	check(is_equal_approx(p.current_weapon().dmg, 43.2), "gunplay uses purchased damage")
@@ -746,6 +740,9 @@ func _guns() -> void:
 	check(is_equal_approx(target.hp, 206.8), "a fired upgraded pistol round deals 43.2 torso damage")
 	target.take_hit(1000, false, Vector3.FORWARD, p.slot)
 	# Bullets fall: a head-high shot at 60 m sinks to the body from a pistol, not from a hunting rifle.
+	# Keep the ballistic measurement clear of campaign walls (the street ends
+	# before 60 m). The earlier input-fired shot still covers the live level.
+	place(p, Vector3(0, 100, 0))
 	var eye := p.eye_position()
 	var range_target := lvl.spawn_infected("hunter", ahead(35), false)
 	range_target.set_physics_process(false)
