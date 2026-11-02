@@ -1,8 +1,9 @@
-class_name VehicleForge
+class_name Forge
 extends RefCounted
-## Collects flat-shaded panels into one mesh, so a whole vehicle costs a single node and its edges stay hard.
-enum {PAINT, GLASS, CHROME}
-const LAYERS := 3
+## Collects flat-shaded panels into one mesh, so a whole vehicle or body part costs a single node and its edges stay hard.
+## GLASS doubles as the wet layer for eyes, teeth and gore; GLOW is unlit.
+enum {PAINT, GLASS, CHROME, GLOW}
+const LAYERS := 4
 
 var _verts: Array[PackedVector3Array] = []
 var _normals: Array[PackedVector3Array] = []
@@ -64,6 +65,59 @@ func tube(a: Vector3, b: Vector3, ra: float, rb: float, color: Color, layer := P
 		var d1 := x*cos(t1)+y*sin(t1)
 		quad(a+d0*ra,a+d1*ra,b+d1*rb,b+d0*rb,(d0+d1).normalized(),color,layer)
 		if cap: tri(b,b+d0*rb,b+d1*rb,axis,color,layer)
+
+## A faceted ellipsoid. from and to are latitudes (-PI/2 at the bottom), so a dome is from 0.
+func ball(center: Vector3, radii: Vector3, color: Color, layer := PAINT, basis := Basis.IDENTITY, segments := 8, rings := 4, from := -PI*0.5, to := PI*0.5) -> void:
+	for j in rings:
+		var a0 := lerpf(from,to,float(j)/rings)
+		var a1 := lerpf(from,to,float(j+1)/rings)
+		for i in segments:
+			var b0 := TAU*i/segments
+			var b1 := TAU*(i+1)/segments
+			var p := [_round(a0,b0,radii),_round(a0,b1,radii),_round(a1,b1,radii),_round(a1,b0,radii)]
+			var mid: Vector3 = (p[0]+p[1]+p[2]+p[3])*0.25
+			quad(center+basis*p[0],center+basis*p[1],center+basis*p[2],center+basis*p[3],basis*mid,color,layer)
+	if from > -PI*0.5:
+		var rim: Array[Vector3] = []
+		for i in segments: rim.append(center+basis*_round(from,TAU*i/segments,radii))
+		for i in range(1,segments-1): tri(rim[0],rim[i],rim[i+1],basis*Vector3.DOWN,color,layer)
+
+static func _round(lat: float, lon: float, radii: Vector3) -> Vector3:
+	return Vector3(cos(lat)*cos(lon)*radii.x,sin(lat)*radii.y,cos(lat)*sin(lon)*radii.z)
+
+## A faceted loft up through (height, half width, half depth, forward) sections, painted face by face:
+## paint(ring, segment, centre) returns the colour. Alpha 0 leaves the face open and alpha under 1 puts it
+## on the GLASS layer. inside also lines the open faces' backs, darkened, so a hood shows its lining.
+func loft(sections: Array, segments: int, paint: Callable, origin := Vector3.ZERO, basis := Basis.IDENTITY, base := false, inside := false) -> void:
+	for j in sections.size()-1:
+		var s0: Vector4 = sections[j]
+		var s1: Vector4 = sections[j+1]
+		for i in segments:
+			var t0 := TAU*i/segments
+			var t1 := TAU*(i+1)/segments
+			var a := _section(s0,t0)
+			var b := _section(s0,t1)
+			var c := _section(s1,t1)
+			var e := _section(s1,t0)
+			var mid := (a+b+c+e)*0.25
+			var out := mid-Vector3(0,mid.y,(s0.w+s1.w)*0.5)
+			if out.length_squared() < 1e-8: out = Vector3(0,signf(s1.x-s0.x),0)
+			var color: Color = paint.call(j,i,mid)
+			if color.a <= 0: continue
+			var layer := PAINT
+			if color.a < 1:
+				layer = GLASS
+				color.a = 1
+			quad(origin+basis*a,origin+basis*b,origin+basis*c,origin+basis*e,basis*out,color,layer)
+			if inside: quad(origin+basis*a,origin+basis*b,origin+basis*c,origin+basis*e,-(basis*out),color.darkened(0.55),layer)
+	if base:
+		var s: Vector4 = sections[0]
+		var color: Color = paint.call(-1,0,Vector3(0,s.x,s.w))
+		for i in segments:
+			tri(origin+basis*Vector3(0,s.x,s.w),origin+basis*_section(s,TAU*i/segments),origin+basis*_section(s,TAU*(i+1)/segments),basis*Vector3.DOWN,color)
+
+static func _section(s: Vector4, angle: float) -> Vector3:
+	return Vector3(cos(angle)*s.y,s.x,sin(angle)*s.z+s.w)
 
 ## Curved band around the x axis at (z,y), facing inwards; lines the wheel arches.
 func liner(z: float, y: float, r: float, x0: float, x1: float, angle0: float, angle1: float, color: Color, segments := 8) -> void:

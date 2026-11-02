@@ -39,6 +39,10 @@ func _ready() -> void:
 			await _suite("res://tests/vehicle_verify.gd").new().run(self)
 		"vehicle_lineup":
 			await _suite("res://tests/vehicle_lineup.gd").new().run(self)
+		"zombies":
+			await _suite("res://tests/zombie_verify.gd").new().run(self)
+		"zombie_lineup":
+			await _suite("res://tests/zombie_lineup.gd").new().run(self)
 		"city_pacing":
 			await _suite("res://tests/city_pacing_verify.gd").new().run(self)
 		"world_net_host", "world_net_client":

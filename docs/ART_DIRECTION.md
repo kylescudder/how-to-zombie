@@ -35,11 +35,20 @@ World geometry is textured from `assets/textures`, baked by `godot --headless --
 
 ## Vehicles
 
-Vehicles are the other deliberate hard edge in the world. `VehicleKit` extrudes a side profile into flat-shaded panels, cuts the wheel arches, then adds glass, trim and named fittings, baking each model into one shared mesh. `VehicleCatalog` holds twelve types of ten models; set `CAMP_MODELS`, `STREET_MODELS` or `POLICE_MODEL` to change what appears in the game. The nose is at -Z, the way `TeamVehicle` drives.
+Vehicles are the other deliberate hard edge in the world. `VehicleKit` extrudes a side profile into flat-shaded `Forge` panels, cuts the wheel arches, then adds glass, trim and named fittings, baking each model into one shared mesh. `VehicleCatalog` holds twelve types of ten models; set `CAMP_MODELS`, `STREET_MODELS` or `POLICE_MODEL` to change what appears in the game. The nose is at -Z, the way `TeamVehicle` drives.
 
 ```sh
 tools/godot --headless -- --solo --test=vehicles             # every model meshes and fits its role
 tools/godot --fixed-fps 20 -- --solo --test=vehicle_lineup   # cards and sheets in screenshots/vehicles
+```
+
+## Infected
+
+Infected share the vehicles' faceted look. `ZombieKit` lofts each body part from a few cross-sections and paints it face by face: clothing patterns, tears, blood and rot patches are coloured facets, while hats, hair and fittings are added as faceted solids. Each part is baked into one mesh that hangs on `CharacterModel`'s rig, so the gaits, death clips and hit capsule still apply, and an infected costs 13 mesh nodes instead of about 70. `ZombieCatalog` holds twelve types of ten models: six common groups (Townsfolk, Workers, Uniforms, Sporty, Old Timers, Outdoors) that spawn mixed together, plus ten looks each for the Boomer, Hunter, Smoker, Spitter, Tank and Witch. Specials keep their type's silhouette across all ten looks. The spawn seed picks a look, so every peer agrees without extra replication. Eyes stay separate so they can blink and close on death. Gloss for eyes, teeth, gore and hi-vis comes from Forge's wet layer, and the Spitter's acid uses its unlit glow layer.
+
+```sh
+tools/godot --headless -- --solo --test=zombies             # every look meshes, every kind has looks, heads fit the capsule
+tools/godot --fixed-fps 20 -- --solo --test=zombie_lineup   # cards and sheets in screenshots/zombies
 ```
 
 ## Evidence and reproduction
