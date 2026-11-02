@@ -1,12 +1,11 @@
 class_name OpenWorld
 extends RefCounted
-## One deterministic 5.2 km archipelago. Flat combat terrain, curved beaches and local POIs.
+## One deterministic 5.2 km archipelago. Flat combat terrain, varied coasts (see Coast) and local POIs.
 ## Barea City (index 0) is the big starting island with its own story; see BareaCity.
 const EXTENT := 2600.0
 const GRID := 1300  # 4 m cells
-const BEACH := 22.0  # metres of sloping shelf from the shore down under the water
 const ISLANDS := [
-	{"name": "Barea City", "center": Vector2(-1300,-200), "radius": Vector2(1000,860), "color": Color(0.42,0.44,0.42), "kind": "city"},
+	{"name": "Barea City", "center": Vector2(-1300,-200), "radius": Vector2(1000,860), "color": Color(0.4,0.52,0.3), "kind": "city"},
 	{"name": "Rustwater Works", "center": Vector2(900,-900), "radius": Vector2(250,220), "color": Color(0.46,0.49,0.32), "kind": "industry"},
 	{"name": "Pinefall Reserve", "center": Vector2(150,1500), "radius": Vector2(240,250), "color": Color(0.26,0.46,0.32), "kind": "forest"},
 	{"name": "Sunfield County", "center": Vector2(1000,700), "radius": Vector2(285,245), "color": Color(0.58,0.62,0.33), "kind": "farm"},
@@ -53,7 +52,9 @@ func _generate() -> void:
 		for z in range(maxi(a.y, 0), mini(b.y + 1, grid.h)):
 			for x in range(maxi(a.x, 0), mini(b.x + 1, grid.w)):
 				var cell := Vector2i(x,z)
-				if land_index(grid.center(cell), 5) == index: grid.set_cell(cell,NavGrid.Cell.WALK,index+1)
+				# Raised coast (cliff banks) stays off the grid: everything on it assumes y = 0.
+				if land_index(grid.center(cell), 5) == index and Coast.height_at(index, grid.center(cell)) < 0.3:
+					grid.set_cell(cell,NavGrid.Cell.WALK,index+1)
 	var water := PlaneMesh.new()
 	water.size = Vector2(EXTENT*2.2,EXTENT*2.2)
 	var sea := Build.mesh(root,water,Color(0.12,0.49,0.59),Vector3(0,-0.8,0))
@@ -66,14 +67,16 @@ void vertex(){world=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;VERTEX.y+=sin(world.x*0.
 void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALBEDO=mix(vec3(0.04,0.32,0.42),vec3(0.18,0.61,0.65),wave*0.5+0.5);ROUGHNESS=0.35;METALLIC=0.15;}"""
 	sea.material_override = material
 	LoadingScreen.report(0.14, 0)
+	var coast := Coast.new(self)
 	for index in ISLANDS.size():
-		_terrain(index)
+		Coast.terrain(root, index)
 		if ISLANDS[index].kind == "city":
 			BareaCity.build(self, index)
 		else:
 			_roads(index)
 			_settlement(index)
 		LoadingScreen.report(0.68 + index * 0.02, 2)
+		coast.dress(index)
 		_harbour(index)
 		var base := camp(index)
 		var bench := MapGen.new()
@@ -85,50 +88,10 @@ void fragment(){float wave=sin(world.x*0.18+TIME*1.2)*cos(world.z*0.16+TIME);ALB
 		markers.path.append(Vector3(ISLANDS[index].center.x,0,ISLANDS[index].center.y))
 		markers.vehicles.append({"type": "car", "pos": base + Vector3(-8,0,0), "yaw": PI/2})
 		markers.vehicles.append({"type": "boat", "pos": dock(index) + Vector3(31,-0.45,10), "yaw": PI})
+	coast.flush()
 	for index in 4: markers.spawns.append(camp(0) + Vector3(index*1.5-3,0.1,3))
 	if markers.has("ferry_boat"): markers.vehicles.append(markers.ferry_boat)
 	grid.build_astar()
-
-func _terrain(index: int) -> void:
-	var island: Dictionary = ISLANDS[index]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for segment in 96:
-		var points: Array[Vector3] = []
-		for angle in [TAU*segment/96.0,TAU*(segment+1)/96.0]:
-			var d: Vector2 = Vector2(cos(angle),sin(angle)) * island.radius * edge(angle,index)
-			points.append(Vector3(island.center.x+d.x,0,island.center.y+d.y))
-		var center := Vector3(island.center.x,0,island.center.y)
-		for point in [center,points[0],points[1]]: st.add_vertex(point)
-		# A fixed-width beach shelf (not proportional, or a big island gets a 70 m mudflat).
-		var outer_a := points[0] + (points[0]-center).normalized()*BEACH + Vector3.DOWN*1.4
-		var outer_b := points[1] + (points[1]-center).normalized()*BEACH + Vector3.DOWN*1.4
-		for point in [points[0],outer_b,points[1],points[0],outer_a,outer_b]: st.add_vertex(point)
-	st.generate_normals()
-	var mesh := st.commit()
-	var body := StaticBody3D.new()
-	root.add_child(body)
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	Build.paint = "grass"
-	mi.material_override = Build.mat(island.color)
-	Build.paint = "sand"
-	body.add_child(mi)
-	var shape := CollisionShape3D.new()
-	shape.shape = mesh.create_trimesh_shape()
-	body.add_child(shape)
-	# Sandy coast follows the same organic silhouette beneath the grassy combat shelf.
-	var sand := MeshInstance3D.new()
-	sand.mesh = mesh
-	sand.material_override = Build.mat(Color(0.75,0.67,0.44))
-	Build.paint = ""
-	sand.position = Vector3(island.center.x, -0.12, island.center.y)
-	var k := 1.0 + 12.0 / maxf(island.radius.x, island.radius.y)
-	sand.scale = Vector3(k,1,k)
-	mi.position = Vector3.ZERO
-	# Scale about island centre rather than world origin.
-	sand.position -= Vector3(island.center.x*k,0,island.center.y*k)
-	root.add_child(sand)
 
 func _roads(index: int) -> void:
 	var island: Dictionary = ISLANDS[index]
