@@ -1,8 +1,13 @@
 extends RefCounted
 func run(test: Node) -> void:
 	AudioServer.set_bus_mute(0,true)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots/menu-hideout"))
 	var scene := test.get_tree().current_scene
 	var menu: MainMenu=scene.menu
+	# --solo starts a game straight away; these checks begin on the title screen.
+	if Net.in_session():
+		await test.wait_for(func(): return not scene.loading.active and test.me()!=null,40.0)
+		Net.leave("")
 	await test.wait(0.3)
 	test.check(menu.visible and menu.hideout._characters.size()==5,"title screen contains four survivors and a zombie")
 	test.check(not menu._quip.visible,"no discovery prompt appears on arrival")

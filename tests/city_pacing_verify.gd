@@ -2,6 +2,7 @@ extends RefCounted
 
 func run(test: Node) -> void:
 	AudioServer.set_bus_mute(0,true)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots/city-pacing"))
 	var level := test.get_tree().get_first_node_in_group("level") as Level
 	level.director.set_process(false)
 	var pockets: Array = level.markers.street_pockets
