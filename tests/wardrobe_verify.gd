@@ -1,6 +1,7 @@
 extends RefCounted
 func run(test: Node) -> void:
 	AudioServer.set_bus_mute(0,true)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots/wardrobe"))
 	if not FileAccess.file_exists("res://scripts/data/cosmetic_catalog.gd"):
 		test.check(false,"appearance catalogue exists")
 		return

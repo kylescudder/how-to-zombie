@@ -68,9 +68,11 @@ func run(owner: Node) -> void:
 	test.check(top.size() > 1 and top[-1] - top[0] > 1.0, "they don't all run at the same pace")
 
 
-## Bots would shoot the pack and give it other targets; keep them well out of it.
+## Bots would shoot the pack and give it other targets; keep them well out of it. Their brains are
+## frozen too, or they'd teleport straight back to the player as stragglers (BotBrain._unstick).
 func _park_bots(level: Level, me: Survivor) -> void:
 	for s: Survivor in level.get_survivors():
 		if s.bot:
+			s.set_physics_process(false)
 			s.global_position = me.global_position + Vector3(0, 0, 400 + s.slot * 3)
 			s.velocity = Vector3.ZERO

@@ -35,8 +35,16 @@ func _click(at: Vector2) -> void:
 
 
 func run(test: Node) -> void:
+	if DisplayServer.get_name()=="headless":
+		test.check(false,"needs a window: headless runs deliver no mouse clicks and draw no frames")
+		return
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://screenshots/loading"))
 	var main: Node = test.get_tree().current_scene
 	_viewport = test.get_viewport()
+	# --solo starts a game straight away; the click has to come from the title screen.
+	if Net.in_session():
+		await test.wait_for(func(): return not main.loading.active and test.me()!=null,40.0)
+		Net.leave("")
 	await test.wait(1.0)
 	RenderingServer.frame_post_draw.connect(_count_draw)
 	main.world.child_entered_tree.connect(_capture)
