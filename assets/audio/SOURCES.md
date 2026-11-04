@@ -1,0 +1,46 @@
+# Sound sources
+
+Every recording here is CC0 (public domain) from OpenGameArt. Credit isn't required, but here it is. `tools/build_audio.py` cuts each take from these packs.
+
+- [100 cc0 metal and wood sfx](https://opengameart.org/content/100-cc0-metal-and-wood-sfx) by rubberduck
+- [100 cc0 sfx](https://opengameart.org/content/100-cc0-sfx) by rubberduck
+- [51 ui sound effects buttons switches and clicks](https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks) by Kenney
+- [7 mechanical clicks and buzzes](https://opengameart.org/content/7-mechanical-clicks-and-buzzes) by qubodup
+- [75 cc0 breaking falling hit sfx](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) by rubberduck
+- [8 wet squish slurp impacts](https://opengameart.org/content/8-wet-squish-slurp-impacts) by qubodup
+- [80 cc0 creature sfx](https://opengameart.org/content/80-cc0-creature-sfx) by rubberduck
+- [80 cc0 creture sfx 2](https://opengameart.org/content/80-cc0-creture-sfx-2) by rubberduck
+- [alarm 2](https://opengameart.org/content/alarm-2) by Frenchyboy
+- [catching fire](https://opengameart.org/content/catching-fire) by themightyglider
+- [chunky explosion](https://opengameart.org/content/chunky-explosion) by Joth
+- [dark stinger 1](https://opengameart.org/content/dark-stinger-1) by Kresiek The Furry
+- [door open door close set](https://opengameart.org/content/door-open-door-close-set) by qubodup
+- [evil cackle laugh 1](https://opengameart.org/content/evil-cackle-laugh-1) by Nocturnal_Vanguard
+- [evil screech 1](https://opengameart.org/content/evil-screech-1) by Nocturnal_Vanguard
+- [explosions 4](https://opengameart.org/content/explosions-4) by EZduzziteh
+- [female hurt grunts groans](https://opengameart.org/content/female-hurt-grunts-groans) by Nocturnal_Vanguard
+- [female scream 1](https://opengameart.org/content/female-scream-1) by Nocturnal_Vanguard
+- [fireplace sound loop](https://opengameart.org/content/fireplace-sound-loop) by PagDev
+- [glass break](https://opengameart.org/content/glass-break) by TinyWorlds
+- [gun reload sound effects](https://opengameart.org/content/gun-reload-sound-effects) by BMacZero
+- [gun reload sounds](https://opengameart.org/content/gun-reload-sounds) by SpringySpringo
+- [handgun reload sound effect](https://opengameart.org/content/handgun-reload-sound-effect) by zer0_sol
+- [heartbeat sounds](https://opengameart.org/content/heartbeat-sounds) by bart
+- [high pitch scream sounds2](https://opengameart.org/content/high-pitch-scream-sounds2) by pauliuw
+- [hurt sound effects](https://opengameart.org/content/hurt-sound-effects) by EZduzziteh
+- [interface sounds](https://opengameart.org/content/interface-sounds) by Kenney
+- [old man cough](https://opengameart.org/content/old-man-cough) by AntumDeluge
+- [punch](https://opengameart.org/content/punch) by qubodup
+- [radio noise 1](https://opengameart.org/content/radio-noise-1) by Kresiek The Furry
+- [rpg sound pack](https://opengameart.org/content/rpg-sound-pack) by artisticdude
+- [sick noises](https://opengameart.org/content/sick-noises) by frosty ham
+- [storm siren](https://opengameart.org/content/storm-siren) by TinyWorlds
+- [string and piano horror stings](https://opengameart.org/content/string-and-piano-horror-stings) by congusbongus
+- [swishes sound pack](https://opengameart.org/content/swishes-sound-pack) by artisticdude
+- [the free firearm sound library](https://opengameart.org/content/the-free-firearm-sound-library) by bart
+- [their coming generic horn sound](https://opengameart.org/content/their-coming-generic-horn-sound) by StumpyStrust
+- [thwack sounds](https://opengameart.org/content/thwack-sounds) by AntumDeluge
+- [undead moans](https://opengameart.org/content/undead-moans) by AntumDeluge
+- [zombie noises and moans](https://opengameart.org/content/zombie-noises-and-moans) by ianzazz
+- [zombies sound pack](https://opengameart.org/content/zombies-sound-pack) by artisticdude
+- [zomby sfx pack](https://opengameart.org/content/zomby-sfx-pack) by saturn91

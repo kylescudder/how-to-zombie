@@ -71,6 +71,8 @@ func _ready() -> void:
 			await _suite("res://tests/infected_motion.gd").new().run(self)
 		"settings":
 			await _suite("res://tests/settings_verify.gd").new().run(self)
+		"sfx":
+			await _suite("res://tests/sfx_verify.gd").new().run(self)
 		"art_hitbox":
 			await _art_hitbox()
 		"art_models":

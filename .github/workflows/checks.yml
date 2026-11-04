@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [settings, guns, solo, campaign]
+        suite: [settings, sfx, guns, solo, campaign]
     steps:
       - uses: actions/checkout@v4
       - name: Install project Godot version
