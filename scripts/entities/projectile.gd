@@ -76,6 +76,7 @@ func _ready() -> void:
 				_flames.append(f)
 			Build.cyl(self, 3.2, 3.2, 0.02, Color(0.1, 0.06, 0.04), Vector3(0, 0.02, 0), Vector3.ZERO, 16)
 			Sfx.play("fire", global_position + Vector3.UP, 4.0)
+			Sfx.attach_loop("fire_loop", self, -2.0)
 		"acid_pool":
 			_life = 7.0
 			_light = _make_light(Color(0.4, 1.0, 0.2), 2.0, 6.0)
@@ -83,6 +84,7 @@ func _ready() -> void:
 			pool.material_override = Build.mat(Color(0.45, 0.9, 0.15, 0.8), 0.2, 1.5)
 			_flames.append(pool)
 			Sfx.play("acid", global_position, 4.0)
+			Sfx.attach_loop("acid_loop", self, -4.0)
 
 
 func _make_light(c: Color, energy: float, rng_m: float) -> OmniLight3D:
