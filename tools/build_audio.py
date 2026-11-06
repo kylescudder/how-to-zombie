@@ -151,15 +151,18 @@ def source(slug, name):
     return path
 
 
-def peak_db(args):
-    probe = subprocess.run(["ffmpeg", "-hide_banner"] + args + ["-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True).stderr
-    return float(probe.split("max_volume:")[1].split("dB")[0])
+def peak_db(args, chain=""):
+    # One -af only: FFmpeg keeps just the last, so the chain and the meter must share it. The
+    # meter runs on floats, so a chain that overshoots full scale reads above 0 dB, not at it.
+    meter = "aformat=sample_fmts=flt,astats=measure_perchannel=none:measure_overall=Peak_level"
+    probe = subprocess.run(["ffmpeg", "-hide_banner"] + args + ["-af", (chain + "," if chain else "") + meter, "-f", "null", "-"], capture_output=True, text=True).stderr
+    return float(probe.split("Peak level dB:")[1].split()[0])
 
 
 def cut(src, start, length, peak, target, loop):
     span = ["-ss", str(start)] + (["-t", str(length + (LOOP_FADE if loop else 0.0))] if length else []) + ["-i", src]
-    shape = "aformat=channel_layouts=mono,aresample=44100,highpass=f=30"
-    gain = peak - peak_db(span + ["-af", shape])
+    shape = "aformat=channel_layouts=mono:sample_fmts=flt,aresample=44100,highpass=f=30"  # Float throughout: nothing clips before the gain.
+    gain = peak - peak_db(span, shape)
     if loop:
         raw = subprocess.run(["ffmpeg", "-v", "error"] + span + ["-af", shape + ",volume=%.2fdB" % gain, "-f", "s16le", "-"], capture_output=True, check=True).stdout
         pcm = array.array("h", raw)
@@ -183,7 +186,10 @@ def main():
     for sound, (takes, peak) in TAKES.items():
         print(sound)
         for n, (slug, name, start, length) in enumerate(takes, 1):
-            cut(source(slug, name), start, length, peak, os.path.join(OUT, "%s_%d.wav" % (sound, n)), sound.endswith("_loop"))
+            target = os.path.join(OUT, "%s_%d.wav" % (sound, n))
+            cut(source(slug, name), start, length, peak, target, sound.endswith("_loop"))
+            if peak_db(["-i", target]) > min(peak + 0.5, -0.1):
+                sys.exit("%s came out hotter than %s dB" % (target, peak))
     used = sorted({slug for takes, _peak in TAKES.values() for slug, *_rest in takes})
     with open(os.path.join(OUT, "SOURCES.md"), "w") as notes:
         notes.write("# Sound sources\n\nEvery recording here is CC0 (public domain) from OpenGameArt. Credit isn't required, but here it is. `tools/build_audio.py` cuts each take from these packs.\n\n")
