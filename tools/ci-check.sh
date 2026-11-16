@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 suite="${1:-settings}"
-case "$suite" in settings|guns|solo|campaign) ;; *) echo "Unknown CI suite: $suite" >&2; exit 2 ;; esac
+case "$suite" in settings|sfx|guns|solo|campaign) ;; *) echo "Unknown CI suite: $suite" >&2; exit 2 ;; esac
 mkdir -p .tools/ci
 check_log() {
   if grep -E 'SCRIPT ERROR:|(^|[[:space:]])ERROR:' "$1"; then

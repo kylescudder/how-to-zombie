@@ -67,6 +67,7 @@ static var _glow: Shader
 var ui_open := false
 var prompt := ""
 var reload_t := 0.0
+var _reload_serial := 0
 var _reload_duration := 1.0
 var _shot_age := 10.0
 var _motion := WeaponMotion.new()
@@ -733,7 +734,32 @@ func _start_reload() -> void:
 	reload_t = _reload_duration
 	_motion.inspect = 0.0
 	_cancel_action()
-	Sfx.play("reload", global_position, -4.0)
+	_reload_sounds(w)
+
+
+## Reload foley spread across the reload: shotguns load shell by shell; everything else drops
+## the magazine, seats a fresh one, and racks the action near the end.
+func _reload_sounds(w: Dictionary) -> void:
+	_reload_serial += 1
+	if w.sound == "shotgun":
+		var shells := mini(net_reload_rounds, 8)
+		for i in shells:
+			_reload_cue_at(_reload_duration * (0.12 + 0.7 * i / shells), "shell")
+		_reload_cue_at(_reload_duration * 0.9, "rack" if w.auto else "pump")
+		return
+	Sfx.play("mag_out", global_position + Vector3.UP * 1.2, -4.0)
+	_reload_cue_at(_reload_duration * 0.5, "mag_in")
+	_reload_cue_at(_reload_duration * 0.82, "rack")
+
+
+func _reload_cue_at(delay: float, sound: String) -> void:
+	get_tree().create_timer(delay).timeout.connect(_reload_cue.bind(_reload_serial, sound))
+
+
+## Skipped if the reload was cancelled or restarted since it was scheduled.
+func _reload_cue(serial: int, sound: String) -> void:
+	if serial == _reload_serial and reload_t > 0.0:
+		Sfx.play(sound, global_position + Vector3.UP * 1.2, -4.0)
 
 
 func _finish_reload() -> void:

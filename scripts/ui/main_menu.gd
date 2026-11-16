@@ -206,7 +206,7 @@ Godot Engine",20,PAPER))
 GodotSteam / Steamworks",20,PAPER))
 	credits.add_child(_label("Art & sound
 Procedural characters, environments and weapons
-Synthesised sound effects",20,PAPER))
+CC0 sound recordings from OpenGameArt contributors",20,PAPER))
 	credits.add_child(_label("And your squad. Thanks for surviving.",20,GOLD))
 
 	var custom := _sheet("Customise")
