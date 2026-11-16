@@ -1,0 +1,32 @@
+name: End-to-end
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install repository-pinned engine and plugin
+        run: tools/setup.sh --manager download --yes
+      - name: Exercise the real game in headless mode
+        # Godot can log script errors and still exit 0, so run each suite through
+        # tools/ci-check.sh, which also rejects ERROR lines and needs the PASS summary.
+        run: |
+          set -o pipefail
+          GODOT="$(bash -c '. tools/lib.sh && find_godot && printf %s "${GODOT_CMD[0]}"')"
+          export GODOT
+          mkdir -p artifacts/e2e-ci
+          { tools/ci-check.sh solo && tools/ci-check.sh campaign; } 2>&1 | tee artifacts/e2e-ci/run.log
+          cp .tools/ci/*.log artifacts/e2e-ci/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: game-e2e-evidence
+          path: artifacts/e2e-ci/
+          retention-days: 7
